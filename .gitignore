@@ -33,6 +33,7 @@ Thumbs.db
 
 # Logs
 logs/
+!logs/.gitkeep
 *.log
 
 # Coverage reports
