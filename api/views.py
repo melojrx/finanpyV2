@@ -13,16 +13,19 @@ from transactions.models import Transaction
 from .serializers import AccountSerializer, CategorySerializer, TransactionSerializer
 
 
-class AccountViewSet(viewsets.ReadOnlyModelViewSet):
-    """Contas do usuário autenticado - somente leitura."""
+class AccountViewSet(viewsets.ModelViewSet):
+    """CRUD de contas do usuário autenticado."""
     serializer_class = AccountSerializer
 
     def get_queryset(self):
         return Account.objects.filter(user=self.request.user).order_by('name')
 
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
-class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
-    """Categorias do usuário autenticado - somente leitura."""
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    """CRUD de categorias do usuário autenticado."""
     serializer_class = CategorySerializer
 
     def get_queryset(self):
@@ -31,6 +34,9 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
         if category_type in ('INCOME', 'EXPENSE'):
             qs = qs.filter(category_type=category_type)
         return qs.order_by('category_type', 'name')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
