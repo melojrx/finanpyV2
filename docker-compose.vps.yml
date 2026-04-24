@@ -43,11 +43,9 @@ services:
       EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-FinanPy <noreply@finanpy.local>}
     volumes:
-      - staticfiles:/app/staticfiles
-      - media:/app/media
       - /srv/finanpy/staticfiles:/app/staticfiles
+      - media:/app/media
 
 volumes:
   postgres_data:
-  staticfiles:
   media:
