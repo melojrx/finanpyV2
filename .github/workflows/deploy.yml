@@ -3,9 +3,17 @@ name: Deploy to VPS
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
 
-  # Allow manual trigger
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force redeploy even without changes'
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-production
@@ -26,4 +34,6 @@ jobs:
           key: ${{ secrets.VPS_DEPLOY_KEY }}
           port: 22
           command_timeout: 8m
-          script: /srv/apps/finanpy/deploy.sh
+          script: |
+            export FORCE=${{ github.event.inputs.force == 'true' && '1' || '0' }}
+            /srv/apps/finanpy/deploy.sh
