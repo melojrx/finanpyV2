@@ -29,6 +29,9 @@ from django.db import transaction
 from django.utils import timezone
 from django.conf import settings
 import ipaddress
+import json
+from datetime import date
+from decimal import Decimal
 from typing import Any, Dict
 
 # Configure logger for security events
@@ -326,24 +329,137 @@ class SecurePasswordResetView(PasswordResetView):
             return 'Invalid'
 
 
+def _format_brl(value: Decimal) -> str:
+    """Format a Decimal as Brazilian Real (e.g. R$ 1.234,56)."""
+    formatted = f"{float(abs(value)):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {formatted}" if value >= 0 else f"-R$ {formatted}"
+
+
 class DashboardView(LoginRequiredMixin, TemplateView):
-    """
-    Dashboard view for authenticated users.
-    Serves as the main landing page after login.
-    """
+    """Dashboard view — aggregates real financial data for the authenticated user."""
+
     template_name = 'dashboard/dashboard.html'
-    
+
     def get_context_data(self, **kwargs) -> Dict[str, Any]:
-        """Add user-specific context data."""
         context = super().get_context_data(**kwargs)
         user = self.request.user
-        
-        # Add user info to context
+        today = date.today()
+
+        from accounts.models import Account
+        from transactions.models import Transaction
+        from budgets.models import Budget
+        from django.db.models import Sum, Case, When, DecimalField, Value
+        from django.db.models.functions import TruncMonth
+
+        # ── 1. Saldo total das contas ativas ─────────────────────────────
+        total_balance = (
+            Account.objects.filter(user=user, is_active=True)
+            .aggregate(total=Sum('balance'))['total'] or Decimal('0.00')
+        )
+
+        # ── 2. Resumo do mês atual ────────────────────────────────────────
+        monthly = Transaction.get_monthly_summary(user, today.year, today.month)
+        monthly_income = monthly['income']
+        monthly_expenses = monthly['expenses']
+        monthly_savings = monthly['balance']  # income − expenses
+        savings_pct = (
+            int((monthly_savings / monthly_income) * 100)
+            if monthly_income > 0 else 0
+        )
+
+        # ── 3. Últimas 5 transações ───────────────────────────────────────
+        recent_transactions = (
+            Transaction.objects.filter(user=user)
+            .select_related('account', 'category')
+            .order_by('-transaction_date', '-created_at')[:5]
+        )
+
+        # ── 4. Orçamentos ativos no período atual ─────────────────────────
+        active_budgets = (
+            Budget.objects.filter(
+                user=user,
+                is_active=True,
+                start_date__lte=today,
+                end_date__gte=today,
+            )
+            .select_related('category')[:5]
+        )
+
+        # ── 5. Dados dos últimos 6 meses (único query) ────────────────────
+        total_months_start = today.year * 12 + today.month - 6
+        chart_start = date(total_months_start // 12, total_months_start % 12 + 1, 1)
+
+        monthly_totals = (
+            Transaction.objects
+            .filter(user=user, transaction_date__gte=chart_start)
+            .annotate(month=TruncMonth('transaction_date'))
+            .values('month')
+            .annotate(
+                income=Sum(Case(
+                    When(transaction_type='INCOME', then='amount'),
+                    default=Value(Decimal('0')),
+                    output_field=DecimalField(),
+                )),
+                expenses=Sum(Case(
+                    When(transaction_type='EXPENSE', then='amount'),
+                    default=Value(Decimal('0')),
+                    output_field=DecimalField(),
+                )),
+            )
+            .order_by('month')
+        )
+        monthly_by_ym = {
+            (row['month'].year, row['month'].month): row
+            for row in monthly_totals
+        }
+
+        MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                       'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+        chart_labels, chart_income, chart_expenses = [], [], []
+        for i in range(5, -1, -1):
+            total_m = today.year * 12 + today.month - 1 - i
+            y, m = total_m // 12, total_m % 12 + 1
+            row = monthly_by_ym.get((y, m))
+            chart_labels.append(MONTH_NAMES[m - 1])
+            chart_income.append(float(row['income']) if row else 0.0)
+            chart_expenses.append(float(row['expenses']) if row else 0.0)
+
+        # ── 6. Gastos por categoria no mês (gráfico rosca) ────────────────
+        cat_spending = [
+            {**row, 'total_display': _format_brl(row['total'])}
+            for row in Transaction.objects.filter(
+                user=user,
+                transaction_type='EXPENSE',
+                transaction_date__year=today.year,
+                transaction_date__month=today.month,
+            )
+            .values('category__name', 'category__color')
+            .annotate(total=Sum('amount'))
+            .order_by('-total')[:6]
+        ]
+
         context.update({
             'user_full_name': user.get_full_name(),
             'last_login': user.last_login,
+            # Cards
+            'total_balance': _format_brl(total_balance),
+            'monthly_income': _format_brl(monthly_income),
+            'monthly_expenses': _format_brl(monthly_expenses),
+            'monthly_savings': _format_brl(monthly_savings),
+            'savings_pct': savings_pct,
+            # Listas
+            'recent_transactions': recent_transactions,
+            'active_budgets': active_budgets,
+            # Dados dos gráficos (JSON para o JavaScript)
+            'chart_labels': json.dumps(chart_labels),
+            'chart_income': json.dumps(chart_income),
+            'chart_expenses': json.dumps(chart_expenses),
+            'category_spending': cat_spending,
+            'category_chart_labels': json.dumps([c['category__name'] for c in cat_spending]),
+            'category_chart_data': json.dumps([float(c['total']) for c in cat_spending]),
+            'category_chart_colors': json.dumps([c['category__color'] or '#6b7280' for c in cat_spending]),
         })
-        
+
         return context
 
 
