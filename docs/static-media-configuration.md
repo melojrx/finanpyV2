@@ -189,35 +189,20 @@ SECURE_HSTS_SECONDS = 31536000
 
 ### Configuração do Servidor Web
 
-#### Apache
-
-```apache
-Alias /static/ /var/www/html/finanpy/staticfiles/
-Alias /media/ /var/www/html/finanpy/media/
-
-<Directory /var/www/html/finanpy/staticfiles/>
-    Require all granted
-    # Cache por 1 ano
-    ExpiresActive On
-    ExpiresDefault "access plus 1 year"
-</Directory>
-
-<Directory /var/www/html/finanpy/media/>
-    Require all granted
-</Directory>
-```
-
-#### Nginx
+O deploy oficial atual usa Nginx no Docker Compose. A configuração versionada
+fica em `docker/nginx.conf`.
 
 ```nginx
 location /static/ {
-    alias /var/www/html/finanpy/staticfiles/;
-    expires 1y;
+    alias /staticfiles/;
+    expires 30d;
     add_header Cache-Control "public, immutable";
 }
 
 location /media/ {
-    alias /var/www/html/finanpy/media/;
+    alias /media/;
+    expires 7d;
+    add_header Cache-Control "public";
 }
 ```
 

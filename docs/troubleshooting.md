@@ -104,7 +104,6 @@ python manage.py makemigrations --empty accounts
 python manage.py makemigrations --empty categories
 python manage.py makemigrations --empty transactions
 python manage.py makemigrations --empty budgets
-python manage.py makemigrations --empty goals
 python manage.py makemigrations --empty profiles
 
 # Aplicar
@@ -135,7 +134,6 @@ python manage.py migrate accounts
 python manage.py migrate categories
 python manage.py migrate transactions
 python manage.py migrate budgets
-python manage.py migrate goals
 ```
 
 #### Erro de integridade referencial
@@ -507,19 +505,14 @@ class MyTestCase(TestCase):
 
 ## 🔧 Ferramentas de Debug
 
-### Django Shell Plus
+### Django Shell
 ```bash
-# Instalar django-extensions
-pip install django-extensions
+# O projeto oficial usa apenas o shell padrão do Django.
+python manage.py shell
 
-# Adicionar ao INSTALLED_APPS
-INSTALLED_APPS += ['django_extensions']
-
-# Usar shell melhorado
-python manage.py shell_plus
-
-# Auto-import de todos os models
->>> User.objects.all()  # Funciona sem import
+>>> from django.contrib.auth import get_user_model
+>>> User = get_user_model()
+>>> User.objects.all()
 ```
 
 ### Logging personalizado

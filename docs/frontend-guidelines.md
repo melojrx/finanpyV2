@@ -149,7 +149,7 @@ Este documento define os padrões e diretrizes para o desenvolvimento frontend n
         <div class="flex justify-between items-center h-16">
             <!-- Logo -->
             <div class="flex items-center space-x-4">
-                <a href="{% url 'dashboard:home' %}" class="flex items-center space-x-2">
+                <a href="{% url 'users:dashboard' %}" class="flex items-center space-x-2">
                     <img src="{% static 'img/logo.svg' %}" alt="Finanpy" class="w-8 h-8">
                     <span class="text-xl font-bold text-white">Finanpy</span>
                 </a>
@@ -157,7 +157,7 @@ Este documento define os padrões e diretrizes para o desenvolvimento frontend n
             
             <!-- Desktop Menu -->
             <div class="hidden md:flex items-center space-x-6">
-                <a href="{% url 'dashboard:home' %}" 
+                <a href="{% url 'users:dashboard' %}"
                    class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
                     Dashboard
                 </a>
@@ -165,17 +165,17 @@ Este documento define os padrões e diretrizes para o desenvolvimento frontend n
                    class="nav-link {% if 'transactions' in request.resolver_match.namespace %}active{% endif %}">
                     Transações
                 </a>
-                <a href="{% url 'accounts:list' %}" 
+                <a href="{% url 'accounts:account-list' %}"
                    class="nav-link {% if 'accounts' in request.resolver_match.namespace %}active{% endif %}">
                     Contas
+                </a>
+                <a href="{% url 'categories:category-list' %}"
+                   class="nav-link {% if 'categories' in request.resolver_match.namespace %}active{% endif %}">
+                    Categorias
                 </a>
                 <a href="{% url 'budgets:list' %}" 
                    class="nav-link {% if 'budgets' in request.resolver_match.namespace %}active{% endif %}">
                     Orçamentos
-                </a>
-                <a href="{% url 'goals:list' %}" 
-                   class="nav-link {% if 'goals' in request.resolver_match.namespace %}active{% endif %}">
-                    Metas
                 </a>
             </div>
             
@@ -201,17 +201,18 @@ Este documento define os padrões e diretrizes para o desenvolvimento frontend n
                             <a href="{% url 'profiles:detail' %}" class="dropdown-link">
                                 Meu Perfil
                             </a>
-                            <a href="{% url 'profiles:settings' %}" class="dropdown-link">
-                                Configurações
+                            <a href="{% url 'profiles:edit' %}" class="dropdown-link">
+                                Editar perfil
                             </a>
                             <hr class="border-gray-700">
-                            <a href="{% url 'auth:logout' %}" class="dropdown-link text-red-400">
-                                Sair
-                            </a>
+                            <form method="post" action="{% url 'users:logout' %}">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-link text-red-400">Sair</button>
+                            </form>
                         </div>
                     </div>
                 {% else %}
-                    <a href="{% url 'auth:login' %}" class="btn btn-primary">
+                    <a href="{% url 'users:login' %}" class="btn btn-primary">
                         Entrar
                     </a>
                 {% endif %}
@@ -229,11 +230,11 @@ Este documento define os padrões e diretrizes para o desenvolvimento frontend n
         <!-- Mobile Menu -->
         <div id="mobile-menu" class="hidden md:hidden pb-4">
             <div class="space-y-2">
-                <a href="{% url 'dashboard:home' %}" class="mobile-nav-link">Dashboard</a>
+                <a href="{% url 'users:dashboard' %}" class="mobile-nav-link">Dashboard</a>
                 <a href="{% url 'transactions:list' %}" class="mobile-nav-link">Transações</a>
-                <a href="{% url 'accounts:list' %}" class="mobile-nav-link">Contas</a>
+                <a href="{% url 'accounts:account-list' %}" class="mobile-nav-link">Contas</a>
+                <a href="{% url 'categories:category-list' %}" class="mobile-nav-link">Categorias</a>
                 <a href="{% url 'budgets:list' %}" class="mobile-nav-link">Orçamentos</a>
-                <a href="{% url 'goals:list' %}" class="mobile-nav-link">Metas</a>
             </div>
         </div>
     </div>

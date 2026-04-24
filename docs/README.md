@@ -1,71 +1,56 @@
-# Documentação do Projeto Finanpy
+# Documentação do FinanPy
 
-Bem-vindo à documentação completa do Finanpy, um sistema de gestão de finanças pessoais desenvolvido em Django.
+Esta pasta é a fonte oficial de documentação do projeto. Os documentos devem
+descrever o que existe no código atual. Recursos planejados ficam em
+`backlog.md`.
 
-## Índice da Documentação
+## Guias Atuais
 
-### 📚 Guias Essenciais
-- **[Setup e Instalação](./setup-guide.md)** - Como configurar o ambiente de desenvolvimento
-- **[Arquitetura do Projeto](./architecture.md)** - Visão geral da estrutura e componentes
-- **[Padrões de Código](./coding-standards.md)** - Guidelines e convenções de desenvolvimento
+- [Setup local](./setup-guide.md)
+- [Arquitetura](./architecture.md)
+- [Configuração](./configuration.md)
+- [Deploy em VPS Ubuntu](./deployment.md)
+- [Estrutura do banco](./database-structure.md)
+- [Backlog futuro](./backlog.md)
+- [Plano vivo de produção](./tasks.md)
+- [Padrões de código](./coding-standards.md)
+- [Frontend guidelines](./frontend-guidelines.md)
+- [Static e media](./static-media-configuration.md)
+- [TailwindCSS](./tailwindcss-setup.md)
+- [Troubleshooting](./troubleshooting.md)
 
-### 🏗️ Desenvolvimento
-- **[Estrutura do Banco de Dados](./database-structure.md)** - Modelos e relacionamentos
-- **[APIs e Endpoints](./api-documentation.md)** - Documentação das views e URLs
-- **[Frontend Guidelines](./frontend-guidelines.md)** - Padrões para templates e TailwindCSS
+## Estado Atual do Produto
 
-### 🔧 Configuração e Deploy
-- **[Configurações](./configuration.md)** - Variáveis de ambiente e settings
-- **[Testes](./testing.md)** - Como executar e escrever testes
-- **[Deploy](./deployment.md)** - Guia para produção
+O FinanPy é uma aplicação Django para gestão financeira pessoal. Hoje o sistema
+conta com:
 
-### 📋 Referência
-- **[Modelos de Dados](./data-models.md)** - Detalhes de todos os models
-- **[Utilitários](./utilities.md)** - Funções helpers e ferramentas
-- **[Troubleshooting](./troubleshooting.md)** - Problemas comuns e soluções
+- Autenticação com usuário customizado baseado em email.
+- Perfil de usuário criado automaticamente.
+- CRUD de contas financeiras.
+- CRUD de categorias com hierarquia.
+- CRUD de transações com receitas, despesas e recorrência marcada.
+- Atualização automática de saldo por signals de transação.
+- Orçamentos por categoria de despesa com cálculo de valor gasto.
+- Dashboard e templates server-rendered com Django Templates e TailwindCSS CDN.
 
-## Visão Geral do Projeto
+## Stack Atual
 
-O Finanpy é um sistema web de gestão financeira pessoal que permite aos usuários:
+- Python e Django.
+- SQLite para desenvolvimento local.
+- PostgreSQL para produção via Docker Compose.
+- Gunicorn como servidor WSGI em produção.
+- Nginx como proxy reverso e servidor de static/media.
+- TailwindCSS via CDN.
 
-- 💰 **Gestão de Contas** - Cadastro e controle de contas bancárias e cartões
-- 📊 **Transações** - Registro detalhado de receitas e despesas
-- 🎯 **Orçamentos** - Planejamento e acompanhamento de gastos mensais
-- 🏆 **Metas** - Definição e monitoramento de objetivos financeiros
-- 📈 **Relatórios** - Visualização de dados através de dashboards e gráficos
+## Fora do Escopo Atual
 
-## Stack Tecnológica
+Os itens abaixo são backlog, não funcionalidades atuais:
 
-- **Backend**: Python 3.13+ + Django 5.2+
-- **Database**: SQLite (desenvolvimento)
-- **Frontend**: Django Templates + TailwindCSS + JavaScript
-- **Charts**: Chart.js para visualização de dados
+- App `goals` funcional.
+- APIs REST públicas.
+- Redis, Celery, Sentry ou S3.
+- Upload de comprovantes de transação.
+- Avatar e preferências avançadas no perfil.
+- Build local de TailwindCSS.
 
-## Apps do Django
-
-O projeto está organizado nos seguintes apps:
-
-- `users` - Sistema de autenticação e usuários
-- `profiles` - Perfis e informações pessoais
-- `accounts` - Contas bancárias e cartões
-- `categories` - Categorização de transações
-- `transactions` - Registro de movimentações financeiras
-- `budgets` - Planejamento orçamentário
-- `goals` - Metas e objetivos financeiros
-
-## Começando
-
-Para começar a contribuir com o projeto:
-
-1. Leia o **[Setup e Instalação](./setup-guide.md)**
-2. Familiarize-se com os **[Padrões de Código](./coding-standards.md)**
-3. Consulte a **[Arquitetura do Projeto](./architecture.md)**
-
-## Contribuição
-
-Este projeto segue padrões específicos de desenvolvimento. Consulte a documentação completa antes de fazer alterações no código.
-
----
-
-**Versão da Documentação**: 1.0  
-**Última Atualização**: Agosto 2024
+Consulte [backlog.md](./backlog.md) para detalhes.
