@@ -19,6 +19,7 @@ from django.urls import path, include
 from django.views.generic import TemplateView
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns = [
     # Admin interface
@@ -44,6 +45,10 @@ urlpatterns = [
     
     # Budgets management URLs
     path('budgets/', include('budgets.urls')),
+
+    # REST API
+    path('api/v1/', include('api.urls')),
+    path('api/token/', obtain_auth_token, name='api-token'),
 ]
 
 # Serve static and media files during development
