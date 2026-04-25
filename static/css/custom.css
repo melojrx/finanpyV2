@@ -168,21 +168,26 @@ input[type="password"].form-input {
 }
 
 /* Light blue button for login and signup - matches quick transaction button */
-.btn-primary-light {
-    background: linear-gradient(to right, #3B82F6, #2563EB) !important;
-    color: white !important;
-    font-weight: 600 !important;
-    padding: 0.75rem 1.5rem !important;
-    border-radius: 0.75rem !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
-    border: none !important;
+/* Using element+class selector for higher specificity without !important */
+a.btn-primary-light,
+button.btn-primary-light,
+input[type="submit"].btn-primary-light {
+    background: linear-gradient(to right, #3B82F6, #2563EB);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border: none;
 }
 
-.btn-primary-light:hover {
-    background: linear-gradient(to right, #2563EB, #1D4ED8) !important;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
-    transform: translateY(-2px) !important;
+a.btn-primary-light:hover,
+button.btn-primary-light:hover,
+input[type="submit"].btn-primary-light:hover {
+    background: linear-gradient(to right, #2563EB, #1D4ED8);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    transform: translateY(-2px);
 }
 
 .btn-secondary-enhanced {
@@ -260,6 +265,40 @@ input[type="password"].form-input {
 
 .chart-container:hover::before {
     left: 100%;
+}
+
+/* ============================================
+   RESPONSIVENESS IMPROVEMENTS
+   ============================================ */
+
+/* Touch targets - minimum 44x44px for accessibility (WCAG 2.5.5) */
+.touch-target {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Messages container - responsive width, never overflows viewport */
+.messages-container {
+    position: fixed;
+    top: 5rem;
+    right: 1rem;
+    z-index: 50;
+    width: 100%;
+    max-width: calc(100vw - 2rem);
+    pointer-events: none;
+}
+
+.messages-container > * {
+    pointer-events: auto;
+}
+
+@media (min-width: 640px) {
+    .messages-container {
+        max-width: 24rem; /* sm:max-w-sm equivalent */
+    }
 }
 
 /* Print styles */
