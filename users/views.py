@@ -348,6 +348,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         from accounts.models import Account
         from transactions.models import Transaction
         from budgets.models import Budget
+        from goals.models import Goal
         from django.db.models import Sum, Case, When, DecimalField, Value
         from django.db.models.functions import TruncMonth
 
@@ -383,6 +384,12 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 end_date__gte=today,
             )
             .select_related('category')[:5]
+        )
+
+        # ── 4b. Metas ativas com maior progresso ──────────────────────────
+        active_goals = (
+            Goal.objects.filter(user=user, status=Goal.STATUS_ACTIVE)
+            .order_by('-current_amount')[:3]
         )
 
         # ── 5. Dados dos últimos 6 meses (único query) ────────────────────
@@ -450,6 +457,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             # Listas
             'recent_transactions': recent_transactions,
             'active_budgets': active_budgets,
+            'active_goals': active_goals,
             # Dados dos gráficos (JSON para o JavaScript)
             'chart_labels': json.dumps(chart_labels),
             'chart_income': json.dumps(chart_income),

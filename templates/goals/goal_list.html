@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% load currency_filters %}
+
+{% block title %}Metas - FinanPy{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-white">Metas Financeiras</h1>
+            <p class="text-gray-400 mt-1">Acompanhe o progresso dos seus objetivos.</p>
+        </div>
+        <a href="{% url 'goals:create' %}"
+           class="inline-flex items-center justify-center bg-primary-600 hover:bg-primary-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            Nova Meta
+        </a>
+    </div>
+
+    {% if goals %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for goal in goals %}
+        <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-6 hover:border-primary-500/50 transition-all">
+            <div class="flex items-start justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
+                         style="background-color: {{ goal.color }}20;">
+                        {{ goal.icon }}
+                    </div>
+                    <div>
+                        <a href="{% url 'goals:detail' goal.pk %}"
+                           class="text-white font-semibold hover:text-primary-400 transition-colors">
+                            {{ goal.name }}
+                        </a>
+                        <p class="text-xs {{ goal.status_color_class }} mt-1">{{ goal.get_status_display }}</p>
+                    </div>
+                </div>
+                {% if goal.is_completed %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-400 border border-green-800/50">
+                    Concluída
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="mb-3">
+                <div class="flex items-baseline justify-between mb-2">
+                    <span class="text-xl font-bold text-white">{{ goal.current_amount|currency }}</span>
+                    <span class="text-sm text-gray-400">de {{ goal.target_amount|currency }}</span>
+                </div>
+                <div class="w-full bg-dark-700 rounded-full h-2.5 overflow-hidden">
+                    <div class="h-2.5 rounded-full transition-all duration-500"
+                         style="width: {{ goal.progress_pct|floatformat:0 }}%; background-color: {{ goal.color }};"></div>
+                </div>
+                <div class="flex justify-between text-xs mt-2">
+                    <span class="font-medium" style="color: {{ goal.color }};">
+                        {{ goal.progress_pct|floatformat:1 }}% concluído
+                    </span>
+                    {% if goal.deadline %}
+                    <span class="text-gray-400">
+                        Até {{ goal.deadline|date:"d/m/Y" }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-3 border-t border-dark-700">
+                <a href="{% url 'goals:detail' goal.pk %}"
+                   class="flex-1 text-center text-sm bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 py-2 rounded-lg transition-colors">
+                    Detalhes
+                </a>
+                <a href="{% url 'goals:contribute' goal.pk %}"
+                   class="flex-1 text-center text-sm bg-green-600/20 hover:bg-green-600/30 text-green-400 py-2 rounded-lg transition-colors">
+                    + Aporte
+                </a>
+                <a href="{% url 'goals:edit' goal.pk %}"
+                   class="text-sm bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 py-2 px-3 rounded-lg transition-colors"
+                   title="Editar">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if is_paginated %}
+    <div class="mt-8 flex justify-center gap-2">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}"
+           class="px-4 py-2 text-sm text-gray-300 bg-dark-800 hover:bg-dark-700 rounded-lg border border-dark-700">
+            Anterior
+        </a>
+        {% endif %}
+        <span class="px-4 py-2 text-sm text-gray-300 bg-dark-800 rounded-lg border border-dark-700">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        </span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}"
+           class="px-4 py-2 text-sm text-gray-300 bg-dark-800 hover:bg-dark-700 rounded-lg border border-dark-700">
+            Próxima
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="bg-dark-800/70 border border-dark-700 rounded-xl text-center py-16 px-4">
+        <div class="w-20 h-20 bg-dark-700/60 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span class="text-4xl">🎯</span>
+        </div>
+        <h3 class="text-xl font-semibold text-gray-200 mb-2">Você ainda não criou metas</h3>
+        <p class="text-gray-400 mb-6 max-w-md mx-auto">
+            Defina objetivos financeiros, registre aportes e acompanhe seu progresso ao longo do tempo.
+        </p>
+        <a href="{% url 'goals:create' %}"
+           class="inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors">
+            Criar primeira meta
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

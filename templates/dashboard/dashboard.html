@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load currency_filters %}
 
 {% block title %}Dashboard - FinanPy{% endblock %}
 
@@ -265,36 +266,35 @@
                 <div class="card">
                     <div class="flex items-center justify-between mb-6">
                         <h3 class="text-lg font-semibold text-white">Metas Financeiras</h3>
-                        <span class="text-gray-500 text-sm">Em desenvolvimento</span>
+                        <a href="{% url 'goals:list' %}" class="text-primary-400 hover:text-primary-300 text-sm">Ver todas</a>
                     </div>
                     <div class="space-y-4">
+                        {% for goal in active_goals %}
                         <div class="p-4 bg-dark-700/50 rounded-lg">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-gray-300 font-medium">Viagem de Férias</span>
-                                <span class="text-sm text-gray-400">R$ 7.500 / R$ 10.000</span>
+                                <span class="text-gray-300 font-medium flex items-center gap-2">
+                                    <span>{{ goal.icon }}</span>
+                                    {{ goal.name }}
+                                </span>
+                                <span class="text-sm text-gray-400">{{ goal.current_amount|currency }} / {{ goal.target_amount|currency }}</span>
                             </div>
                             <div class="w-full bg-dark-600 rounded-full h-2 mb-2">
-                                <div class="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full" style="width: 75%"></div>
+                                <div class="h-2 rounded-full transition-all duration-500"
+                                     style="width: {{ goal.progress_pct|floatformat:0 }}%; background-color: {{ goal.color }};"></div>
                             </div>
                             <div class="flex justify-between text-xs">
-                                <span class="text-blue-400">75% concluído</span>
-                                <span class="text-gray-500">Faltam 4 meses</span>
+                                <span style="color: {{ goal.color }};">{{ goal.progress_pct|floatformat:0 }}% concluído</span>
+                                {% if goal.deadline %}
+                                <span class="text-gray-500">Prazo: {{ goal.deadline|date:"d/m/Y" }}</span>
+                                {% endif %}
                             </div>
                         </div>
-                        
-                        <div class="p-4 bg-dark-700/50 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-gray-300 font-medium">Reserva de Emergência</span>
-                                <span class="text-sm text-gray-400">R$ 12.000 / R$ 15.000</span>
-                            </div>
-                            <div class="w-full bg-dark-600 rounded-full h-2 mb-2">
-                                <div class="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full" style="width: 80%"></div>
-                            </div>
-                            <div class="flex justify-between text-xs">
-                                <span class="text-green-400">80% concluído</span>
-                                <span class="text-gray-500">Faltam R$ 3.000</span>
-                            </div>
+                        {% empty %}
+                        <div class="text-center py-6">
+                            <p class="text-gray-500 text-sm">Nenhuma meta ativa.</p>
+                            <a href="{% url 'goals:create' %}" class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">+ Criar meta</a>
                         </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>

@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - FinanPy{% endblock %}
+
+{% block extra_head %}
+<style>
+    .currency-input { position: relative; }
+    .currency-input::before {
+        content: 'R$';
+        position: absolute;
+        left: 0.875rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9CA3AF;
+        font-weight: 600;
+        pointer-events: none;
+        z-index: 10;
+    }
+    .currency-input input {
+        padding-left: 2.75rem;
+        text-align: right;
+        font-weight: 600;
+    }
+    .currency-input:focus-within::before { color: #60A5FA; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6">
+        <a href="{% url 'goals:list' %}" class="text-sm text-gray-400 hover:text-white inline-flex items-center mb-3">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+            Voltar para Metas
+        </a>
+        <h1 class="text-3xl font-bold text-white">{{ title }}</h1>
+    </div>
+
+    <form method="post" class="bg-dark-800/70 border border-dark-700 rounded-xl p-6 space-y-5">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="bg-red-900/30 border border-red-800/50 text-red-300 p-3 rounded-lg text-sm">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <div>
+            <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-300 mb-2">
+                Nome da Meta *
+            </label>
+            {{ form.name }}
+            {% if form.name.errors %}<p class="text-red-400 text-xs mt-1">{{ form.name.errors.0 }}</p>{% endif %}
+        </div>
+
+        <div>
+            <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-300 mb-2">
+                Descrição
+            </label>
+            {{ form.description }}
+            {% if form.description.errors %}<p class="text-red-400 text-xs mt-1">{{ form.description.errors.0 }}</p>{% endif %}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+                <label for="{{ form.target_amount.id_for_label }}" class="block text-sm font-medium text-gray-300 mb-2">
+                    Valor Alvo *
+                </label>
+                <div class="currency-input">
+                    {{ form.target_amount }}
+                </div>
+                {% if form.target_amount.errors %}<p class="text-red-400 text-xs mt-1">{{ form.target_amount.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label for="{{ form.deadline.id_for_label }}" class="block text-sm font-medium text-gray-300 mb-2">
+                    Prazo (opcional)
+                </label>
+                {{ form.deadline }}
+                {% if form.deadline.errors %}<p class="text-red-400 text-xs mt-1">{{ form.deadline.errors.0 }}</p>{% endif %}
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+                <label for="{{ form.icon.id_for_label }}" class="block text-sm font-medium text-gray-300 mb-2">
+                    Ícone
+                </label>
+                {{ form.icon }}
+                {% if form.icon.errors %}<p class="text-red-400 text-xs mt-1">{{ form.icon.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label for="{{ form.color.id_for_label }}" class="block text-sm font-medium text-gray-300 mb-2">
+                    Cor
+                </label>
+                {{ form.color }}
+                {% if form.color.errors %}<p class="text-red-400 text-xs mt-1">{{ form.color.errors.0 }}</p>{% endif %}
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-dark-700">
+            <a href="{% url 'goals:list' %}"
+               class="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors">
+                Cancelar
+            </a>
+            <button type="submit"
+                    class="bg-primary-600 hover:bg-primary-700 text-white font-medium px-5 py-2 rounded-lg transition-colors">
+                {% if action == 'update' %}Salvar Alterações{% else %}Criar Meta{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    function formatBRLDigits(rawDigits) {
+        const digits = (rawDigits || '').replace(/\D/g, '').replace(/^0+/, '') || '0';
+        const padded = digits.padStart(3, '0');
+        const intPart = padded.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        const decPart = padded.slice(-2);
+        return intPart + ',' + decPart;
+    }
+
+    function applyMask(input) {
+        if (input.value) {
+            input.value = formatBRLDigits(input.value);
+        }
+        input.addEventListener('input', () => {
+            input.value = formatBRLDigits(input.value);
+        });
+        input.addEventListener('focus', () => {
+            if (!input.value) {
+                input.value = '0,00';
+            }
+        });
+        input.addEventListener('blur', () => {
+            if (input.value === '0,00') {
+                input.value = '';
+            }
+        });
+    }
+
+    document.querySelectorAll('input.currency-mask').forEach(applyMask);
+})();
+</script>
+{% endblock %}

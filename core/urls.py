@@ -46,6 +46,9 @@ urlpatterns = [
     # Budgets management URLs
     path('budgets/', include('budgets.urls')),
 
+    # Goals management URLs
+    path('goals/', include('goals.urls')),
+
     # REST API
     path('api/v1/', include('api.urls')),
     path('api/token/', obtain_auth_token, name='api-token'),

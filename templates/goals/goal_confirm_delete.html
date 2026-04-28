@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% load currency_filters %}
+
+{% block title %}Excluir {{ goal.name }} - FinanPy{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="bg-dark-800/70 border border-red-800/40 rounded-xl p-6">
+        <div class="flex items-start gap-4 mb-6">
+            <div class="w-12 h-12 bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-white">Excluir meta?</h1>
+                <p class="text-gray-400 mt-1">Esta ação não pode ser desfeita.</p>
+            </div>
+        </div>
+
+        <div class="bg-dark-900/60 border border-dark-700 rounded-lg p-4 mb-6">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl"
+                     style="background-color: {{ goal.color }}20;">
+                    {{ goal.icon }}
+                </div>
+                <div>
+                    <p class="text-white font-semibold">{{ goal.name }}</p>
+                    <p class="text-sm text-gray-400">
+                        {{ goal.current_amount|currency }} de {{ goal.target_amount|currency }}
+                        ({{ goal.progress_pct|floatformat:1 }}%)
+                    </p>
+                </div>
+            </div>
+            {% if goal.contributions.count %}
+            <p class="text-sm text-yellow-400">
+                ⚠️ Esta meta possui {{ goal.contributions.count }} aporte(s) que também serão excluídos.
+            </p>
+            {% endif %}
+        </div>
+
+        <form method="post" class="flex items-center justify-end gap-3">
+            {% csrf_token %}
+            <a href="{% url 'goals:detail' goal.pk %}"
+               class="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors">
+                Cancelar
+            </a>
+            <button type="submit"
+                    class="bg-red-600 hover:bg-red-700 text-white font-medium px-5 py-2 rounded-lg transition-colors">
+                Sim, excluir meta
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

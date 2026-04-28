@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% load currency_filters %}
+
+{% block title %}{{ goal.name }} - FinanPy{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6">
+        <a href="{% url 'goals:list' %}" class="text-sm text-gray-400 hover:text-white inline-flex items-center">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+            Voltar para Metas
+        </a>
+    </div>
+
+    <!-- Goal summary card -->
+    <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-6 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+            <div class="flex items-center gap-4">
+                <div class="w-16 h-16 rounded-xl flex items-center justify-center text-3xl"
+                     style="background-color: {{ goal.color }}20;">
+                    {{ goal.icon }}
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white">{{ goal.name }}</h1>
+                    <p class="text-sm {{ goal.status_color_class }} mt-1">{{ goal.get_status_display }}</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{% url 'goals:contribute' goal.pk %}"
+                   class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Registrar Aporte
+                </a>
+                <a href="{% url 'goals:edit' goal.pk %}"
+                   class="inline-flex items-center bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 font-medium px-4 py-2 rounded-lg transition-colors">
+                    Editar
+                </a>
+                <a href="{% url 'goals:delete' goal.pk %}"
+                   class="inline-flex items-center bg-red-600/20 hover:bg-red-600/30 text-red-400 font-medium px-4 py-2 rounded-lg transition-colors">
+                    Excluir
+                </a>
+            </div>
+        </div>
+
+        {% if goal.description %}
+        <p class="text-gray-300 mb-6">{{ goal.description }}</p>
+        {% endif %}
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div class="bg-dark-900/50 rounded-lg p-4">
+                <p class="text-sm text-gray-400 mb-1">Valor Atual</p>
+                <p class="text-2xl font-bold text-white">{{ goal.current_amount|currency }}</p>
+            </div>
+            <div class="bg-dark-900/50 rounded-lg p-4">
+                <p class="text-sm text-gray-400 mb-1">Valor Alvo</p>
+                <p class="text-2xl font-bold text-white">{{ goal.target_amount|currency }}</p>
+            </div>
+            <div class="bg-dark-900/50 rounded-lg p-4">
+                <p class="text-sm text-gray-400 mb-1">Restante</p>
+                <p class="text-2xl font-bold" style="color: {{ goal.color }};">{{ goal.remaining_amount|currency }}</p>
+            </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="mb-2">
+            <div class="flex justify-between items-baseline mb-2">
+                <span class="font-semibold" style="color: {{ goal.color }};">
+                    {{ goal.progress_pct|floatformat:1 }}% concluído
+                </span>
+                {% if goal.deadline %}
+                <span class="text-sm text-gray-400">
+                    Prazo: {{ goal.deadline|date:"d/m/Y" }}
+                    {% if goal.days_remaining is not None %}
+                        {% if goal.days_remaining > 0 %}
+                            ({{ goal.days_remaining }} dias restantes)
+                        {% elif goal.days_remaining == 0 %}
+                            (vence hoje)
+                        {% else %}
+                            (vencido há {{ goal.days_remaining|stringformat:"d"|cut:"-" }} dias)
+                        {% endif %}
+                    {% endif %}
+                </span>
+                {% endif %}
+            </div>
+            <div class="w-full bg-dark-700 rounded-full h-3 overflow-hidden">
+                <div class="h-3 rounded-full transition-all duration-700"
+                     style="width: {{ goal.progress_pct|floatformat:0 }}%; background-color: {{ goal.color }};"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contributions history -->
+    <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-white">Histórico de Aportes</h2>
+            <a href="{% url 'goals:contribute' goal.pk %}"
+               class="text-sm text-primary-400 hover:text-primary-300">+ Novo aporte</a>
+        </div>
+
+        {% if contributions %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="text-left text-xs text-gray-400 uppercase tracking-wider border-b border-dark-700">
+                        <th class="pb-3 pr-4">Data</th>
+                        <th class="pb-3 pr-4">Valor</th>
+                        <th class="pb-3 pr-4">Observação</th>
+                        <th class="pb-3 text-right">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-dark-700">
+                    {% for contribution in contributions %}
+                    <tr class="text-sm">
+                        <td class="py-3 pr-4 text-gray-300">{{ contribution.date|date:"d/m/Y" }}</td>
+                        <td class="py-3 pr-4 font-semibold text-green-400">{{ contribution.amount|currency }}</td>
+                        <td class="py-3 pr-4 text-gray-400">{{ contribution.notes|default:"—"|truncatechars:60 }}</td>
+                        <td class="py-3 text-right">
+                            <a href="{% url 'goals:contribution-delete' goal.pk contribution.pk %}"
+                               class="text-red-400 hover:text-red-300 text-xs">
+                                Remover
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <p class="text-gray-400 mb-4">Nenhum aporte registrado ainda.</p>
+            <a href="{% url 'goals:contribute' goal.pk %}"
+               class="inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+                Registrar primeiro aporte
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
