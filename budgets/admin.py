@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import Budget
+from .models import Budget, BudgetAlert
 
 
 @admin.register(Budget)
@@ -193,9 +193,24 @@ class BudgetAdmin(admin.ModelAdmin):
                 count += 1
             except Exception:
                 pass
-        
+
         self.message_user(
             request,
             f"Successfully refreshed cache for {count} budget(s)."
         )
     refresh_cache.short_description = "Refresh cache for selected budgets"
+
+
+@admin.register(BudgetAlert)
+class BudgetAlertAdmin(admin.ModelAdmin):
+    list_display = (
+        'budget', 'user', 'threshold', 'percentage_at_trigger',
+        'spent_at_trigger', 'triggered_at', 'acknowledged_at',
+    )
+    list_filter = ('threshold', 'acknowledged_at', 'triggered_at')
+    search_fields = ('budget__name', 'user__username', 'user__email')
+    readonly_fields = (
+        'budget', 'user', 'threshold', 'spent_at_trigger',
+        'percentage_at_trigger', 'triggered_at',
+    )
+    ordering = ('-triggered_at',)

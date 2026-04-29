@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load currency_filters %}
+
+{% block title %}Orçamento Mensal - FinanPy{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-financial-dark">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header with month navigation -->
+        <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-white mb-1 flex items-center">
+                    <span class="text-2xl mr-3">📅</span>
+                    Orçamento Mensal
+                </h1>
+                <p class="text-gray-300">
+                    Defina os limites de cada categoria para
+                    <span class="capitalize font-semibold text-primary-400">{{ period_label }}</span>
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'budgets:monthly_for' year=prev_year month=prev_month %}"
+                   class="quick-action-btn bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white px-3 py-2 rounded-lg transition-colors">
+                    ← Mês anterior
+                </a>
+                <a href="{% url 'budgets:monthly' %}"
+                   class="quick-action-btn bg-primary-600/20 hover:bg-primary-600/30 text-primary-300 px-3 py-2 rounded-lg transition-colors">
+                    Mês atual
+                </a>
+                <a href="{% url 'budgets:monthly_for' year=next_year month=next_month %}"
+                   class="quick-action-btn bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white px-3 py-2 rounded-lg transition-colors">
+                    Próximo mês →
+                </a>
+            </div>
+        </div>
+
+        <!-- Hint card explaining hierarchical behavior -->
+        <div class="bg-blue-900/20 border border-blue-700/40 text-blue-100 p-4 rounded-lg mb-6 text-sm leading-relaxed">
+            <strong>Como funciona:</strong> defina um valor para cada categoria que deseja monitorar.
+            Deixe em branco para não criar orçamento. Categorias-pai contabilizam automaticamente os gastos das suas subcategorias —
+            se você definir limite no pai e nas filhas, são limites independentes (não há dupla contagem).
+        </div>
+
+        {% if rows %}
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="bg-dark-800/70 backdrop-blur-sm border border-dark-700 rounded-xl overflow-hidden shadow-xl">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-dark-900/60 text-xs uppercase text-gray-400 tracking-wider">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Categoria</th>
+                                <th class="px-4 py-3 text-right">Gasto no mês</th>
+                                <th class="px-4 py-3 text-right">Limite planejado (R$)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-dark-700">
+                            {% for row in rows %}
+                            <tr class="{% if row.error %}bg-red-900/20{% endif %} hover:bg-dark-700/30 transition-colors">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm"
+                                              style="background-color: {{ row.category.color }}30; color: {{ row.category.color }};">
+                                            {{ row.category.icon }}
+                                        </span>
+                                        <div>
+                                            {% if row.category.parent %}
+                                            <div class="text-xs text-gray-500">{{ row.category.parent.name }} ›</div>
+                                            {% endif %}
+                                            <div class="text-white font-medium">{{ row.category.name }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <span class="{% if row.spent_amount > 0 %}text-warning-300{% else %}text-gray-500{% endif %}">
+                                        {{ row.spent_amount|currency }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <input type="text"
+                                           inputmode="decimal"
+                                           name="{{ row.field_name }}"
+                                           value="{{ row.value }}"
+                                           placeholder="0,00"
+                                           class="form-input w-36 text-right {% if row.error %}border-red-500{% endif %}">
+                                    {% if row.error %}
+                                    <div class="text-xs text-red-400 mt-1">{{ row.error }}</div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="bg-dark-900/40 text-sm">
+                            <tr>
+                                <td class="px-4 py-3 text-gray-400 font-semibold">Totais</td>
+                                <td class="px-4 py-3 text-right text-warning-300 font-semibold">
+                                    {{ total_spent|currency }}
+                                </td>
+                                <td class="px-4 py-3 text-right text-success-300 font-semibold">
+                                    {{ total_planned|currency }}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 px-4 py-4 bg-dark-900/30">
+                    <p class="text-xs text-gray-400">
+                        Linhas com valor vazio cujos orçamentos ainda não tiveram gasto serão removidas.
+                    </p>
+                    <div class="flex gap-2">
+                        <a href="{% url 'budgets:list' %}"
+                           class="px-4 py-2 rounded-lg bg-dark-700 hover:bg-dark-600 text-gray-300">
+                            Cancelar
+                        </a>
+                        <button type="submit"
+                                class="px-5 py-2 rounded-lg bg-gradient-financial text-white font-semibold hover:opacity-90 transition">
+                            Salvar orçamento mensal
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+        {% else %}
+        <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-12 text-center">
+            <div class="text-5xl mb-4">📁</div>
+            <h3 class="text-xl text-white font-semibold mb-2">Nenhuma categoria de despesa cadastrada</h3>
+            <p class="text-gray-400 mb-6">
+                Crie pelo menos uma categoria de despesa antes de definir um orçamento mensal.
+            </p>
+            <a href="{% url 'categories:category-create' %}" class="inline-flex items-center px-4 py-2 bg-gradient-financial text-white rounded-lg">
+                + Criar categoria
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

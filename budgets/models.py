@@ -487,15 +487,63 @@ class Budget(models.Model):
     def progress_percentage(self):
         """
         Calculate time progress percentage through budget period.
-        
+
         Returns:
             Decimal: Percentage of time elapsed (0.0 - 100.0)
         """
         if self.days_total == 0:
             return Decimal('100.00')
-        
+
         progress = (self.days_elapsed / self.days_total) * 100
         return min(Decimal('100.00'), round(Decimal(str(progress)), 2))
+
+    @property
+    def daily_average_spent(self):
+        """
+        Calculate average daily spending so far in the budget period.
+
+        Useful to compare with `daily_budget_target` and detect overspending pace
+        before the period ends.
+
+        Returns:
+            Decimal: Average amount spent per day since the period started.
+                     Returns 0 if no day has elapsed yet.
+        """
+        if self.days_elapsed <= 0:
+            return Decimal('0.00')
+        return round(self.spent_amount / Decimal(self.days_elapsed), 2)
+
+    @property
+    def daily_budget_target(self):
+        """
+        Calculate the planned daily spending allowance.
+
+        This is the per-day amount the user can spend to finish the period
+        right at the planned amount, distributed evenly.
+
+        Returns:
+            Decimal: Planned amount divided by total days in period.
+        """
+        if self.days_total <= 0:
+            return Decimal('0.00')
+        return round(self.planned_amount / Decimal(self.days_total), 2)
+
+    @property
+    def daily_progress_percentage(self):
+        """
+        Compare daily average spending against the daily target.
+
+        Values above 100 indicate that, at the current pace, the budget
+        will be exceeded by the end of the period.
+
+        Returns:
+            Decimal: (daily_average_spent / daily_budget_target) * 100
+        """
+        target = self.daily_budget_target
+        if target <= 0:
+            return Decimal('0.00')
+        ratio = (self.daily_average_spent / target) * Decimal('100')
+        return round(ratio, 2)
     
     @property
     def status(self):
@@ -808,21 +856,21 @@ class Budget(models.Model):
     def get_recent_transactions(self, limit=10):
         """
         Get recent transactions for this budget's category and period.
-        
+
         Args:
             limit: Maximum number of transactions to return
-            
+
         Returns:
             QuerySet of recent transactions
         """
         from transactions.models import Transaction
-        
+
         # Get all descendant categories
         category_ids = [self.category.id]
         if hasattr(self.category, 'get_descendants'):
             descendant_categories = self.category.get_descendants()
             category_ids.extend(descendant_categories.values_list('id', flat=True))
-        
+
         return Transaction.objects.filter(
             user=self.user,
             category_id__in=category_ids,
@@ -830,6 +878,117 @@ class Budget(models.Model):
             transaction_date__gte=self.start_date,
             transaction_date__lte=self.end_date
         ).select_related('account', 'category').order_by('-transaction_date', '-created_at')[:limit]
+
+
+class BudgetAlertManager(models.Manager):
+    """Convenience queries for BudgetAlert."""
+
+    def unacknowledged_for_user(self, user):
+        return (
+            self.get_queryset()
+            .filter(user=user, acknowledged_at__isnull=True)
+            .select_related('budget', 'budget__category')
+            .order_by('-triggered_at')
+        )
+
+
+class BudgetAlert(models.Model):
+    """
+    Persisted notification about a budget crossing a usage threshold.
+
+    Lifecycle:
+      1. Signal in `budgets.signals` evaluates a budget after every spent_amount
+         refresh and creates a BudgetAlert when usage first reaches a threshold.
+      2. The alert stays "active" until the user acknowledges it
+         (`acknowledged_at` becomes non-null).
+      3. `unique(budget, threshold)` prevents repeat alerts when usage oscillates
+         around the threshold — keeps notifications low-noise.
+
+    Snapshots `spent_at_trigger` and `percentage_at_trigger` are stored so
+    historical reports can render the exact context at trigger time, even if
+    later edits change `budget.spent_amount`.
+    """
+
+    THRESHOLD_WARNING = 70
+    THRESHOLD_CRITICAL = 90
+    THRESHOLD_EXCEEDED = 100
+
+    DEFAULT_THRESHOLDS = (THRESHOLD_WARNING, THRESHOLD_CRITICAL, THRESHOLD_EXCEEDED)
+
+    LEVEL_LABELS = {
+        THRESHOLD_WARNING: 'Atenção',
+        THRESHOLD_CRITICAL: 'Crítico',
+        THRESHOLD_EXCEEDED: 'Excedido',
+    }
+
+    LEVEL_COLORS = {
+        THRESHOLD_WARNING: 'text-yellow-400',
+        THRESHOLD_CRITICAL: 'text-orange-400',
+        THRESHOLD_EXCEEDED: 'text-red-400',
+    }
+
+    budget = models.ForeignKey(
+        Budget,
+        on_delete=models.CASCADE,
+        related_name='alerts',
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='budget_alerts',
+        help_text='Denormalized for fast per-user queries without joining Budget.',
+    )
+    threshold = models.PositiveSmallIntegerField(
+        help_text='Percentage threshold that was crossed (e.g. 70, 90, 100).',
+    )
+    spent_at_trigger = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        help_text='Snapshot of the spent_amount when the alert fired.',
+    )
+    percentage_at_trigger = models.DecimalField(
+        max_digits=6, decimal_places=2,
+        help_text='Snapshot of the percentage used when the alert fired.',
+    )
+    triggered_at = models.DateTimeField(auto_now_add=True)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+
+    objects = BudgetAlertManager()
+
+    class Meta:
+        verbose_name = 'Alerta de Orçamento'
+        verbose_name_plural = 'Alertas de Orçamento'
+        ordering = ['-triggered_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['budget', 'threshold'],
+                name='unique_alert_per_budget_threshold',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['user', 'acknowledged_at']),
+            models.Index(fields=['budget', 'triggered_at']),
+        ]
+
+    def __str__(self):
+        return f"Alert {self.threshold}% on {self.budget.name}"
+
+    @property
+    def level_label(self):
+        return self.LEVEL_LABELS.get(self.threshold, f'{self.threshold}%')
+
+    @property
+    def level_color(self):
+        return self.LEVEL_COLORS.get(self.threshold, 'text-gray-400')
+
+    @property
+    def is_acknowledged(self):
+        return self.acknowledged_at is not None
+
+    def acknowledge(self):
+        """Mark the alert as read by the user."""
+        if self.acknowledged_at is None:
+            self.acknowledged_at = now()
+            self.save(update_fields=['acknowledged_at'])
 
 
 # Documentation and Usage Examples

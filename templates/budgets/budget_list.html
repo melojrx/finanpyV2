@@ -147,20 +147,20 @@
                 
                 <!-- Enhanced Action Buttons -->
                 <div class="flex flex-col sm:flex-row gap-3">
-                    <a href="{% url 'budgets:create' %}" 
+                    <a href="{% url 'budgets:monthly' %}"
+                       class="btn-secondary-enhanced flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        Orçamento Mensal
+                    </a>
+                    <a href="{% url 'budgets:create' %}"
                        class="btn-primary-enhanced flex items-center justify-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                         </svg>
                         Novo Orçamento
                     </a>
-                    <button onclick="alert('Funcionalidade de Analytics será implementada em versão futura!');" 
-                            class="btn-secondary-enhanced flex items-center justify-center">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                        </svg>
-                        Analytics
-                    </button>
                 </div>
             </div>
         </div>
@@ -194,13 +194,13 @@
                         </div>
                         <div>
                             <p class="text-sm text-gray-400 mb-1">Orçamentos Ativos</p>
-                            <p class="text-2xl font-bold text-success-400">{{ stats.active_budgets }}</p>
+                            <p class="text-2xl font-bold text-success-400">{{ stats.active_count }}</p>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="budget-card group cursor-pointer {% if stats.over_budget > 0 %}alert-pulse{% endif %}">
+            <div class="budget-card group cursor-pointer {% if stats.exceeded_count > 0 %}alert-pulse{% endif %}">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center">
                         <div class="w-12 h-12 bg-gradient-danger rounded-xl flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
@@ -208,10 +208,10 @@
                         </div>
                         <div>
                             <p class="text-sm text-gray-400 mb-1">Acima do Orçamento</p>
-                            <p class="text-2xl font-bold text-danger-400">{{ stats.over_budget }}</p>
+                            <p class="text-2xl font-bold text-danger-400">{{ stats.exceeded_count }}</p>
                         </div>
                     </div>
-                    {% if stats.over_budget > 0 %}
+                    {% if stats.exceeded_count > 0 %}
                     <div class="text-danger-400 animate-pulse">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
@@ -246,7 +246,7 @@
                         </svg>
                         Filtros Avançados
                     </h3>
-                    {% if has_filters %}
+                    {% if current_filters %}
                     <a href="{% url 'budgets:list' %}" class="text-sm text-red-400 hover:text-red-300 transition-colors">
                         Limpar todos os filtros
                     </a>
@@ -321,7 +321,7 @@
                             </svg>
                             Excedido
                         </span>
-                        {% elif budget.progress_percentage >= 90 %}
+                        {% elif budget.percentage_used >= 90 %}
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-warning-900/30 text-warning-400 border border-warning-800/50">
                             <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
@@ -342,27 +342,27 @@
                 <!-- Budget Amount Info -->
                 <div class="mb-4">
                     <div class="flex items-baseline justify-between mb-2">
-                        <span class="text-2xl font-bold text-white">{{ budget.spent|currency }}</span>
+                        <span class="text-2xl font-bold text-white">{{ budget.spent_amount|currency }}</span>
                         <span class="text-sm text-gray-400">de {{ budget.planned_amount|currency }}</span>
                     </div>
-                    
+
                     <!-- Progress Bar -->
                     <div class="progress-bar h-4 mb-2">
-                        <div class="progress-bar-fill {% if budget.is_over_budget %}danger{% elif budget.progress_percentage >= 90 %}warning{% else %}success{% endif %}" 
-                             style="width: {% if budget.progress_percentage > 100 %}100{% else %}{{ budget.progress_percentage }}{% endif %}%">
+                        <div class="progress-bar-fill {% if budget.is_over_budget %}danger{% elif budget.percentage_used >= 90 %}warning{% else %}success{% endif %}"
+                             style="width: {% if budget.percentage_used > 100 %}100{% else %}{{ budget.percentage_used }}{% endif %}%">
                         </div>
                     </div>
-                    
+
                     <div class="flex justify-between text-sm">
-                        <span class="{% if budget.is_over_budget %}text-danger-400{% elif budget.progress_percentage >= 90 %}text-warning-400{% else %}text-success-400{% endif %} font-medium">
-                            {{ budget.progress_percentage|floatformat:1 }}% usado
+                        <span class="{% if budget.is_over_budget %}text-danger-400{% elif budget.percentage_used >= 90 %}text-warning-400{% else %}text-success-400{% endif %} font-medium">
+                            {{ budget.percentage_used|floatformat:1 }}% usado
                         </span>
                         <span class="text-gray-400">
-                            Restante: 
-                            {% if budget.remaining >= 0 %}
-                                <span class="text-success-400">{{ budget.remaining|currency }}</span>
+                            Restante:
+                            {% if budget.remaining_amount >= 0 %}
+                                <span class="text-success-400">{{ budget.remaining_amount|currency }}</span>
                             {% else %}
-                                <span class="text-danger-400">{{ budget.remaining|currency }}</span>
+                                <span class="text-danger-400">{{ budget.remaining_amount|currency }}</span>
                             {% endif %}
                         </span>
                     </div>
@@ -421,13 +421,13 @@
             </div>
             <h3 class="text-2xl font-semibold text-gray-300 mb-3">Nenhum orçamento encontrado</h3>
             <p class="text-gray-500 mb-8 max-w-md mx-auto leading-relaxed">
-                {% if has_filters %}
+                {% if current_filters %}
                     Nenhum orçamento corresponde aos filtros atuais. Tente ajustar os critérios de busca ou limpar os filtros.
                 {% else %}
                     Comece criando seu primeiro orçamento para ter controle total de suas despesas por categoria.
                 {% endif %}
             </p>
-            {% if not has_filters %}
+            {% if not current_filters %}
             <a href="{% url 'budgets:create' %}" 
                class="btn-primary-enhanced inline-flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -37,7 +37,7 @@ bloqueiam o deploy inicial em VPS.
 
 Os seguintes tópicos foram movidos para backlog porque não existem no código:
 
-- `Goal`, `GoalContribution`, `BudgetAlert` e `TransactionAttachment`.
+- `TransactionAttachment`.
 - Redis, Celery, Sentry, S3 e cache distribuído.
 - `crispy_forms`, `crispy_tailwind`, `django_extensions` como dependências
   oficiais do projeto.

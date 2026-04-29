@@ -1,6 +1,8 @@
+from calendar import monthrange
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
+from django.views import View
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy, reverse
 from django.http import JsonResponse, HttpResponseRedirect
@@ -9,10 +11,10 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import json
 
-from .models import Budget
+from .models import Budget, BudgetAlert
 from .forms import BudgetForm, BudgetFilterForm, BudgetDeleteConfirmationForm
 from categories.models import Category
 from transactions.models import Transaction
@@ -633,3 +635,251 @@ class BudgetStatusToggleView(LoginRequiredMixin, DetailView):
                 'success': False,
                 'error': 'Erro interno do servidor.'
             }, status=500)
+
+
+class MonthlyBudgetView(LoginRequiredMixin, View):
+    """
+    Bulk monthly budget editor.
+
+    Renders all of the user's active EXPENSE categories alongside the
+    planned_amount for the selected month. A single POST creates/updates
+    every budget at once, instead of forcing the user through CRUD pages
+    for each category.
+
+    URL forms:
+      - /budgets/monthly/                       -> current month
+      - /budgets/monthly/<year>/<month>/        -> arbitrary month
+
+    Behavior:
+      - Empty `planned_amount` field deletes the budget for that category/month
+        (only if it has no spending recorded yet).
+      - Non-empty value upserts the budget (`unique(user, category, start_date)`
+        guarantees no duplicates).
+      - Read-only metric next to each row: `spent_amount` for the period,
+        helping the user calibrate the limit based on real history.
+    """
+
+    template_name = 'budgets/monthly_budget.html'
+
+    MIN_PLANNED = Decimal('0.01')
+
+    def _resolve_period(self, year, month):
+        if year is None or month is None:
+            today = date.today()
+            return today.year, today.month
+
+        try:
+            year = int(year)
+            month = int(month)
+            if not (1 <= month <= 12 and 1900 <= year <= 2100):
+                raise ValueError
+        except (TypeError, ValueError):
+            today = date.today()
+            return today.year, today.month
+        return year, month
+
+    def _period_bounds(self, year, month):
+        first = date(year, month, 1)
+        last = date(year, month, monthrange(year, month)[1])
+        return first, last
+
+    def _build_rows(self, request, year, month, posted=None):
+        """
+        Build one row per active EXPENSE category for the given month.
+
+        Each row carries: the Category, the existing Budget (if any), the
+        current input value (str), the spent_amount for the period, and any
+        per-row error message after a failed POST.
+        """
+        first, last = self._period_bounds(year, month)
+        categories = (
+            Category.objects.filter(
+                user=request.user,
+                category_type='EXPENSE',
+                is_active=True,
+            )
+            .select_related('parent')
+            .order_by('parent__name', 'name')
+        )
+
+        existing = {
+            b.category_id: b
+            for b in Budget.objects.filter(
+                user=request.user, start_date=first, end_date=last,
+            ).select_related('category')
+        }
+
+        rows = []
+        for category in categories:
+            budget = existing.get(category.id)
+            posted_value = (posted or {}).get(self._field_name(category.id))
+            if posted_value is not None:
+                value = posted_value.strip()
+            elif budget is not None:
+                value = f"{budget.planned_amount:.2f}"
+            else:
+                value = ''
+            rows.append({
+                'category': category,
+                'budget': budget,
+                'field_name': self._field_name(category.id),
+                'value': value,
+                'spent_amount': budget.spent_amount if budget else Decimal('0.00'),
+                'error': None,
+            })
+        return rows
+
+    @staticmethod
+    def _field_name(category_id):
+        return f'planned_amount_{category_id}'
+
+    def get(self, request, year=None, month=None):
+        year, month = self._resolve_period(year, month)
+        return self._render(request, year, month, self._build_rows(request, year, month))
+
+    def post(self, request, year=None, month=None):
+        year, month = self._resolve_period(year, month)
+        first, last = self._period_bounds(year, month)
+        rows = self._build_rows(request, year, month, posted=request.POST)
+
+        has_errors = False
+        created = updated = removed = 0
+
+        for row in rows:
+            raw = row['value']
+            category = row['category']
+            budget = row['budget']
+
+            if raw == '':
+                if budget and budget.spent_amount == 0:
+                    budget.delete()
+                    removed += 1
+                continue
+
+            try:
+                amount = Decimal(raw.replace(',', '.'))
+            except (InvalidOperation, AttributeError):
+                row['error'] = 'Valor inválido.'
+                has_errors = True
+                continue
+
+            if amount < self.MIN_PLANNED:
+                row['error'] = 'O valor planejado deve ser maior que zero.'
+                has_errors = True
+                continue
+
+            try:
+                if budget:
+                    if budget.planned_amount != amount:
+                        budget.planned_amount = amount
+                        budget.save()
+                        updated += 1
+                else:
+                    Budget.objects.create(
+                        user=request.user,
+                        category=category,
+                        name=f'{category.name} - {first.strftime("%m/%Y")}',
+                        planned_amount=amount,
+                        start_date=first,
+                        end_date=last,
+                        is_active=True,
+                    )
+                    created += 1
+            except Exception as exc:
+                row['error'] = str(exc)
+                has_errors = True
+
+        if has_errors:
+            messages.error(
+                request,
+                'Alguns valores não foram salvos. Verifique os destaques abaixo.',
+            )
+            return self._render(request, year, month, rows)
+
+        parts = []
+        if created:
+            parts.append(f'{created} criado(s)')
+        if updated:
+            parts.append(f'{updated} atualizado(s)')
+        if removed:
+            parts.append(f'{removed} removido(s)')
+        if parts:
+            messages.success(request, 'Orçamento mensal salvo: ' + ', '.join(parts) + '.')
+        else:
+            messages.info(request, 'Nenhuma alteração detectada.')
+
+        return redirect('budgets:monthly_for', year=year, month=month)
+
+    def _render(self, request, year, month, rows):
+        first, last = self._period_bounds(year, month)
+        prev_month = (first - timedelta(days=1))
+        next_month = (last + timedelta(days=1))
+        context = {
+            'year': year,
+            'month': month,
+            'period_label': first.strftime('%B %Y'),
+            'period_start': first,
+            'period_end': last,
+            'rows': rows,
+            'total_planned': sum(
+                (Decimal(r['value'].replace(',', '.')) for r in rows
+                 if r['value'] and not r['error']),
+                Decimal('0.00'),
+            ),
+            'total_spent': sum(
+                (r['spent_amount'] for r in rows), Decimal('0.00'),
+            ),
+            'prev_year': prev_month.year,
+            'prev_month': prev_month.month,
+            'next_year': next_month.year,
+            'next_month': next_month.month,
+        }
+        return render(request, self.template_name, context)
+
+
+class BudgetAlertListView(LoginRequiredMixin, ListView):
+    """List all budget alerts for the current user, newest first."""
+
+    model = BudgetAlert
+    template_name = 'budgets/alert_list.html'
+    context_object_name = 'alerts'
+    paginate_by = 30
+
+    def get_queryset(self):
+        return (
+            BudgetAlert.objects
+            .filter(user=self.request.user)
+            .select_related('budget', 'budget__category')
+            .order_by('-triggered_at')
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['unread_count'] = BudgetAlert.objects.unacknowledged_for_user(
+            self.request.user,
+        ).count()
+        return ctx
+
+
+class BudgetAlertAckView(LoginRequiredMixin, View):
+    """POST-only endpoint to acknowledge a single alert."""
+
+    def post(self, request, pk):
+        alert = get_object_or_404(BudgetAlert, pk=pk, user=request.user)
+        alert.acknowledge()
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'alert_id': alert.pk})
+        messages.success(request, 'Alerta marcado como lido.')
+        return redirect('budgets:alerts')
+
+
+class BudgetAlertAckAllView(LoginRequiredMixin, View):
+    """Acknowledge every unread alert in one call."""
+
+    def post(self, request):
+        unread = BudgetAlert.objects.unacknowledged_for_user(request.user)
+        count = unread.update(acknowledged_at=timezone.now())
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'acknowledged': count})
+        messages.success(request, f'{count} alerta(s) marcado(s) como lido(s).')
+        return redirect('budgets:alerts')

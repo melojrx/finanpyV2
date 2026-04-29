@@ -75,6 +75,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.static',
                 'django.template.context_processors.media',
+                'budgets.context_processors.budget_alerts',
             ],
         },
     },

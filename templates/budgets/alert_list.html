@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load currency_filters %}
+
+{% block title %}Alertas de Orçamento - FinanPy{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-financial-dark">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-white mb-1 flex items-center">
+                    <span class="text-2xl mr-3">🔔</span>
+                    Alertas de Orçamento
+                </h1>
+                <p class="text-gray-300">
+                    {% if unread_count %}
+                        Você tem <span class="text-warning-300 font-semibold">{{ unread_count }}</span> alerta(s) não lido(s).
+                    {% else %}
+                        Nenhum alerta pendente. Bom controle!
+                    {% endif %}
+                </p>
+            </div>
+            <div class="flex gap-2">
+                {% if unread_count %}
+                <form method="post" action="{% url 'budgets:alert_ack_all' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-primary-600/20 hover:bg-primary-600/30 text-primary-200">
+                        Marcar todos como lidos
+                    </button>
+                </form>
+                {% endif %}
+                <a href="{% url 'budgets:list' %}" class="px-4 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 text-gray-200">
+                    Voltar para orçamentos
+                </a>
+            </div>
+        </div>
+
+        {% if alerts %}
+        <div class="space-y-3">
+            {% for alert in alerts %}
+            <div class="bg-dark-800/70 border {% if alert.is_acknowledged %}border-dark-700{% else %}border-warning-700/50{% endif %} rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg"
+                         style="background-color: {{ alert.budget.category.color }}30; color: {{ alert.budget.category.color }};">
+                        {{ alert.budget.category.icon }}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <a href="{% url 'budgets:detail' alert.budget.pk %}"
+                               class="font-semibold text-white hover:text-primary-300">
+                                {{ alert.budget.name }}
+                            </a>
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-dark-900 {{ alert.level_color }} font-bold">
+                                {{ alert.threshold }}% — {{ alert.level_label }}
+                            </span>
+                            {% if not alert.is_acknowledged %}
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-warning-900/40 text-warning-200">Novo</span>
+                            {% endif %}
+                        </div>
+                        <div class="text-sm text-gray-400 mt-1">
+                            Disparado em {{ alert.triggered_at|date:"d/m/Y H:i" }}
+                            • Gasto no momento: {{ alert.spent_at_trigger|currency }}
+                            • Planejado: {{ alert.budget.planned_amount|currency }}
+                        </div>
+                    </div>
+                </div>
+                {% if not alert.is_acknowledged %}
+                <form method="post" action="{% url 'budgets:alert_ack' alert.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-sm px-3 py-1 rounded bg-dark-700 hover:bg-dark-600 text-gray-200">
+                        Marcar como lido
+                    </button>
+                </form>
+                {% else %}
+                <span class="text-xs text-gray-500">Lido em {{ alert.acknowledged_at|date:"d/m H:i" }}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if is_paginated %}
+        <div class="mt-6 flex justify-center gap-2 text-sm text-gray-300">
+            {% if page_obj.has_previous %}
+            <a class="px-3 py-1 rounded bg-dark-800 hover:bg-dark-700" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+            {% endif %}
+            <span class="px-3 py-1 bg-dark-900 rounded">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+            <a class="px-3 py-1 rounded bg-dark-800 hover:bg-dark-700" href="?page={{ page_obj.next_page_number }}">Próxima</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-12 text-center">
+            <div class="text-5xl mb-4">✅</div>
+            <h3 class="text-xl text-white font-semibold mb-2">Nenhum alerta registrado</h3>
+            <p class="text-gray-400">
+                Os alertas aparecem automaticamente quando seus orçamentos atingem 70%, 90% ou 100% do limite.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

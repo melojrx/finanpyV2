@@ -212,40 +212,40 @@
                     <div class="flex justify-between items-center py-2 border-b border-dark-700/50">
                         <span class="text-gray-400">Valor Gasto:</span>
                         <span class="{% if budget.is_over_budget %}text-danger-400{% else %}text-success-400{% endif %} font-semibold">
-                            {{ budget.spent|currency }}
+                            {{ budget.spent_amount|currency }}
                         </span>
                     </div>
-                    
+
                     <div class="flex justify-between items-center py-2 border-b border-dark-700/50">
                         <span class="text-gray-400">Período:</span>
                         <span class="text-white font-medium">
                             {{ budget.start_date|date:"d/m/Y" }} - {{ budget.end_date|date:"d/m/Y" }}
                         </span>
                     </div>
-                    
+
                     <div class="flex justify-between items-center py-2">
                         <span class="text-gray-400">Status:</span>
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {% if budget.is_over_budget %}bg-danger-900/30 text-danger-400{% elif budget.progress_percentage >= 90 %}bg-warning-900/30 text-warning-400{% else %}bg-success-900/30 text-success-400{% endif %}">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {% if budget.is_over_budget %}bg-danger-900/30 text-danger-400{% elif budget.percentage_used >= 90 %}bg-warning-900/30 text-warning-400{% else %}bg-success-900/30 text-success-400{% endif %}">
                             {% if budget.is_over_budget %}
-                                Excedido ({{ budget.progress_percentage|floatformat:1 }}%)
-                            {% elif budget.progress_percentage >= 90 %}
-                                Atenção ({{ budget.progress_percentage|floatformat:1 }}%)
+                                Excedido ({{ budget.percentage_used|floatformat:1 }}%)
+                            {% elif budget.percentage_used >= 90 %}
+                                Atenção ({{ budget.percentage_used|floatformat:1 }}%)
                             {% else %}
-                                Saudável ({{ budget.progress_percentage|floatformat:1 }}%)
+                                Saudável ({{ budget.percentage_used|floatformat:1 }}%)
                             {% endif %}
                         </span>
                     </div>
                 </div>
-                
+
                 <!-- Progress Visualization -->
                 <div class="mt-6">
                     <div class="flex justify-between text-sm text-gray-400 mb-2">
                         <span>Progresso</span>
-                        <span>{{ budget.progress_percentage|floatformat:1 }}%</span>
+                        <span>{{ budget.percentage_used|floatformat:1 }}%</span>
                     </div>
                     <div class="progress-preview h-3">
-                        <div class="progress-preview-fill {% if budget.is_over_budget %}danger{% elif budget.progress_percentage >= 90 %}warning{% else %}success{% endif %}" 
-                             style="width: {% if budget.progress_percentage > 100 %}100{% else %}{{ budget.progress_percentage }}{% endif %}%">
+                        <div class="progress-preview-fill {% if budget.is_over_budget %}danger{% elif budget.percentage_used >= 90 %}warning{% else %}success{% endif %}"
+                             style="width: {% if budget.percentage_used > 100 %}100{% else %}{{ budget.percentage_used }}{% endif %}%">
                         </div>
                     </div>
                 </div>

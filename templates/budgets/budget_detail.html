@@ -224,16 +224,16 @@
                             <!-- Background Circle -->
                             <circle cx="100" cy="100" r="80" class="progress-circle-bg"></circle>
                             
-                            <!-- Progress Circle -->
-                            <circle cx="100" cy="100" r="80" 
-                                    class="progress-circle-fill {% if budget.is_over_budget %}danger{% elif budget.progress_percentage >= 90 %}warning{% else %}success{% endif %}"
-                                    style="--progress: {% if budget.progress_percentage > 100 %}251{% else %}{{ budget.progress_percentage|floatformat:0|add:0|mul:2.51 }}{% endif %}; stroke-dasharray: {% if budget.progress_percentage > 100 %}251{% else %}{{ budget.progress_percentage|floatformat:0|add:0|mul:2.51 }}{% endif %}, 251;">
+                            <!-- Progress Circle (filled by JS to avoid double-rendering) -->
+                            <circle cx="100" cy="100" r="80"
+                                    class="progress-circle-fill {% if budget.is_over_budget %}danger{% elif budget.percentage_used >= 90 %}warning{% else %}success{% endif %}"
+                                    style="stroke-dasharray: 0, 251;">
                             </circle>
                         </svg>
-                        
+
                         <!-- Center Content -->
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <div class="text-3xl font-bold text-white mb-1">{{ budget.progress_percentage|floatformat:1 }}%</div>
+                            <div class="text-3xl font-bold text-white mb-1">{{ budget.percentage_used|floatformat:1 }}%</div>
                             <div class="text-sm text-gray-400">usado</div>
                         </div>
                     </div>
@@ -242,13 +242,13 @@
                     <div class="flex-1 space-y-6 text-center lg:text-left">
                         <div>
                             <h3 class="text-2xl font-bold text-white mb-4">Status do Orçamento</h3>
-                            <div class="inline-flex items-center px-4 py-2 rounded-full text-lg font-semibold {% if budget.is_over_budget %}bg-danger-900/30 text-danger-400 border-2 border-danger-800/50 status-pulse{% elif budget.progress_percentage >= 90 %}bg-warning-900/30 text-warning-400 border-2 border-warning-800/50{% else %}bg-success-900/30 text-success-400 border-2 border-success-800/50{% endif %}">
+                            <div class="inline-flex items-center px-4 py-2 rounded-full text-lg font-semibold {% if budget.is_over_budget %}bg-danger-900/30 text-danger-400 border-2 border-danger-800/50 status-pulse{% elif budget.percentage_used >= 90 %}bg-warning-900/30 text-warning-400 border-2 border-warning-800/50{% else %}bg-success-900/30 text-success-400 border-2 border-success-800/50{% endif %}">
                                 {% if budget.is_over_budget %}
                                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
                                     </svg>
                                     Orçamento Excedido
-                                {% elif budget.progress_percentage >= 90 %}
+                                {% elif budget.percentage_used >= 90 %}
                                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
                                     </svg>
@@ -267,8 +267,8 @@
                             <div class="flex justify-between lg:justify-start lg:flex-col">
                                 <div class="lg:mb-2">
                                     <div class="text-sm text-gray-400 mb-1">Gasto Atual</div>
-                                    <div class="text-3xl font-bold {% if budget.is_over_budget %}text-danger-400{% elif budget.progress_percentage >= 90 %}text-warning-400{% else %}text-success-400{% endif %}">
-                                        {{ budget.spent|currency }}
+                                    <div class="text-3xl font-bold {% if budget.is_over_budget %}text-danger-400{% elif budget.percentage_used >= 90 %}text-warning-400{% else %}text-success-400{% endif %}">
+                                        {{ budget.spent_amount|currency }}
                                     </div>
                                 </div>
                                 <div>
@@ -276,13 +276,13 @@
                                     <div class="text-2xl font-semibold text-gray-300">{{ budget.planned_amount|currency }}</div>
                                 </div>
                             </div>
-                            
+
                             <div class="border-t border-dark-700 pt-4">
                                 <div class="text-sm text-gray-400 mb-1">
-                                    {% if budget.remaining >= 0 %}Valor Restante{% else %}Valor Excedente{% endif %}
+                                    {% if budget.remaining_amount >= 0 %}Valor Restante{% else %}Valor Excedente{% endif %}
                                 </div>
-                                <div class="text-2xl font-bold {% if budget.remaining >= 0 %}text-success-400{% else %}text-danger-400{% endif %}">
-                                    {% if budget.remaining >= 0 %}{{ budget.remaining|currency }}{% else %}{{ budget.remaining|currency }}{% endif %}
+                                <div class="text-2xl font-bold {% if budget.remaining_amount >= 0 %}text-success-400{% else %}text-danger-400{% endif %}">
+                                    {{ budget.remaining_amount|currency }}
                                 </div>
                             </div>
                         </div>
@@ -384,24 +384,24 @@
                 <div class="space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div class="metric-card rounded-lg p-4 text-center">
-                            <div class="text-2xl font-bold text-primary-400">{{ budget.daily_average|currency }}</div>
+                            <div class="text-2xl font-bold text-primary-400">{{ budget.daily_average_spent|currency }}</div>
                             <div class="text-sm text-gray-400 mt-1">Média Atual</div>
                         </div>
                         <div class="metric-card rounded-lg p-4 text-center">
-                            <div class="text-2xl font-bold text-gray-300">{{ budget.daily_budget|currency }}</div>
+                            <div class="text-2xl font-bold text-gray-300">{{ budget.daily_budget_target|currency }}</div>
                             <div class="text-sm text-gray-400 mt-1">Orçamento Diário</div>
                         </div>
                     </div>
-                    
+
                     <!-- Progress Bar for Daily Budget -->
                     <div>
                         <div class="flex justify-between text-sm text-gray-400 mb-2">
                             <span>Progresso Diário</span>
-                            <span>{{ budget.daily_progress|floatformat:1 }}%</span>
+                            <span>{{ budget.daily_progress_percentage|floatformat:1 }}%</span>
                         </div>
                         <div class="progress-bar h-3">
-                            <div class="progress-bar-fill {% if budget.daily_progress > 100 %}danger{% elif budget.daily_progress >= 90 %}warning{% else %}success{% endif %}" 
-                                 style="width: {% if budget.daily_progress > 100 %}100{% else %}{{ budget.daily_progress }}{% endif %}%">
+                            <div class="progress-bar-fill {% if budget.daily_progress_percentage > 100 %}danger{% elif budget.daily_progress_percentage >= 90 %}warning{% else %}success{% endif %}"
+                                 style="width: {% if budget.daily_progress_percentage > 100 %}100{% else %}{{ budget.daily_progress_percentage }}{% endif %}%">
                             </div>
                         </div>
                     </div>
@@ -496,34 +496,34 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Enhanced progress circle animation
+    // Enhanced progress circle animation (driven by spending percentage)
     const progressCircle = document.querySelector('.progress-circle-fill');
     if (progressCircle) {
-        const progress = {{ budget.progress_percentage|default:0 }};
+        const progress = {{ budget.percentage_used|default:0 }};
         const circumference = 2 * Math.PI * 80;
         const progressValue = Math.min(progress, 100) / 100 * circumference;
-        
+
         progressCircle.style.strokeDasharray = `0, ${circumference}`;
-        
+
         setTimeout(() => {
             progressCircle.style.strokeDasharray = `${progressValue}, ${circumference}`;
         }, 500);
     }
-    
+
     // Spending Trend Chart
     const spendingCtx = document.getElementById('spendingTrendChart');
     if (spendingCtx && typeof Chart !== 'undefined') {
-        const spendingData = {{ chart_data.spending_trend|default:"[]"|safe }};
-        
+        const spendingData = {{ trend_chart_data|default:'{"labels": [], "data": []}'|safe }};
+
         new Chart(spendingCtx, {
             type: 'line',
             data: {
                 labels: spendingData.labels || [],
                 datasets: [{
-                    label: 'Gastos Acumulados',
-                    data: spendingData.values || [],
-                    borderColor: '{% if budget.is_over_budget %}#EF4444{% elif budget.progress_percentage >= 90 %}#F59E0B{% else %}#10B981{% endif %}',
-                    backgroundColor: '{% if budget.is_over_budget %}rgba(239, 68, 68, 0.1){% elif budget.progress_percentage >= 90 %}rgba(245, 158, 11, 0.1){% else %}rgba(16, 185, 129, 0.1){% endif %}',
+                    label: 'Gastos Diários',
+                    data: spendingData.data || [],
+                    borderColor: '{% if budget.is_over_budget %}#EF4444{% elif budget.percentage_used >= 90 %}#F59E0B{% else %}#10B981{% endif %}',
+                    backgroundColor: '{% if budget.is_over_budget %}rgba(239, 68, 68, 0.1){% elif budget.percentage_used >= 90 %}rgba(245, 158, 11, 0.1){% else %}rgba(16, 185, 129, 0.1){% endif %}',
                     borderWidth: 3,
                     fill: true,
                     tension: 0.4,
@@ -617,11 +617,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Alert for over-budget status
     {% if budget.is_over_budget %}
     if (typeof toastManager !== 'undefined') {
-        toastManager.error('Atenção! Este orçamento foi excedido em {{ budget.remaining|currency }}.', 10000);
+        toastManager.error('Atenção! Este orçamento foi excedido em {{ budget.remaining_amount|currency }}.', 10000);
     }
-    {% elif budget.progress_percentage >= 90 %}
+    {% elif budget.percentage_used >= 90 %}
     if (typeof toastManager !== 'undefined') {
-        toastManager.warning('Atenção! Você está próximo do limite do orçamento ({{ budget.progress_percentage|floatformat:1 }}% usado).', 8000);
+        toastManager.warning('Atenção! Você está próximo do limite do orçamento ({{ budget.percentage_used|floatformat:1 }}% usado).', 8000);
     }
     {% endif %}
     
