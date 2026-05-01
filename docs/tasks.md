@@ -447,7 +447,8 @@ Itens abaixo não bloqueiam o primeiro deploy em VPS:
 - [x] Implementar app `goals` — ver Sprint 5.
 - [ ] Migrar Tailwind CDN para build local.
 - [ ] Implementar anexos/comprovantes de transação.
-- [ ] Implementar preferências avançadas de usuário e avatar.
+- [x] Adicionar avatar de perfil com upload validado.
+- [ ] Implementar preferências avançadas de usuário (tema, moeda padrão, dashboard).
 - [ ] Adicionar Redis/cache quando houver necessidade medida.
 - [ ] Adicionar Sentry/monitoramento após deploy base.
 - [ ] Expandir testes de `accounts`, `categories`, `budgets`, `users` e `goals`.

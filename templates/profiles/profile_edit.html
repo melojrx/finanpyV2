@@ -34,7 +34,7 @@
     </div>
 
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form method="post" class="space-y-6">
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
             {% csrf_token %}
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -45,7 +45,39 @@
                             <h3 class="text-xl font-semibold text-white mb-2">Informações Pessoais</h3>
                             <p class="text-gray-400 text-sm">Mantenha suas informações atualizadas para uma melhor experiência</p>
                         </div>
-                        
+
+                        <!-- Avatar Section -->
+                        <div class="mb-8 pb-6 border-b border-dark-700">
+                            <label class="block text-sm font-medium text-gray-300 mb-3">Foto de perfil</label>
+                            <div class="flex items-center gap-4">
+                                <div class="w-20 h-20 bg-gradient-financial rounded-full flex items-center justify-center text-2xl font-bold text-white overflow-hidden flex-shrink-0">
+                                    {% if profile.avatar_url %}
+                                        <img id="avatar-current" src="{{ profile.avatar_url }}" alt="Foto atual" class="w-full h-full object-cover">
+                                    {% else %}
+                                        <span id="avatar-current">{{ user.first_name|first|default:user.email|first|upper }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-1 space-y-2">
+                                    <input type="file"
+                                           name="{{ form.avatar.name }}"
+                                           id="{{ form.avatar.id_for_label }}"
+                                           accept="image/jpeg,image/png,image/webp"
+                                           class="block w-full text-sm text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary-600/20 file:text-primary-300 hover:file:bg-primary-600/30">
+                                    <p class="text-xs text-gray-500">{{ form.avatar.help_text|default:"JPG, PNG ou WEBP — até 2 MB." }}</p>
+                                    {% if profile.avatar %}
+                                    <label class="inline-flex items-center text-xs text-red-300 mt-1">
+                                        <input type="checkbox" name="avatar_clear" class="mr-2"> Remover foto atual
+                                    </label>
+                                    {% endif %}
+                                    {% if form.avatar.errors %}
+                                        {% for error in form.avatar.errors %}
+                                        <p class="text-xs text-red-400">{{ error }}</p>
+                                        {% endfor %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Form Fields -->
                         <div class="space-y-6">
                             <!-- Name Fields Row -->
@@ -111,12 +143,14 @@
                                         {{ form.phone.label }}
                                         {% if form.phone.field.required %}<span class="text-red-400">*</span>{% endif %}
                                     </label>
-                                    <input type="tel" 
-                                           name="{{ form.phone.name }}" 
+                                    <input type="tel"
+                                           name="{{ form.phone.name }}"
                                            id="{{ form.phone.id_for_label }}"
                                            value="{{ form.phone.value|default_if_none:'' }}"
-                                           placeholder="+5511999999999"
-                                           maxlength="17"
+                                           placeholder="(11) 98765-4321"
+                                           maxlength="16"
+                                           inputmode="numeric"
+                                           data-mask="phone-br"
                                            class="bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 {% if form.phone.errors %}border-danger-500 focus:border-danger-500 focus:ring-danger-500{% endif %}"
                                            {% if form.phone.field.required %}required{% endif %}>
                                     {% if form.phone.help_text %}
@@ -209,11 +243,11 @@
                         
                         <div class="flex items-center space-x-3 mb-4">
                             <div class="w-12 h-12 bg-gradient-financial rounded-full flex items-center justify-center text-lg font-bold text-white">
-                                <span id="avatar-preview">{{ profile.first_name|first|default:user.username|first|upper }}</span>
+                                <span id="avatar-preview">{{ user.first_name|first|default:user.email|first|upper }}</span>
                             </div>
                             <div>
                                 <p class="text-white font-medium" id="name-preview">
-                                    {{ profile.get_full_name|default:user.username }}
+                                    {{ user.get_full_name|default:user.email }}
                                 </p>
                                 <p class="text-gray-400 text-sm">{{ user.email }}</p>
                             </div>
@@ -377,6 +411,56 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Live avatar preview — show the chosen file in both avatar circles
+    // before the form is submitted. Uses FileReader for client-side rendering
+    // (no extra request) and revokes the data URL implicitly when navigated away.
+    const avatarInput = document.getElementById('{{ form.avatar.id_for_label }}');
+    if (avatarInput) {
+        avatarInput.addEventListener('change', function (e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+
+            // Cheap client-side gate matching the server's rules.
+            // The server still validates with Pillow on submit.
+            const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+            const MAX_BYTES = 2 * 1024 * 1024;
+            if (!ALLOWED.includes(file.type)) {
+                alert('Formato inválido. Use JPG, PNG ou WEBP.');
+                e.target.value = '';
+                return;
+            }
+            if (file.size > MAX_BYTES) {
+                alert('Imagem muito grande (máx. 2 MB).');
+                e.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (ev) {
+                renderAvatarPreview('avatar-current', ev.target.result, 'w-full h-full object-cover');
+                renderAvatarPreview('avatar-preview', ev.target.result, 'w-full h-full object-cover rounded-full');
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function renderAvatarPreview(id, src, imgClass) {
+        const node = document.getElementById(id);
+        if (!node) return;
+        if (node.tagName === 'IMG') {
+            node.src = src;
+            return;
+        }
+        // Replace the initials <span> with an <img> keeping the same id
+        // so subsequent uploads update the existing element.
+        const img = document.createElement('img');
+        img.id = id;
+        img.alt = 'Pré-visualização';
+        img.className = imgClass;
+        img.src = src;
+        node.parentNode.replaceChild(img, node);
+    }
+
     // Form validation feedback
     const form = document.querySelector('form');
     form.addEventListener('submit', function(e) {

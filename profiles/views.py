@@ -12,11 +12,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.views.generic import DetailView, UpdateView
 from django.urls import reverse_lazy
-from django.shortcuts import get_object_or_404
 from django.contrib import messages
-from django.db import transaction
-from django.core.exceptions import ValidationError
-from django.http import Http404
 from typing import Any, Dict
 
 from .models import Profile
@@ -60,10 +56,10 @@ class ProfileDetailView(LoginRequiredMixin, DetailView):
         user = self.request.user
         profile = self.get_object()
         
-        # Calculate profile completion percentage
+        # Calculate profile completion percentage. first/last name now live on User.
         completion_fields = [
-            profile.first_name,
-            profile.last_name,
+            profile.user.first_name,
+            profile.user.last_name,
             profile.phone,
             profile.birth_date,
             profile.bio
@@ -121,41 +117,12 @@ class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         Redirect to profile detail view after successful update.
         """
         return reverse_lazy('profiles:detail')
-    
-    def form_valid(self, form):
-        """
-        Handle successful form submission with proper data validation.
-        """
-        try:
-            with transaction.atomic():
-                # Ensure the profile belongs to the current user
-                profile = form.save(commit=False)
-                profile.user = self.request.user
-                profile.save()
-                
-                # Add success message with personalization
-                user_name = profile.get_short_name()
-                messages.success(
-                    self.request,
-                    f'Perfeito, {user_name}! Seu perfil foi atualizado com sucesso.'
-                )
-                
-                return super().form_valid(form)
-                
-        except ValidationError as e:
-            # Handle model validation errors
-            messages.error(
-                self.request,
-                f'Erro de validação: {str(e)}'
-            )
-            return self.form_invalid(form)
-        except Exception as e:
-            # Handle unexpected errors
-            messages.error(
-                self.request,
-                'Ocorreu um erro ao salvar o perfil. Tente novamente.'
-            )
-            return self.form_invalid(form)
+
+    # NOTE: no custom form_valid. ProfileForm.save() already persists the User
+    # name fields, the Profile fields and the avatar (or its removal). Calling
+    # form.save() twice — as the previous override did — caused the avatar
+    # file to be wiped by the pre_save signal on the second save. The success
+    # message is provided by SuccessMessageMixin via `success_message` above.
     
     def form_invalid(self, form):
         """
@@ -184,10 +151,10 @@ class ProfileUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         profile = self.get_object()
         
-        # Calculate current completion percentage
+        # Calculate current completion percentage. first/last name now live on User.
         completion_fields = [
-            profile.first_name,
-            profile.last_name,
+            profile.user.first_name,
+            profile.user.last_name,
             profile.phone,
             profile.birth_date,
             profile.bio

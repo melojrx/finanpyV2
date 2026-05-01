@@ -3,6 +3,16 @@ from django.db import models
 from django.core.validators import RegexValidator
 
 
+def avatar_upload_path(instance, filename):
+    """
+    Store each user's avatar under media/avatars/<user_id>/<filename>.
+
+    Keeping a per-user folder makes cleanup trivial when a user is deleted
+    and prevents filename collisions across users.
+    """
+    return f'avatars/{instance.user_id}/{filename}'
+
+
 class Profile(models.Model):
     """
     User profile model extending the base User model with additional personal information.
@@ -23,13 +33,13 @@ class Profile(models.Model):
     - updated_at: Timestamp when profile was last updated
     """
     
-    # Phone number validator for international format
+    # Brazilian phone validator: stores only digits (10 or 11 — DDD + number).
+    # International prefix is allowed at parse time but stripped before save.
     phone_validator = RegexValidator(
-        regex=r'^\+?1?\d{9,15}$',
-        message="Phone number must be entered in the format: '+999999999'. "
-                "Up to 15 digits allowed."
+        regex=r'^\d{10,11}$',
+        message='Telefone deve conter DDD + número (10 ou 11 dígitos).'
     )
-    
+
     # One-to-one relationship with User model
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -37,28 +47,26 @@ class Profile(models.Model):
         related_name='profile',
         help_text='Associated user account for this profile'
     )
-    
-    # Personal information fields
-    first_name = models.CharField(
-        'First Name',
-        max_length=30,
-        blank=True,
-        help_text='User\'s first name'
-    )
-    
-    last_name = models.CharField(
-        'Last Name', 
-        max_length=30,
-        blank=True,
-        help_text='User\'s last name'
-    )
-    
+
+    # NOTE: first_name and last_name now live on the User model itself
+    # (django.contrib.auth.AbstractUser provides them). Keeping them here
+    # would force two-way syncing and was the root cause of the navbar
+    # showing the email prefix instead of the user's name.
+
     phone = models.CharField(
-        'Phone Number',
-        max_length=17,  # +999999999999999
+        'Telefone',
+        max_length=11,
         blank=True,
         validators=[phone_validator],
-        help_text='Phone number in international format (e.g., +1234567890)'
+        help_text='DDD + número (somente dígitos). Ex.: 11987654321'
+    )
+
+    avatar = models.ImageField(
+        'Foto de perfil',
+        upload_to=avatar_upload_path,
+        null=True,
+        blank=True,
+        help_text='Imagem JPG, PNG ou WEBP de até 2 MB.',
     )
     
     birth_date = models.DateField(
@@ -96,50 +104,48 @@ class Profile(models.Model):
         
     def __str__(self):
         """Return string representation of the profile."""
-        if self.first_name and self.last_name:
-            return f"{self.first_name} {self.last_name}"
-        elif self.first_name:
-            return self.first_name
-        else:
-            return f"Profile for {self.user.username}"
-    
+        # Avoid User.get_full_name(): the custom override falls back to email,
+        # which would mask the empty-name case and break the email fallback here.
+        full_name = f"{self.user.first_name} {self.user.last_name}".strip()
+        return full_name or f"Perfil de {self.user.email}"
+
     def clean(self):
         """
         Model-level validation.
-        
-        Validates that birth_date is not in the future and other business rules.
+
+        Validates that birth_date is not in the future.
         """
         from django.core.exceptions import ValidationError
         from django.utils import timezone
-        
+
         super().clean()
-        
-        # Validate birth_date is not in the future
+
         if self.birth_date and self.birth_date > timezone.now().date():
             raise ValidationError({
-                'birth_date': 'Birth date cannot be in the future.'
+                'birth_date': 'A data de nascimento não pode estar no futuro.'
             })
-    
-    def get_full_name(self):
+
+    @property
+    def phone_display(self):
+        """Format the stored digits as `(XX) XXXXX-XXXX` or `(XX) XXXX-XXXX`."""
+        digits = self.phone or ''
+        if len(digits) == 11:
+            return f"({digits[:2]}) {digits[2:7]}-{digits[7:]}"
+        if len(digits) == 10:
+            return f"({digits[:2]}) {digits[2:6]}-{digits[6:]}"
+        return digits
+
+    @property
+    def avatar_url(self):
+        """Return the avatar URL or empty string when no upload exists.
+
+        Templates can use `{% if profile.avatar_url %}` to decide between the
+        image and the initials fallback without raising ValueError when the
+        FieldFile is empty.
         """
-        Return the first_name plus the last_name, with a space in between.
-        Falls back to username if no names are provided.
-        """
-        if self.first_name and self.last_name:
-            return f"{self.first_name} {self.last_name}"
-        elif self.first_name:
-            return self.first_name
-        elif self.last_name:
-            return self.last_name
-        else:
-            return self.user.username
-    
-    def get_short_name(self):
-        """
-        Return the short name for the user.
-        Falls back to username if no first name is provided.
-        """
-        return self.first_name or self.user.username
+        if self.avatar and hasattr(self.avatar, 'url'):
+            return self.avatar.url
+        return ''
     
     @property
     def age(self):

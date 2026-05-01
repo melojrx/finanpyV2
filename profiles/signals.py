@@ -1,4 +1,4 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from .models import Profile
@@ -10,38 +10,43 @@ User = get_user_model()
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     """
-    Signal to automatically create a Profile when a User is created.
-    
-    This signal ensures that every User has an associated Profile object,
-    maintaining the one-to-one relationship integrity and providing a
-    seamless user experience where profiles are always available.
-    
-    Args:
-        sender: The User model class
-        instance: The User instance that was saved
-        created: Boolean indicating if this is a new User
-        **kwargs: Additional keyword arguments from the signal
+    Auto-create a Profile when a User is created.
+
+    Uses get_or_create to be safe against legacy data where the relation may
+    already exist. The previous redundant `save_user_profile` handler was
+    removed: it called `instance.profile.save()` on every User.save(), which
+    triggered cascading signal noise and offered no real benefit.
     """
     if created:
-        Profile.objects.create(user=instance)
+        Profile.objects.get_or_create(user=instance)
 
 
-@receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
+@receiver(pre_save, sender=Profile)
+def delete_old_avatar_on_change(sender, instance, **kwargs):
     """
-    Signal to save the User's Profile when the User is saved.
-    
-    This ensures that the Profile is kept in sync with any User changes
-    that might affect the profile relationship. If for some reason the
-    profile doesn't exist, it creates one.
-    
-    Args:
-        sender: The User model class
-        instance: The User instance that was saved
-        **kwargs: Additional keyword arguments from the signal
+    Remove the previous avatar file from storage when the user uploads a new one.
+
+    Without this, every replaced avatar would leak a file in MEDIA_ROOT.
+    Running on `pre_save` lets us compare the database row to the new instance
+    before the field is overwritten.
     """
-    # Check if profile exists, create if it doesn't
-    if not hasattr(instance, 'profile'):
-        Profile.objects.create(user=instance)
-    else:
-        instance.profile.save()
+    if not instance.pk:
+        return  # New profile, nothing to delete
+
+    try:
+        old = Profile.objects.get(pk=instance.pk)
+    except Profile.DoesNotExist:
+        return
+
+    old_file = old.avatar
+    new_file = instance.avatar
+    if old_file and old_file != new_file:
+        # Delete only when the file actually changed.
+        old_file.delete(save=False)
+
+
+@receiver(post_delete, sender=Profile)
+def delete_avatar_on_profile_delete(sender, instance, **kwargs):
+    """Remove the avatar file when the Profile row is deleted."""
+    if instance.avatar:
+        instance.avatar.delete(save=False)

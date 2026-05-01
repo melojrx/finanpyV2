@@ -5,57 +5,33 @@ from .models import Profile
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
+    """Admin configuration for Profile.
+
+    Names are owned by the related User model — see profile.user.first_name.
     """
-    Admin configuration for Profile model.
-    
-    Provides a clean, organized interface for managing user profiles with
-    proper field grouping, search capabilities, and filtering options.
-    """
-    
-    list_display = [
-        'get_full_name', 
-        'user', 
-        'phone', 
-        'birth_date', 
-        'created_at',
-        'updated_at'
-    ]
-    
-    list_filter = [
-        'created_at',
-        'updated_at',
-        'birth_date'
-    ]
-    
+
+    list_display = ['user', 'phone_display', 'birth_date', 'updated_at']
+    list_filter = ['created_at', 'updated_at', 'birth_date']
     search_fields = [
-        'first_name',
-        'last_name', 
+        'user__first_name',
+        'user__last_name',
         'user__username',
         'user__email',
-        'phone'
+        'phone',
     ]
-    
     readonly_fields = ['created_at', 'updated_at']
-    
+
     fieldsets = (
-        ('User Information', {
-            'fields': ('user',)
-        }),
-        ('Personal Information', {
-            'fields': ('first_name', 'last_name', 'birth_date', 'phone')
-        }),
-        ('Biography', {
-            'fields': ('bio',),
-            'classes': ('wide',)
-        }),
+        ('Usuário', {'fields': ('user',)}),
+        ('Pessoal', {'fields': ('phone', 'birth_date')}),
+        ('Biografia', {'fields': ('bio',), 'classes': ('wide',)}),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
+            'classes': ('collapse',),
+        }),
     )
-    
-    def get_full_name(self, obj):
-        """Display full name in admin list view."""
-        return obj.get_full_name()
-    get_full_name.short_description = 'Full Name'
-    get_full_name.admin_order_field = 'first_name'
+
+    def phone_display(self, obj):
+        return obj.phone_display
+
+    phone_display.short_description = 'Telefone'

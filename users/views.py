@@ -470,59 +470,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
         return context
 
-
-# Utility view for testing authentication
-class ProfileView(LoginRequiredMixin, TemplateView):
-    """
-    User profile view for authenticated users.
-    Displays user information and account settings.
-    """
-    template_name = 'users/profile.html'
-    
-    def get_context_data(self, **kwargs) -> Dict[str, Any]:
-        """Add user profile data to context."""
-        context = super().get_context_data(**kwargs)
-        user = self.request.user
-        
-        # Import models to get statistics
-        from accounts.models import Account
-        from transactions.models import Transaction
-        from categories.models import Category
-        from django.utils import timezone
-        from datetime import date
-        
-        # Calculate user statistics
-        accounts_count = Account.objects.filter(user=user, is_active=True).count()
-        
-        # Get transactions for current month
-        current_month = date.today().month
-        current_year = date.today().year
-        monthly_transactions = Transaction.objects.filter(
-            user=user,
-            transaction_date__year=current_year,
-            transaction_date__month=current_month
-        ).count()
-        
-        # Get categories count
-        categories_count = Category.objects.filter(user=user, is_active=True).count()
-        
-        # Add user profile data
-        context.update({
-            'user': user,
-            'profile_data': {
-                'email': user.email,
-                'username': user.username,
-                'full_name': user.get_full_name(),
-                'date_joined': user.date_joined,
-                'last_login': user.last_login,
-                'is_staff': user.is_staff,
-                'updated_at': user.date_joined,  # For now use date_joined as updated_at
-            },
-            'stats': {
-                'accounts_count': accounts_count,
-                'monthly_transactions': monthly_transactions,
-                'categories_count': categories_count,
-            }
-        })
-        
-        return context
+# NOTE: a duplicate ProfileView used to live here. It was removed because it
+# only rendered User fields and ignored the Profile model. The legacy URL
+# `users:profile` is now a permanent redirect to `profiles:detail` (see
+# `users/urls.py`).

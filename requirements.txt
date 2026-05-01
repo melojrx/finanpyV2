@@ -5,6 +5,7 @@ cffi==1.17.1
 Django==5.2.5
 djangorestframework==3.16.0
 gunicorn==23.0.0
+Pillow==11.3.0
 psycopg[binary]==3.2.10
 pycparser==2.22
 sqlparse==0.5.3

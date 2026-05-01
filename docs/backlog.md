@@ -12,7 +12,6 @@ bloqueiam o deploy inicial em VPS.
 - Adicionar anexos/comprovantes em transações.
 - Adicionar preferências avançadas no perfil do usuário, como tema, moeda padrão
   e preferências de dashboard.
-- Adicionar avatar de perfil com upload validado.
 - Adicionar relatórios financeiros mais completos além do dashboard atual.
 
 ## Infraestrutura

@@ -12,14 +12,18 @@
                 <div class="flex items-center space-x-4">
                     <!-- Profile Avatar -->
                     <div class="relative">
-                        <div class="w-16 h-16 bg-gradient-financial rounded-full flex items-center justify-center text-2xl font-bold text-white">
-                            {{ profile.first_name|first|default:user.username|first|upper }}
+                        <div class="w-16 h-16 bg-gradient-financial rounded-full flex items-center justify-center text-2xl font-bold text-white overflow-hidden">
+                            {% if profile.avatar_url %}
+                                <img src="{{ profile.avatar_url }}" alt="Avatar" class="w-full h-full object-cover">
+                            {% else %}
+                                {{ user.first_name|first|default:user.email|first|upper }}
+                            {% endif %}
                         </div>
                         <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-green-400 rounded-full border-2 border-dark-800"></div>
                     </div>
                     <div>
                         <h1 class="text-2xl font-bold text-white">
-                            {{ profile.get_full_name|default:user.username }}
+                            {{ user.get_full_name|default:user.email }}
                         </h1>
                         <p class="text-gray-400">{{ user.email }}</p>
                         
@@ -78,9 +82,15 @@
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-400 mb-2">Nome de Usuário</label>
-                            <div class="form-input bg-dark-700/50 border-dark-600">
-                                {{ user.username }}
+                            <label class="block text-sm font-medium text-gray-400 mb-2">Primeiro Nome</label>
+                            <div class="form-input bg-dark-700/50 border-dark-600 {% if not user.first_name %}text-gray-500 italic{% endif %}">
+                                {{ user.first_name|default:"Não informado" }}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-2">Sobrenome</label>
+                            <div class="form-input bg-dark-700/50 border-dark-600 {% if not user.last_name %}text-gray-500 italic{% endif %}">
+                                {{ user.last_name|default:"Não informado" }}
                             </div>
                         </div>
                         <div>
@@ -90,21 +100,9 @@
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-400 mb-2">Primeiro Nome</label>
-                            <div class="form-input bg-dark-700/50 border-dark-600 {% if not profile.first_name %}text-gray-500 italic{% endif %}">
-                                {{ profile.first_name|default:"Não informado" }}
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-400 mb-2">Sobrenome</label>
-                            <div class="form-input bg-dark-700/50 border-dark-600 {% if not profile.last_name %}text-gray-500 italic{% endif %}">
-                                {{ profile.last_name|default:"Não informado" }}
-                            </div>
-                        </div>
-                        <div>
                             <label class="block text-sm font-medium text-gray-400 mb-2">Telefone</label>
                             <div class="form-input bg-dark-700/50 border-dark-600 {% if not profile.phone %}text-gray-500 italic{% endif %}">
-                                {{ profile.phone|default:"Não informado" }}
+                                {{ profile.phone_display|default:"Não informado" }}
                             </div>
                         </div>
                         <div>

@@ -10,7 +10,7 @@ This module defines secure URL patterns for authentication with:
 
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from django.views.generic import TemplateView
+from django.views.generic import RedirectView, TemplateView
 from . import views
 
 # App namespace for URL reversing
@@ -93,10 +93,15 @@ urlpatterns = [
         name='dashboard'
     ),
     
+    # Legacy alias: kept as a permanent redirect because several templates
+    # (base navbar, password-change pages) still build links via
+    # {% url 'users:profile' %}. The canonical route is `profiles:detail`,
+    # which is mounted at /profile/ — so this alias must live elsewhere to
+    # avoid shadowing it.
     path(
-        'profile/',
-        views.ProfileView.as_view(),
-        name='profile'
+        'user/profile/',
+        RedirectView.as_view(pattern_name='profiles:detail', permanent=True),
+        name='profile',
     ),
 ]
 

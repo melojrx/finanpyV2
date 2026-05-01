@@ -221,10 +221,14 @@
                         <!-- User dropdown menu -->
                         <div class="relative">
                             <button id="user-menu-button" class="flex items-center space-x-2 text-gray-300 hover:text-white p-2 rounded-md transition-colors duration-200">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                </svg>
-                                <span class="text-sm">{{ user.get_short_name|default:user.username }}</span>
+                                <span class="w-7 h-7 rounded-full bg-gradient-financial flex items-center justify-center text-xs font-bold text-white overflow-hidden">
+                                    {% if user.profile.avatar_url %}
+                                        <img src="{{ user.profile.avatar_url }}" alt="Avatar" class="w-full h-full object-cover">
+                                    {% else %}
+                                        {{ user.first_name|first|default:user.email|first|upper }}
+                                    {% endif %}
+                                </span>
+                                <span class="text-sm">{{ user.get_short_name }}</span>
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                 </svg>
@@ -498,6 +502,7 @@
     
     <!-- Custom JavaScript -->
     <script src="{% static 'js/main.js' %}"></script>
+    <script src="{% static 'js/masks.js' %}"></script>
     
     <!-- Authentication UI JavaScript -->
     <script>
