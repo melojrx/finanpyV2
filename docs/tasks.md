@@ -442,6 +442,11 @@ Checklist:
 
 ## Backlog de Produção Pós-MVP
 
+O backlog oficial e rastreável do produto está em `docs/backlog.md`, alinhado
+ao projeto Jira `FIN`. Esta seção fica apenas como resumo operacional dos itens
+pós-MVP que apareceram durante as sprints deste documento; não substitui o mapa
+Jira.
+
 Itens abaixo não bloqueiam o primeiro deploy em VPS:
 
 - [x] Implementar app `goals` — ver Sprint 5.
@@ -449,6 +454,9 @@ Itens abaixo não bloqueiam o primeiro deploy em VPS:
 - [ ] Implementar anexos/comprovantes de transação.
 - [x] Adicionar avatar de perfil com upload validado.
 - [ ] Implementar preferências avançadas de usuário (tema, moeda padrão, dashboard).
+- [ ] Configurar provedor SMTP real em produção para emails transacionais
+  (`EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`,
+  `DEFAULT_FROM_EMAIL`), validando envio de reset de senha.
 - [ ] Adicionar Redis/cache quando houver necessidade medida.
 - [ ] Adicionar Sentry/monitoramento após deploy base.
 - [ ] Expandir testes de `accounts`, `categories`, `budgets`, `users` e `goals`.
