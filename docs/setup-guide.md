@@ -98,7 +98,7 @@ finanpy_v2/
 ├── categories/     # Categorias
 ├── core/           # Settings e URLs do projeto
 ├── docs/           # Documentação oficial
-├── goals/          # Reservado para metas futuras
+├── goals/          # Metas financeiras e aportes
 ├── profiles/       # Perfis de usuário
 ├── static/         # CSS, JS, imagens e fontes
 ├── templates/      # Templates Django
@@ -115,5 +115,5 @@ finanpy_v2/
 - O desenvolvimento local usa SQLite.
 - Produção usa PostgreSQL via Docker Compose.
 - TailwindCSS está via CDN no template base.
-- O app `goals` ainda não possui models, URLs ou templates funcionais.
+- CSS estático deve ser CSS de navegador; não há build Tailwind local hoje.
 - Recursos não implementados ficam documentados em `docs/backlog.md`.

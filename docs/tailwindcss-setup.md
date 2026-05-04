@@ -4,6 +4,10 @@
 
 A tarefa **1.1.2** do PRD foi implementada com sucesso, configurando TailwindCSS no projeto FinanPy com tema escuro como padrão e paleta de cores específica para aplicação financeira.
 
+O estado atual usa TailwindCSS via CDN, sem pipeline Node/PostCSS. Por isso,
+`static/css/custom.css` deve conter CSS válido para navegador e não deve usar
+diretivas de build como `@apply`.
+
 ## ✅ Tarefas Concluídas
 
 ### 1. **Estrutura de Templates**
@@ -15,6 +19,7 @@ A tarefa **1.1.2** do PRD foi implementada com sucesso, configurando TailwindCSS
 - ✅ Instalado TailwindCSS via CDN no template base
 - ✅ CDN utilizado: `https://cdn.tailwindcss.com`
 - ✅ Configuração customizada inline no template
+- ✅ Sem build local de TailwindCSS no fluxo atual
 
 ### 3. **Tema Escuro como Padrão**
 - ✅ Configurado `darkMode: 'class'` na configuração do Tailwind
@@ -127,6 +132,7 @@ http://localhost:8000/
 2. **Componentes Reutilizáveis** - Criar templates parciais para cards, botões, etc.
 3. **Gráficos Dinâmicos** - Integrar biblioteca de gráficos (Chart.js/D3.js)
 4. **Otimização de Build** - Migrar do CDN para build customizado quando necessário
+   e, nesse momento, reavaliar o uso de `@apply`
 
 ## 📋 Validação das Especificações
 

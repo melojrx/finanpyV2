@@ -267,6 +267,8 @@ from core.utils import format_currency
 ### TailwindCSS
 
 - **Theme**: Usar tema escuro como padrão
+- **Build atual**: TailwindCSS via CDN; arquivos em `static/css/` devem conter
+  CSS comum, sem `@apply`.
 - **Cores principais**: 
   - Background: `bg-gray-900`, `bg-gray-800`
   - Text: `text-white`, `text-gray-300`
@@ -277,18 +279,27 @@ from core.utils import format_currency
 ```css
 /* Classes customizadas quando necessário */
 .card {
-    @apply bg-gray-800 rounded-lg shadow-lg p-6;
+    background-color: #1f2937;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    padding: 1.5rem;
 }
 
 .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg 
-           transition-colors duration-200 font-medium;
+    background-color: #2563eb;
+    color: #fff;
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
 }
 
 .form-input {
-    @apply bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 
-           text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 
-           focus:border-transparent;
+    background-color: #374151;
+    border: 1px solid #4b5563;
+    border-radius: 0.5rem;
+    color: #fff;
+    padding: 0.5rem 0.75rem;
 }
 ```
 

@@ -30,8 +30,11 @@ conta com:
 - CRUD de categorias com hierarquia.
 - CRUD de transações com receitas, despesas e recorrência marcada.
 - Atualização automática de saldo por signals de transação.
-- Orçamentos por categoria de despesa com cálculo de valor gasto.
+- Orçamentos por categoria de despesa com cálculo de valor gasto e alertas.
+- Metas financeiras com histórico de aportes.
+- Perfil com telefone, data de nascimento, bio e avatar.
 - Dashboard e templates server-rendered com Django Templates e TailwindCSS CDN.
+- API REST autenticada por token para contas, categorias, transações e resumos.
 
 ## Stack Atual
 
@@ -41,16 +44,16 @@ conta com:
 - Gunicorn como servidor WSGI em produção.
 - Nginx como proxy reverso e servidor de static/media.
 - TailwindCSS via CDN.
+- Django REST Framework para a API atual.
 
 ## Fora do Escopo Atual
 
 Os itens abaixo são backlog, não funcionalidades atuais:
 
-- App `goals` funcional.
-- APIs REST públicas.
 - Redis, Celery, Sentry ou S3.
 - Upload de comprovantes de transação.
-- Avatar e preferências avançadas no perfil.
+- Preferências avançadas no perfil.
+- API REST para orçamentos, metas e demais recursos não expostos hoje.
 - Build local de TailwindCSS.
 
 Consulte [backlog.md](./backlog.md) para detalhes.

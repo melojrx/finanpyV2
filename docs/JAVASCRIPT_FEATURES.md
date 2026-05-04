@@ -6,6 +6,10 @@ This document describes the comprehensive JavaScript functionality implemented f
 
 The transaction system now includes a modular JavaScript architecture with the following key components:
 
+Current loading model: `static/js/main.js` is loaded by `templates/base.html` as
+a classic browser script, not as an ES module. Shared classes are exposed through
+`window.*` assignments for template scripts and backward compatibility.
+
 ### 1. Core Classes
 
 #### TransactionManager
@@ -200,7 +204,7 @@ chartManager.createBalanceTrendChart('balance-chart', {
 
 ```
 static/js/
-├── main.js                 # Enhanced main JavaScript file with all classes
+├── main.js                 # Classic browser script with shared classes
 templates/transactions/
 ├── transaction_form.html   # Enhanced form with JavaScript integration
 ├── transaction_list.html   # Enhanced list with quick modal
@@ -215,6 +219,7 @@ transactions/
 - **TailwindCSS**: For styling and responsive design
 - **Django**: Backend framework with CSRF protection
 - **Modern Browser**: ES6+ support required
+- **Script loading**: Classic `<script src="...">`; no top-level `export`
 
 ## Future Enhancements
 

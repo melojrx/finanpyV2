@@ -2,6 +2,10 @@
 
 Este documento define os padrões e diretrizes para o desenvolvimento frontend no projeto Finanpy, incluindo HTML, CSS (TailwindCSS), JavaScript e componentes reutilizáveis.
 
+Estado atual: TailwindCSS roda via CDN no `templates/base.html`. O CSS em
+`static/css/custom.css` é entregue diretamente ao navegador, então deve ser CSS
+compilado/manual e não pode depender de `@apply` ou de um build local.
+
 ## 🎨 Design System
 
 ### Paleta de Cores
@@ -317,6 +321,9 @@ Este documento define os padrões e diretrizes para o desenvolvimento frontend n
 ```
 
 ## 🎯 Classes CSS Customizadas
+
+No estado atual, escreva classes customizadas como CSS comum. Exemplos com
+`@apply` só são válidos se o projeto migrar para build local de TailwindCSS.
 
 ### Base Styles
 ```css

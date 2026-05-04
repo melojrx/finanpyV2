@@ -6,13 +6,12 @@ bloqueiam o deploy inicial em VPS.
 
 ## Produto
 
-- Implementar app `goals` com models, views, forms, URLs, templates e testes.
-- Adicionar contribuições para metas financeiras, se a funcionalidade de metas
-  exigir histórico de aportes.
 - Adicionar anexos/comprovantes em transações.
 - Adicionar preferências avançadas no perfil do usuário, como tema, moeda padrão
   e preferências de dashboard.
 - Adicionar relatórios financeiros mais completos além do dashboard atual.
+- Adicionar vínculo opcional entre aportes de metas, transações e contas.
+- Adicionar API REST para orçamentos, metas, perfis e relatórios avançados.
 
 ## Infraestrutura
 
@@ -41,5 +40,4 @@ Os seguintes tópicos foram movidos para backlog porque não existem no código:
 - `crispy_forms`, `crispy_tailwind`, `django_extensions` como dependências
   oficiais do projeto.
 - `core.middleware.*` e `core.context_processors.*`.
-- APIs REST públicas ou documentação de endpoints API além dos pequenos endpoints
-  AJAX existentes.
+- API REST para orçamentos, metas, perfis e relatórios avançados.

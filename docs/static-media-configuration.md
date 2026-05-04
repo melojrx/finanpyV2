@@ -17,8 +17,7 @@ finanpy_v2/
 │   └── fonts/                # Fontes personalizadas
 ├── staticfiles/              # Arquivos coletados pelo collectstatic
 ├── media/                    # Arquivos enviados pelos usuários
-│   ├── profile_avatars/      # Avatars de perfil
-│   └── transaction_receipts/ # Comprovantes de transações
+│   └── avatars/              # Avatars de perfil por usuário
 └── templates/
     └── base.html            # Template base com configuração de static files
 ```
@@ -228,16 +227,12 @@ location /media/ {
 ### Profile Avatars
 
 ```python
-def user_avatar_path(instance, filename):
-    return f'profile_avatars/user_{instance.id}/{filename}'
+def avatar_upload_path(instance, filename):
+    return f'avatars/{instance.user_id}/{filename}'
 ```
 
-### Transaction Receipts
-
-```python
-def transaction_receipt_path(instance, filename):
-    return f'transaction_receipts/{instance.user.id}/{filename}'
-```
+Comprovantes de transação ainda não existem no código atual; esse item fica no
+backlog até haver model/campo de upload correspondente.
 
 ## Testes
 

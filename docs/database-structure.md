@@ -12,11 +12,16 @@ erDiagram
     User ||--o{ Category : creates
     User ||--o{ Transaction : makes
     User ||--o{ Budget : plans
+    User ||--o{ BudgetAlert : receives
+    User ||--o{ Goal : tracks
+    User ||--o{ GoalContribution : contributes
 
     Account ||--o{ Transaction : contains
     Category ||--o{ Transaction : categorizes
     Category ||--o{ Budget : budgets
     Category ||--o{ Category : parent_of
+    Budget ||--o{ BudgetAlert : triggers
+    Goal ||--o{ GoalContribution : receives
 ```
 
 ## User
@@ -49,6 +54,7 @@ Campos:
 - `first_name`: nome complementar do perfil.
 - `last_name`: sobrenome complementar do perfil.
 - `phone`: telefone opcional validado por regex.
+- `avatar`: imagem opcional salva em `media/avatars/<user_id>/`.
 - `birth_date`: data de nascimento opcional.
 - `bio`: biografia curta opcional.
 - `created_at`: criação.
@@ -56,7 +62,6 @@ Campos:
 
 Não existem hoje:
 
-- Avatar.
 - JSON de preferências.
 
 ## Account
@@ -175,10 +180,78 @@ Signals:
 
 - Transações de despesa atualizam o cache dos orçamentos afetados.
 - Atualizações no orçamento limpam o cache para recálculo.
+- Alertas são criados quando o orçamento cruza os limites de 70%, 90% e 100%.
+
+## BudgetAlert
+
+App: `budgets`
+
+Alerta persistente emitido quando um orçamento cruza um limite de uso.
+
+Campos:
+
+- `budget`: orçamento relacionado.
+- `user`: dono do alerta, denormalizado para consultas rápidas.
+- `threshold`: limite cruzado, hoje 70, 90 ou 100.
+- `spent_at_trigger`: gasto no momento do alerta.
+- `percentage_at_trigger`: percentual no momento do alerta.
+- `triggered_at`: criação.
+- `acknowledged_at`: preenchido quando o usuário marca como lido.
+
+Regras:
+
+- Um orçamento só possui um alerta por limite.
+- Alertas não lidos são expostos no contexto global do layout.
 
 ## Goals
 
 App: `goals`
 
-O app existe no repositório, mas não possui model implementado. A funcionalidade
-de metas está no backlog.
+Meta financeira pertencente a um usuário.
+
+Campos:
+
+- `user`: dono da meta.
+- `name`: nome.
+- `description`: descrição opcional.
+- `target_amount`: valor alvo.
+- `current_amount`: soma dos aportes, recalculada automaticamente.
+- `deadline`: prazo opcional.
+- `icon`: emoji usado na interface.
+- `color`: cor hexadecimal escolhida.
+- `status`: `ACTIVE`, `COMPLETED` ou `CANCELLED`.
+- `created_at`: criação.
+- `updated_at`: última atualização.
+
+Regras:
+
+- Nome é obrigatório.
+- Valor alvo deve ser positivo.
+- Prazo passado é rejeitado na criação.
+- Progresso é limitado a 100% para exibição.
+
+## GoalContribution
+
+App: `goals`
+
+Aporte individual para uma meta financeira.
+
+Campos:
+
+- `goal`: meta relacionada.
+- `user`: dono do aporte.
+- `amount`: valor positivo.
+- `date`: data do aporte.
+- `notes`: observações opcionais.
+- `created_at`: criação.
+
+Regras:
+
+- Valor deve ser positivo.
+- A meta deve pertencer ao mesmo usuário do aporte.
+
+Signals:
+
+- Criação ou remoção de aporte recalcula `Goal.current_amount`.
+- Meta não cancelada vira `COMPLETED` quando os aportes atingem o alvo e volta
+  para `ACTIVE` se o valor cair abaixo do alvo.

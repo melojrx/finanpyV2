@@ -24,8 +24,10 @@ graph TD
 - `accounts`: contas financeiras.
 - `categories`: categorias de receita/despesa com hierarquia.
 - `transactions`: receitas, despesas e atualização automática de saldo.
-- `budgets`: orçamentos por categoria de despesa.
-- `goals`: reservado para metas futuras, ainda sem model funcional.
+- `budgets`: orçamentos por categoria de despesa e alertas por limite.
+- `goals`: metas financeiras com aportes e progresso calculado por signal.
+- `api`: endpoints REST autenticados para contas, categorias, transações e
+  resumos mensal/anual.
 - `core`: settings, URLs raiz, WSGI e ASGI.
 
 ## Fluxo de Dados
@@ -65,6 +67,23 @@ Signals são usados onde há consistência automática de domínio:
   transações.
 - `budgets.signals`: atualiza ou limpa cache de orçamento quando transações ou
   orçamentos mudam.
+- `goals.signals`: recalcula valor atual e status das metas quando aportes são
+  criados ou removidos.
+
+## API REST
+
+A API atual usa Django REST Framework com autenticação por token e permissão
+`IsAuthenticated` por padrão.
+
+Endpoints implementados em `/api/v1/`:
+
+- `accounts/`: CRUD de contas do usuário autenticado.
+- `categories/`: CRUD de categorias ativas do usuário autenticado, com filtro
+  opcional `type=INCOME|EXPENSE`.
+- `transactions/`: CRUD de transações do usuário autenticado, com filtros por
+  tipo, ano, mês, conta e categoria.
+- `summary/monthly/`: resumo mensal por `year` e `month`.
+- `summary/yearly/`: resumo anual por `year`.
 
 ## Produção
 
@@ -82,4 +101,4 @@ Não fazem parte da arquitetura atual:
 - Celery.
 - Sentry.
 - S3.
-- API REST pública.
+- API REST para orçamentos, metas, perfis ou relatórios avançados.

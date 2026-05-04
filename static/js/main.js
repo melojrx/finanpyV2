@@ -1232,6 +1232,3 @@ class ChartManager {
 // Global instances
 let transactionManager;
 let chartManager;
-
-// Export for use in other files
-export { ThemeManager, FinancialUtils, ToastManager, FormValidator, TransactionManager, CurrencyFormatter, QuickTransactionModal, EnhancedFormValidator, AjaxHelper, ChartManager };
