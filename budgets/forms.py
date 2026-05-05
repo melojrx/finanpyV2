@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Sum, Avg, Count, Q
 from decimal import Decimal
 from datetime import date, datetime, timedelta
-from .models import Budget
+from .models import Budget, MonthlyPlan
 from categories.models import Category
 from transactions.models import Transaction
 
@@ -519,6 +519,101 @@ class BudgetFilterForm(forms.Form):
             )
         
         return queryset
+
+
+class MonthlyPlanForm(forms.ModelForm):
+    """
+    Create / update a MonthlyPlan for a given (user, year, month).
+
+    The view is responsible for injecting `year` and `month` into the
+    instance before calling save(), so those fields are excluded from the
+    rendered form — the user picks the month via URL navigation, not a
+    free-text field.
+    """
+
+    class Meta:
+        model = MonthlyPlan
+        fields = [
+            'renda_prevista',
+            'teto_despesas',
+            'reserva_dividas',
+            'reserva_metas',
+            'reserva_investimentos',
+            'notes',
+        ]
+        widgets = {
+            'renda_prevista': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'step': '0.01',
+                'min': '0.00',
+                'placeholder': '0,00',
+            }),
+            'teto_despesas': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'step': '0.01',
+                'min': '0.00',
+                'placeholder': '0,00',
+            }),
+            'reserva_dividas': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'step': '0.01',
+                'min': '0.00',
+                'placeholder': '0,00',
+            }),
+            'reserva_metas': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'step': '0.01',
+                'min': '0.00',
+                'placeholder': '0,00',
+            }),
+            'reserva_investimentos': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'step': '0.01',
+                'min': '0.00',
+                'placeholder': '0,00',
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-input',
+                'rows': 3,
+                'placeholder': 'Observações opcionais sobre este plano…',
+            }),
+        }
+        labels = {
+            'renda_prevista': 'Renda Prevista (R$)',
+            'teto_despesas': 'Teto de Despesas (R$)',
+            'reserva_dividas': 'Reserva Dívidas (R$)',
+            'reserva_metas': 'Reserva Metas (R$)',
+            'reserva_investimentos': 'Reserva Investimentos (R$)',
+            'notes': 'Observações',
+        }
+
+    def clean_renda_prevista(self):
+        value = self.cleaned_data.get('renda_prevista')
+        if value is not None and value < Decimal('0.00'):
+            raise ValidationError('Renda prevista não pode ser negativa.')
+        return value
+
+    def clean_teto_despesas(self):
+        value = self.cleaned_data.get('teto_despesas')
+        if value is not None and value < Decimal('0.00'):
+            raise ValidationError('Teto de despesas não pode ser negativo.')
+        return value
+
+    def clean(self):
+        cleaned = super().clean()
+        renda = cleaned.get('renda_prevista') or Decimal('0.00')
+        teto = cleaned.get('teto_despesas') or Decimal('0.00')
+        dividas = cleaned.get('reserva_dividas') or Decimal('0.00')
+        metas = cleaned.get('reserva_metas') or Decimal('0.00')
+        investimentos = cleaned.get('reserva_investimentos') or Decimal('0.00')
+
+        total_comprometido = teto + dividas + metas + investimentos
+        if total_comprometido > renda:
+            raise ValidationError(
+                f'Teto de despesas + reservas (R$ {total_comprometido:,.2f}) '
+                f'não pode exceder a renda prevista (R$ {renda:,.2f}).'
+            )
+        return cleaned
 
 
 class BudgetDeleteConfirmationForm(forms.Form):

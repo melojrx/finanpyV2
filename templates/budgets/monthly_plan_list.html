@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load currency_filters %}
+
+{% block title %}Histórico de Planos Mensais — FinanPy{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-financial-dark">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <div class="mb-6 flex justify-between items-center">
+      <div>
+        <h1 class="text-3xl font-bold text-white mb-1">Planos Mensais</h1>
+        <p class="text-gray-300 text-sm">Histórico de todos os planos globais mensais.</p>
+      </div>
+      <a href="{% url 'budgets:monthly_plan' %}"
+         class="btn-primary px-4 py-2 rounded-lg text-sm font-semibold">
+        + Plano do mês atual
+      </a>
+    </div>
+
+    {% if plans %}
+    <div class="bg-dark-800/70 border border-dark-700 rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-xs uppercase text-gray-400 tracking-wider bg-dark-900/60">
+            <tr>
+              <th class="px-4 py-3 text-left">Período</th>
+              <th class="px-4 py-3 text-right">Renda Prevista</th>
+              <th class="px-4 py-3 text-right">Teto Despesas</th>
+              <th class="px-4 py-3 text-right">Sobra Planejada</th>
+              <th class="px-4 py-3 text-center">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-dark-700">
+            {% for p in plans %}
+            <tr class="hover:bg-dark-700/30 transition-colors">
+              <td class="px-4 py-3 font-medium text-white capitalize">
+                {{ p.period_start|date:"F Y" }}
+              </td>
+              <td class="px-4 py-3 text-right text-green-400">{{ p.renda_prevista_display }}</td>
+              <td class="px-4 py-3 text-right text-red-400">{{ p.teto_despesas_display }}</td>
+              <td class="px-4 py-3 text-right
+                {% if p.sobra_planejada >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                {{ p.sobra_planejada_display }}
+              </td>
+              <td class="px-4 py-3 text-center">
+                <a href="{% url 'budgets:monthly_plan_for' year=p.year month=p.month %}"
+                   class="text-primary-400 hover:text-primary-300 text-xs transition-colors">
+                  Ver / Editar
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# Pagination #}
+    {% if is_paginated %}
+    <div class="mt-6 flex justify-center gap-2">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}"
+         class="px-3 py-1 rounded bg-dark-800 text-gray-300 hover:text-white text-sm">← Anterior</a>
+      {% endif %}
+      <span class="px-3 py-1 text-sm text-gray-400">
+        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+      </span>
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}"
+         class="px-3 py-1 rounded bg-dark-800 text-gray-300 hover:text-white text-sm">Próxima →</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-16 text-gray-400">
+      <p class="text-lg mb-4">Nenhum plano mensal criado ainda.</p>
+      <a href="{% url 'budgets:monthly_plan' %}" class="btn-primary px-6 py-2 rounded-lg text-sm">
+        Criar primeiro plano
+      </a>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

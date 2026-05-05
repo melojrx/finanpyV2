@@ -12,6 +12,7 @@ sprint.
 - [x] Sprint 3 - Documentação oficial alinhada ao código
 - [x] Sprint 4 - Validação final e evidências
 - [x] Sprint 5 - Módulo de Metas Financeiras (goals)
+- [x] Sprint 6 - Plano Mensal Global (MonthlyPlan)
 
 ## Sprint 0 - Planejamento Documentado
 
@@ -437,6 +438,218 @@ Checklist:
 - `DashboardView` em `users/views.py` agora carrega `active_goals`
   (top 3 ativas por `current_amount`) e o bloco "Metas Financeiras" do
   dashboard renderiza dados reais com cores e ícones por meta.
+
+---
+
+## Sprint 6 — Plano Mensal Global (MonthlyPlan)
+
+Objetivo: implementar o planejamento financeiro mensal consolidado por usuário,
+permitindo definir renda prevista, teto de despesas e reservas, com acompanhamento
+em tempo real via transações.
+
+### Contexto e Decisões de Design
+
+**O que é o Plano Mensal?**
+
+Uma visão consolidada do mês que combina dados planejados (inseridos pelo
+usuário) com dados realizados (calculados automaticamente a partir das
+`Transaction`). Um registro por usuário/mês, com validação cruzada que garante
+que despesas + reservas não ultrapassem a renda prevista.
+
+**Por que um model separado em vez de estender `Budget`?**
+
+`Budget` é orçamento por categoria; `MonthlyPlan` é orçamento global do mês.
+São conceitos distintos com granularidades diferentes. Manter separado evita
+poluir o model de categorias com campos de consolidado mensal.
+
+**Reservas genéricas (dívidas, metas, investimentos)**
+
+Os campos `reserva_dividas`, `reserva_metas` e `reserva_investimentos` são
+preparados para os módulos FIN-7, FIN-9 e FIN-10, mas já funcionam como
+reservas genéricas no cálculo de sobra planejada.
+
+---
+
+### Passo 1 — Model (`budgets/models.py`)
+
+Criar `MonthlyPlan` com campos planejados e propriedades calculadas do lado
+realizado.
+
+| Campo | Tipo | Observação |
+|---|---|---|
+| `user` | FK → User | isolamento por usuário |
+| `year` | PositiveSmallIntegerField | ano do plano |
+| `month` | PositiveSmallIntegerField | mês do plano (1–12) |
+| `renda_prevista` | DecimalField(12,2) | receitas esperadas |
+| `teto_despesas` | DecimalField(12,2) | limite máximo de gastos |
+| `reserva_dividas` | DecimalField(12,2), default 0 | preparado FIN-7 |
+| `reserva_metas` | DecimalField(12,2), default 0 | preparado FIN-9 |
+| `reserva_investimentos` | DecimalField(12,2), default 0 | preparado FIN-10 |
+| `notes` | TextField, opcional | observações livres |
+| `created_at` | DateTimeField(auto_now_add) | auditoria |
+| `updated_at` | DateTimeField(auto_now) | auditoria |
+
+Regras de negócio no `clean()`:
+- `month` entre 1 e 12; `year` entre 2000 e 2100.
+- `teto_despesas + reservas ≤ renda_prevista`.
+
+Propriedades calculadas (lado realizado, via `Transaction`):
+- `renda_realizada` → soma de INCOME no período.
+- `despesas_realizadas` → soma de EXPENSE no período.
+- `saldo_disponivel` → renda_realizada − despesas_realizadas.
+- `percentual_consumido` → despesas / teto × 100.
+- `limite_diario_recomendado` → (teto − despesas) / dias_restantes.
+- `status` → 'ok' / 'atencao' / 'critico' baseado no percentual consumido.
+
+Checklist:
+- [x] Criar `MonthlyPlan` com campos, Meta class, `__str__`, `clean()` e propriedades.
+- [x] Adicionar `UniqueConstraint` em `(user, year, month)`.
+- [x] Adicionar `CheckConstraint` para mês e ano válidos.
+- [x] Adicionar index em `(user, year, month)`.
+
+---
+
+### Passo 2 — Formulário (`budgets/forms.py`)
+
+**MonthlyPlanForm** — para criar e atualizar o plano:
+- Campos visíveis: `renda_prevista`, `teto_despesas`, `reserva_dividas`,
+  `reserva_metas`, `reserva_investimentos`, `notes`.
+- `year` e `month` injetados pela view (via URL), não expostos no form.
+- Validação cruzada: teto + reservas ≤ renda prevista.
+
+Checklist:
+- [x] Criar `MonthlyPlanForm` com widgets e validação adequados.
+
+---
+
+### Passo 3 — Views (`budgets/views.py`)
+
+| View | Classe base | URL | Propósito |
+|---|---|---|---|
+| `MonthlyPlanView` | View (GET/POST) | `/budgets/plano/` e `/budgets/plano/<year>/<month>/` | upsert do plano mensal |
+| `MonthlyPlanListView` | ListView | `/budgets/planos/` | histórico de planos |
+
+Regras:
+- `LoginRequiredMixin` em ambas.
+- `MonthlyPlanView` resolve o período (ano/mês) da URL ou usa o mês atual.
+- GET preenche o form com plano existente (se houver).
+- POST cria ou atualiza o plano para o usuário logado.
+- Contexto inclui navegação entre meses, orçamentos por categoria e KPIs.
+
+Checklist:
+- [x] Implementar `MonthlyPlanView` com GET/POST e contexto rico.
+- [x] Implementar `MonthlyPlanListView` com paginação.
+- [x] Garantir isolamento por usuário em todos os querysets.
+
+---
+
+### Passo 4 — URLs (`budgets/urls.py`)
+
+```python
+path('plano/', views.MonthlyPlanView.as_view(), name='monthly_plan'),
+path('plano/<int:year>/<int:month>/', views.MonthlyPlanView.as_view(), name='monthly_plan_for'),
+path('planos/', views.MonthlyPlanListView.as_view(), name='monthly_plan_list'),
+```
+
+Checklist:
+- [x] Adicionar 3 rotas de plano mensal em `budgets/urls.py`.
+
+---
+
+### Passo 5 — Templates (`templates/budgets/`)
+
+| Arquivo | Propósito |
+|---|---|
+| `monthly_plan.html` | Formulário + KPI cards (status, renda, despesas, sobra, limite diário, reservas) + orçamentos por categoria |
+| `monthly_plan_list.html` | Tabela de histórico paginado com renda, teto e sobra |
+
+Diretrizes visuais:
+- Cards com `bg-dark-800/70`, bordas arredondadas, borda sutil.
+- Barra de progresso de consumo com cores semânticas (verde/amarelo/vermelho).
+- Navegação entre meses anterior/próximo/mês atual.
+
+Checklist:
+- [x] Criar `monthly_plan.html` com formulário e KPIs.
+- [x] Criar `monthly_plan_list.html` com histórico paginado.
+
+---
+
+### Passo 6 — Admin (`budgets/admin.py`)
+
+Registrar `MonthlyPlan` no admin com listagem por usuário, ano e mês.
+
+Checklist:
+- [x] Registrar `MonthlyPlanAdmin` com `list_display`, `list_filter` e `search_fields`.
+
+---
+
+### Passo 7 — Migração e Verificação
+
+```bash
+python manage.py makemigrations budgets
+python manage.py migrate
+python manage.py check
+```
+
+Checklist:
+- [x] Gerar migration `budgets/migrations/0003_monthly_plan.py`.
+- [x] Aplicar migration sem erros.
+- [x] `manage.py check` sem warnings.
+
+---
+
+### Passo 8 — Testes (`budgets/tests.py`)
+
+Cobrir cenários críticos com `TestCase`, mesmo padrão dos outros apps.
+
+Cenários mínimos:
+- Criar plano com dados válidos.
+- Rejeitar plano duplicado (mesmo usuário/ano/mês).
+- Rejeitar reservas que excedem renda prevista.
+- Rejeitar mês/ano inválidos.
+- Verificar cálculo de sobra planejada.
+- Verificar soma de renda realizada a partir de transações INCOME.
+- Verificar soma de despesas realizadas a partir de transações EXPENSE.
+- Verificar exclusão de transações fora do período.
+- Verificar isolamento por usuário nas transações.
+- Verificar status 'ok'/'atencao'/'critico' baseado no consumo.
+- Verificar limite diário recomendado.
+- View GET retorna 200 e template correto.
+- View POST cria plano novo.
+- View POST atualiza plano existente.
+- View POST rejeita dados inválidos.
+- ListView mostra apenas planos do usuário logado.
+
+Checklist:
+- [x] Implementar testes de model (`MonthlyPlanModelTests`).
+- [x] Implementar testes de view (`MonthlyPlanViewTests`).
+- [x] `python manage.py test budgets` sem falhas.
+
+---
+
+### Critérios de Aceite do Sprint 6
+
+- [x] Usuário consegue criar e editar um plano mensal global.
+- [x] Validação impede que despesas + reservas excedam a renda prevista.
+- [x] Apenas um plano por usuário/mês é permitido.
+- [x] KPIs realizados (renda, despesas, saldo) refletem transações do período.
+- [x] Status de saúde ('ok'/'atencao'/'critico') é calculado corretamente.
+- [x] Limite diário recomendado se ajusta conforme o mês avança.
+- [x] Nenhum usuário acessa dados de outro usuário.
+- [x] `manage.py check` e `manage.py test` passam sem erros.
+
+### Evidências Sprint 6
+
+- Model `MonthlyPlan` adicionado em `budgets/models.py` (~340 linhas) com
+  validações, constraints, indexes e propriedades calculadas.
+- Formulário `MonthlyPlanForm` em `budgets/forms.py` com validação cruzada.
+- Views `MonthlyPlanView` (upsert) e `MonthlyPlanListView` em `budgets/views.py`.
+- 3 rotas adicionadas em `budgets/urls.py`.
+- Admin `MonthlyPlanAdmin` registrado em `budgets/admin.py`.
+- Templates `monthly_plan.html` e `monthly_plan_list.html` criados.
+- Migration `budgets/migrations/0003_monthly_plan.py` gerada e aplicada.
+- Testes: ~46 novos testes cobrindo model, validações, propriedades calculadas
+  e views (isolamento, GET, POST create/update, rejeição de inválidos).
 
 ---
 

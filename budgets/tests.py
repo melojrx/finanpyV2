@@ -18,7 +18,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import Account
-from budgets.models import Budget, BudgetAlert
+from budgets.models import Budget, BudgetAlert, MonthlyPlan
 from categories.models import Category
 from transactions.models import Transaction
 
@@ -660,3 +660,368 @@ class BudgetAlertViewTests(BudgetTestMixin, TestCase):
         self.assertEqual(
             BudgetAlert.objects.unacknowledged_for_user(self.user).count(), 0,
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MonthlyPlan tests
+# ─────────────────────────────────────────────────────────────────────────────
+
+class MonthlyPlanTestMixin(BudgetTestMixin):
+    """Shared helpers for MonthlyPlan tests."""
+
+    @classmethod
+    def make_income_category(cls, user, name="Salário"):
+        return Category.objects.create(
+            user=user,
+            name=name,
+            category_type="INCOME",
+        )
+
+    @classmethod
+    def make_plan(cls, user, year=None, month=None, **overrides):
+        today = date.today()
+        defaults = dict(
+            user=user,
+            year=year or today.year,
+            month=month or today.month,
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("3000.00"),
+            reserva_dividas=Decimal("500.00"),
+            reserva_metas=Decimal("500.00"),
+            reserva_investimentos=Decimal("500.00"),
+        )
+        defaults.update(overrides)
+        plan = MonthlyPlan(**defaults)
+        plan.save()
+        return plan
+
+    @classmethod
+    def make_income(cls, user, account, category, amount, when=None):
+        return Transaction.objects.create(
+            user=user,
+            account=account,
+            category=category,
+            transaction_type="INCOME",
+            amount=Decimal(str(amount)),
+            description=f"Receita {amount}",
+            transaction_date=when or date.today(),
+        )
+
+
+class MonthlyPlanModelTests(MonthlyPlanTestMixin, TestCase):
+    """Validation, constraints and calculated properties on MonthlyPlan."""
+
+    def setUp(self):
+        self.user = self.make_user()
+        self.account = self.make_account(self.user)
+        self.income_cat = self.make_income_category(self.user)
+        self.expense_cat = self.make_expense_category(self.user)
+
+    # ── creation & uniqueness ─────────────────────────────────────────────────
+
+    def test_create_valid_plan(self):
+        plan = self.make_plan(self.user)
+        self.assertIsNotNone(plan.pk)
+        self.assertEqual(str(plan), f"Plano {plan.month:02d}/{plan.year} — {self.user}")
+
+    def test_duplicate_month_rejected(self):
+        self.make_plan(self.user)
+        from django.db import IntegrityError
+        with self.assertRaises((IntegrityError, Exception)):
+            self.make_plan(self.user)  # same user/year/month
+
+    def test_different_users_same_month_allowed(self):
+        other = self.make_user(suffix="2")
+        self.make_plan(self.user)
+        other_plan = self.make_plan(other)  # should not raise
+        self.assertNotEqual(other_plan.user, self.user)
+
+    def test_different_months_same_user_allowed(self):
+        today = date.today()
+        plan1 = self.make_plan(self.user, year=today.year, month=today.month)
+        next_month = today.month % 12 + 1
+        next_year = today.year + (1 if today.month == 12 else 0)
+        plan2 = self.make_plan(self.user, year=next_year, month=next_month)
+        self.assertNotEqual(plan1.month, plan2.month)
+
+    # ── validation ────────────────────────────────────────────────────────────
+
+    def test_reserves_exceeding_income_rejected(self):
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            self.make_plan(
+                self.user,
+                renda_prevista=Decimal("1000.00"),
+                teto_despesas=Decimal("800.00"),
+                reserva_dividas=Decimal("400.00"),  # 800+400 > 1000 → invalid
+            )
+
+    def test_negative_renda_rejected(self):
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            self.make_plan(
+                self.user,
+                renda_prevista=Decimal("-1.00"),
+                teto_despesas=Decimal("0.00"),
+            )
+
+    def test_invalid_month_rejected(self):
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            self.make_plan(self.user, month=13)
+
+    # ── planned side ─────────────────────────────────────────────────────────
+
+    def test_sobra_planejada_calculation(self):
+        plan = self.make_plan(
+            self.user,
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("3000.00"),
+            reserva_dividas=Decimal("500.00"),
+            reserva_metas=Decimal("200.00"),
+            reserva_investimentos=Decimal("300.00"),
+        )
+        # 5000 - 3000 - 500 - 200 - 300 = 1000
+        self.assertEqual(plan.sobra_planejada, Decimal("1000.00"))
+
+    def test_total_reservas(self):
+        plan = self.make_plan(
+            self.user,
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("3000.00"),
+            reserva_dividas=Decimal("200.00"),
+            reserva_metas=Decimal("300.00"),
+            reserva_investimentos=Decimal("100.00"),
+        )
+        self.assertEqual(plan.total_reservas, Decimal("600.00"))
+
+    # ── realised side (live from transactions) ────────────────────────────────
+
+    def test_renda_realizada_sums_income_in_period(self):
+        plan = self.make_plan(self.user)
+        self.make_income(self.user, self.account, self.income_cat, "2000.00")
+        self.make_income(self.user, self.account, self.income_cat, "1500.00")
+        self.assertEqual(plan.renda_realizada, Decimal("3500.00"))
+
+    def test_despesas_realizadas_sums_expenses_in_period(self):
+        plan = self.make_plan(self.user)
+        self.make_expense(self.user, self.account, self.expense_cat, "400.00")
+        self.make_expense(self.user, self.account, self.expense_cat, "200.00")
+        self.assertEqual(plan.despesas_realizadas, Decimal("600.00"))
+
+    def test_transactions_outside_period_excluded(self):
+        plan = self.make_plan(self.user)
+        outside = plan.period_start - timedelta(days=1)
+        self.make_expense(self.user, self.account, self.expense_cat, "999.00", when=outside)
+        self.assertEqual(plan.despesas_realizadas, Decimal("0.00"))
+
+    def test_other_users_transactions_excluded(self):
+        plan = self.make_plan(self.user)
+        other = self.make_user(suffix="2")
+        other_acc = self.make_account(other)
+        other_cat = self.make_expense_category(other)
+        self.make_expense(other, other_acc, other_cat, "999.00")
+        self.assertEqual(plan.despesas_realizadas, Decimal("0.00"))
+
+    def test_saldo_disponivel(self):
+        plan = self.make_plan(self.user)
+        self.make_income(self.user, self.account, self.income_cat, "4000.00")
+        self.make_expense(self.user, self.account, self.expense_cat, "1500.00")
+        self.assertEqual(plan.saldo_disponivel, Decimal("2500.00"))
+
+    # ── KPIs ─────────────────────────────────────────────────────────────────
+
+    def test_percentual_consumido_zero_when_no_expenses(self):
+        plan = self.make_plan(self.user)
+        self.assertEqual(plan.percentual_consumido, Decimal("0.00"))
+
+    def test_percentual_consumido_correct(self):
+        plan = self.make_plan(
+            self.user,
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("2000.00"),
+            reserva_dividas=Decimal("0.00"),
+            reserva_metas=Decimal("0.00"),
+            reserva_investimentos=Decimal("0.00"),
+        )
+        self.make_expense(self.user, self.account, self.expense_cat, "1000.00")
+        self.assertEqual(plan.percentual_consumido, Decimal("50.00"))
+
+    def test_status_ok_when_below_80(self):
+        plan = self.make_plan(
+            self.user,
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("2000.00"),
+            reserva_dividas=Decimal("0.00"),
+            reserva_metas=Decimal("0.00"),
+            reserva_investimentos=Decimal("0.00"),
+        )
+        self.make_expense(self.user, self.account, self.expense_cat, "500.00")
+        self.assertEqual(plan.status, "ok")
+
+    def test_status_atencao_at_80_percent(self):
+        plan = self.make_plan(
+            self.user,
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("1000.00"),
+            reserva_dividas=Decimal("0.00"),
+            reserva_metas=Decimal("0.00"),
+            reserva_investimentos=Decimal("0.00"),
+        )
+        self.make_expense(self.user, self.account, self.expense_cat, "800.00")
+        self.assertEqual(plan.status, "atencao")
+
+    def test_status_critico_at_100_percent(self):
+        plan = self.make_plan(
+            self.user,
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("1000.00"),
+            reserva_dividas=Decimal("0.00"),
+            reserva_metas=Decimal("0.00"),
+            reserva_investimentos=Decimal("0.00"),
+        )
+        self.make_expense(self.user, self.account, self.expense_cat, "1000.00")
+        self.assertEqual(plan.status, "critico")
+
+    def test_limite_diario_recomendado_zero_when_no_days_remaining(self):
+        past = date.today() - timedelta(days=40)
+        plan = self.make_plan(self.user, year=past.year, month=past.month)
+        self.assertEqual(plan.limite_diario_recomendado, Decimal("0.00"))
+
+    def test_limite_diario_recomendado_current_month(self):
+        plan = self.make_plan(
+            self.user,
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("3000.00"),
+            reserva_dividas=Decimal("0.00"),
+            reserva_metas=Decimal("0.00"),
+            reserva_investimentos=Decimal("0.00"),
+        )
+        # No spending → remaining = teto_despesas
+        if plan.days_remaining > 0:
+            expected = round(Decimal("3000.00") / Decimal(plan.days_remaining), 2)
+            self.assertEqual(plan.limite_diario_recomendado, expected)
+
+    # ── period helpers ────────────────────────────────────────────────────────
+
+    def test_period_start_is_first_day_of_month(self):
+        plan = self.make_plan(self.user, year=2026, month=5)
+        self.assertEqual(plan.period_start, date(2026, 5, 1))
+
+    def test_period_end_is_last_day_of_month(self):
+        plan = self.make_plan(self.user, year=2026, month=2)
+        self.assertEqual(plan.period_end, date(2026, 2, 28))
+
+    def test_get_or_none_returns_none_when_missing(self):
+        result = MonthlyPlan.get_or_none(self.user, 2099, 1)
+        self.assertIsNone(result)
+
+    def test_get_or_none_returns_plan_when_exists(self):
+        plan = self.make_plan(self.user)
+        found = MonthlyPlan.get_or_none(self.user, plan.year, plan.month)
+        self.assertEqual(found.pk, plan.pk)
+
+
+class MonthlyPlanViewTests(MonthlyPlanTestMixin, TestCase):
+    """HTTP-level tests for the MonthlyPlan create/update/list views."""
+
+    def setUp(self):
+        self.user = self.make_user()
+        self.other = self.make_user(suffix="2")
+        self.client.force_login(self.user)
+        self.today = date.today()
+        self.url = reverse("budgets:monthly_plan")
+        self.url_for = reverse(
+            "budgets:monthly_plan_for",
+            kwargs={"year": self.today.year, "month": self.today.month},
+        )
+
+    def _post_valid(self, **overrides):
+        data = dict(
+            renda_prevista="5000.00",
+            teto_despesas="3000.00",
+            reserva_dividas="500.00",
+            reserva_metas="200.00",
+            reserva_investimentos="300.00",
+            notes="",
+        )
+        data.update(overrides)
+        return self.client.post(self.url, data)
+
+    # ── GET ───────────────────────────────────────────────────────────────────
+
+    def test_get_current_month_returns_200(self):
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, "budgets/monthly_plan.html")
+
+    def test_get_shows_form_prepopulated_when_plan_exists(self):
+        MonthlyPlan.objects.create(
+            user=self.user,
+            year=self.today.year,
+            month=self.today.month,
+            renda_prevista=Decimal("4000.00"),
+            teto_despesas=Decimal("2000.00"),
+        )
+        resp = self.client.get(self.url)
+        self.assertContains(resp, "4000")
+
+    def test_get_redirects_anonymous(self):
+        self.client.logout()
+        resp = self.client.get(self.url)
+        self.assertRedirects(resp, f"/login/?next={self.url}", fetch_redirect_response=False)
+
+    # ── POST create ───────────────────────────────────────────────────────────
+
+    def test_post_creates_plan(self):
+        resp = self._post_valid()
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(
+            MonthlyPlan.objects.filter(
+                user=self.user,
+                year=self.today.year,
+                month=self.today.month,
+            ).exists()
+        )
+
+    def test_post_assigns_correct_user(self):
+        self._post_valid()
+        plan = MonthlyPlan.objects.get(user=self.user, year=self.today.year, month=self.today.month)
+        self.assertEqual(plan.user, self.user)
+
+    def test_post_updates_existing_plan(self):
+        MonthlyPlan.objects.create(
+            user=self.user,
+            year=self.today.year,
+            month=self.today.month,
+            renda_prevista=Decimal("4000.00"),
+            teto_despesas=Decimal("2000.00"),
+        )
+        self._post_valid(renda_prevista="6000.00", teto_despesas="3000.00")
+        plan = MonthlyPlan.objects.get(user=self.user, year=self.today.year, month=self.today.month)
+        self.assertEqual(plan.renda_prevista, Decimal("6000.00"))
+        self.assertEqual(MonthlyPlan.objects.filter(user=self.user).count(), 1)
+
+    def test_post_invalid_shows_errors(self):
+        # teto + reserves > renda → invalid
+        resp = self._post_valid(renda_prevista="1000.00", teto_despesas="900.00",
+                                reserva_dividas="200.00")
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(MonthlyPlan.objects.filter(user=self.user).exists())
+
+    # ── user isolation ────────────────────────────────────────────────────────
+
+    def test_plan_list_only_shows_own_plans(self):
+        MonthlyPlan.objects.create(
+            user=self.user, year=2026, month=1,
+            renda_prevista=Decimal("5000.00"), teto_despesas=Decimal("3000.00"),
+        )
+        MonthlyPlan.objects.create(
+            user=self.other, year=2026, month=1,
+            renda_prevista=Decimal("9000.00"), teto_despesas=Decimal("5000.00"),
+        )
+        resp = self.client.get(reverse("budgets:monthly_plan_list"))
+        self.assertEqual(resp.status_code, 200)
+        plans = list(resp.context["plans"])
+        self.assertTrue(all(p.user == self.user for p in plans))
+        self.assertEqual(len(plans), 1)

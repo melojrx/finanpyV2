@@ -20,6 +20,15 @@ urlpatterns = [
     path('<int:pk>/edit/', views.BudgetUpdateView.as_view(), name='update'),
     path('<int:pk>/delete/', views.BudgetDeleteView.as_view(), name='delete'),
 
+    # Monthly Plan (Orçamento Global Mensal — FIN-2)
+    path('plano/', views.MonthlyPlanView.as_view(), name='monthly_plan'),
+    path(
+        'plano/<int:year>/<int:month>/',
+        views.MonthlyPlanView.as_view(),
+        name='monthly_plan_for',
+    ),
+    path('planos/', views.MonthlyPlanListView.as_view(), name='monthly_plan_list'),
+
     # Budget Alerts
     path('alerts/', views.BudgetAlertListView.as_view(), name='alerts'),
     path('alerts/<int:pk>/ack/', views.BudgetAlertAckView.as_view(), name='alert_ack'),

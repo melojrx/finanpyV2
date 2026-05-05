@@ -880,6 +880,347 @@ class Budget(models.Model):
         ).select_related('account', 'category').order_by('-transaction_date', '-created_at')[:limit]
 
 
+class MonthlyPlan(models.Model):
+    """
+    Consolidated monthly financial plan per user per month.
+
+    Captures the user's planned figures for the month (income, expense ceiling,
+    reserves) and computes realised vs planned deltas from the Transaction table
+    at read time.  One record per (user, year, month) — enforced by a unique
+    constraint and the DB-level UniqueConstraint below.
+
+    Planned side
+    ────────────
+    renda_prevista        — total income expected this month
+    teto_despesas         — maximum allowed spending (expense ceiling)
+    reserva_dividas       — portion earmarked for debt payments      (FIN-7 hook)
+    reserva_metas         — portion earmarked for goal contributions  (FIN-9 hook)
+    reserva_investimentos — portion earmarked for investments         (FIN-10 hook)
+
+    Realised side (read from Transaction, never stored)
+    ───────────────────────────────────────────────────
+    renda_realizada       — sum of INCOME transactions in the month
+    despesas_realizadas   — sum of EXPENSE transactions in the month
+
+    Derived KPIs
+    ────────────
+    sobra_planejada           — renda_prevista − teto_despesas − reserves
+    saldo_disponivel          — renda_realizada − despesas_realizadas
+    percentual_consumido      — despesas_realizadas / teto_despesas × 100
+    limite_diario_recomendado — remaining_despesas / days_remaining_in_month
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='monthly_plans',
+    )
+    year = models.PositiveSmallIntegerField(verbose_name='Ano')
+    month = models.PositiveSmallIntegerField(verbose_name='Mês')
+
+    renda_prevista = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        verbose_name='Renda Prevista',
+        help_text='Total de receitas esperadas no mês.',
+    )
+    teto_despesas = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        verbose_name='Teto de Despesas',
+        help_text='Limite máximo de gastos permitidos no mês.',
+    )
+    reserva_dividas = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        verbose_name='Reserva Dívidas',
+        help_text='Valor separado para pagamento de dívidas (preparado para FIN-7).',
+    )
+    reserva_metas = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        verbose_name='Reserva Metas',
+        help_text='Valor separado para aportes em metas (preparado para FIN-9).',
+    )
+    reserva_investimentos = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        verbose_name='Reserva Investimentos',
+        help_text='Valor separado para investimentos (preparado para FIN-10).',
+    )
+    notes = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Observações',
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Plano Mensal'
+        verbose_name_plural = 'Planos Mensais'
+        ordering = ['-year', '-month']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'year', 'month'],
+                name='unique_monthly_plan_per_user',
+            ),
+            models.CheckConstraint(
+                check=Q(month__gte=1) & Q(month__lte=12),
+                name='monthly_plan_valid_month',
+            ),
+            models.CheckConstraint(
+                check=Q(year__gte=2000) & Q(year__lte=2100),
+                name='monthly_plan_valid_year',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['user', 'year', 'month']),
+        ]
+
+    def __str__(self):
+        return f"Plano {self.month:02d}/{self.year} — {self.user}"
+
+    def clean(self):
+        super().clean()
+        if self.month and not (1 <= self.month <= 12):
+            raise ValidationError({'month': 'Mês deve estar entre 1 e 12.'})
+        if self.year and not (2000 <= self.year <= 2100):
+            raise ValidationError({'year': 'Ano fora do intervalo permitido (2000-2100).'})
+        if self.teto_despesas is not None and self.renda_prevista is not None:
+            total_reserves = (
+                (self.reserva_dividas or Decimal('0.00'))
+                + (self.reserva_metas or Decimal('0.00'))
+                + (self.reserva_investimentos or Decimal('0.00'))
+            )
+            if self.teto_despesas + total_reserves > self.renda_prevista:
+                raise ValidationError(
+                    'Teto de despesas + reservas não pode exceder a renda prevista.'
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    # ── period helpers ────────────────────────────────────────────────────────
+
+    @property
+    def period_start(self):
+        return date(self.year, self.month, 1)
+
+    @property
+    def period_end(self):
+        from calendar import monthrange
+        last_day = monthrange(self.year, self.month)[1]
+        return date(self.year, self.month, last_day)
+
+    @property
+    def days_total(self):
+        return (self.period_end - self.period_start).days + 1
+
+    @property
+    def days_elapsed(self):
+        today = date.today()
+        if today < self.period_start:
+            return 0
+        if today > self.period_end:
+            return self.days_total
+        return (today - self.period_start).days + 1
+
+    @property
+    def days_remaining(self):
+        today = date.today()
+        if today > self.period_end:
+            return 0
+        if today < self.period_start:
+            return self.days_total
+        return (self.period_end - today).days
+
+    # ── planned side ─────────────────────────────────────────────────────────
+
+    @property
+    def total_reservas(self):
+        return (
+            self.reserva_dividas
+            + self.reserva_metas
+            + self.reserva_investimentos
+        )
+
+    @property
+    def sobra_planejada(self):
+        """What remains after expenses ceiling and all reserves are subtracted."""
+        return self.renda_prevista - self.teto_despesas - self.total_reservas
+
+    # ── realised side (live from Transaction) ─────────────────────────────────
+
+    def _transaction_totals(self):
+        """Single DB query returning (income_total, expense_total) for the month."""
+        from transactions.models import Transaction
+        from django.db.models import Sum, Case, When, DecimalField
+
+        result = Transaction.objects.filter(
+            user=self.user,
+            transaction_date__gte=self.period_start,
+            transaction_date__lte=self.period_end,
+        ).aggregate(
+            income=Sum(
+                Case(
+                    When(transaction_type='INCOME', then='amount'),
+                    default=Decimal('0.00'),
+                    output_field=DecimalField(),
+                )
+            ),
+            expense=Sum(
+                Case(
+                    When(transaction_type='EXPENSE', then='amount'),
+                    default=Decimal('0.00'),
+                    output_field=DecimalField(),
+                )
+            ),
+        )
+        income = result['income'] or Decimal('0.00')
+        expense = result['expense'] or Decimal('0.00')
+        return income, expense
+
+    @property
+    def renda_realizada(self):
+        income, _ = self._transaction_totals()
+        return income
+
+    @property
+    def despesas_realizadas(self):
+        _, expense = self._transaction_totals()
+        return expense
+
+    @property
+    def saldo_disponivel(self):
+        return self.renda_realizada - self.despesas_realizadas
+
+    # ── KPIs ─────────────────────────────────────────────────────────────────
+
+    @property
+    def percentual_consumido(self):
+        """Percentage of expense ceiling consumed (can exceed 100)."""
+        if not self.teto_despesas:
+            return Decimal('0.00')
+        return round(
+            (self.despesas_realizadas / self.teto_despesas) * Decimal('100'), 2
+        )
+
+    @property
+    def limite_diario_recomendado(self):
+        """
+        Daily limit to finish the month within the expense ceiling.
+
+        Uses remaining budget and remaining days so it self-adjusts
+        as the month progresses.
+        """
+        gasto = self.despesas_realizadas
+        restante = self.teto_despesas - gasto
+        if self.days_remaining <= 0:
+            return Decimal('0.00')
+        return round(restante / Decimal(self.days_remaining), 2)
+
+    @property
+    def percentual_renda_realizada(self):
+        """Percentage of planned income already received."""
+        if not self.renda_prevista:
+            return Decimal('0.00')
+        return round(
+            (self.renda_realizada / self.renda_prevista) * Decimal('100'), 2
+        )
+
+    @property
+    def status(self):
+        """
+        Simple health indicator:
+          'ok'       — within ceiling
+          'atencao'  — consumed >= 80%
+          'critico'  — consumed >= 100%
+        """
+        pct = float(self.percentual_consumido)
+        if pct >= 100:
+            return 'critico'
+        if pct >= 80:
+            return 'atencao'
+        return 'ok'
+
+    @property
+    def status_color(self):
+        return {
+            'ok': 'text-green-400',
+            'atencao': 'text-yellow-400',
+            'critico': 'text-red-400',
+        }[self.status]
+
+    @property
+    def status_label(self):
+        return {
+            'ok': 'Saudável',
+            'atencao': 'Atenção',
+            'critico': 'Crítico',
+        }[self.status]
+
+    # ── display helpers ───────────────────────────────────────────────────────
+
+    def _fmt(self, value):
+        formatted = f"{float(value):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+        return f"R$ {formatted}"
+
+    @property
+    def renda_prevista_display(self):
+        return self._fmt(self.renda_prevista)
+
+    @property
+    def teto_despesas_display(self):
+        return self._fmt(self.teto_despesas)
+
+    @property
+    def sobra_planejada_display(self):
+        return self._fmt(self.sobra_planejada)
+
+    @property
+    def renda_realizada_display(self):
+        return self._fmt(self.renda_realizada)
+
+    @property
+    def despesas_realizadas_display(self):
+        return self._fmt(self.despesas_realizadas)
+
+    @property
+    def saldo_disponivel_display(self):
+        return self._fmt(self.saldo_disponivel)
+
+    @property
+    def limite_diario_recomendado_display(self):
+        return self._fmt(self.limite_diario_recomendado)
+
+    # ── class-level helpers ───────────────────────────────────────────────────
+
+    @classmethod
+    def get_or_none(cls, user, year, month):
+        try:
+            return cls.objects.get(user=user, year=year, month=month)
+        except cls.DoesNotExist:
+            return None
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse(
+            'budgets:monthly_plan_for',
+            kwargs={'year': self.year, 'month': self.month},
+        )
+
+
 class BudgetAlertManager(models.Manager):
     """Convenience queries for BudgetAlert."""
 

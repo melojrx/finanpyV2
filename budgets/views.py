@@ -14,8 +14,8 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import json
 
-from .models import Budget, BudgetAlert
-from .forms import BudgetForm, BudgetFilterForm, BudgetDeleteConfirmationForm
+from .models import Budget, BudgetAlert, MonthlyPlan
+from .forms import BudgetForm, BudgetFilterForm, BudgetDeleteConfirmationForm, MonthlyPlanForm
 from categories.models import Category
 from transactions.models import Transaction
 
@@ -835,6 +835,112 @@ class MonthlyBudgetView(LoginRequiredMixin, View):
             'next_month': next_month.month,
         }
         return render(request, self.template_name, context)
+
+
+class MonthlyPlanView(LoginRequiredMixin, View):
+    """
+    Upsert view for the MonthlyPlan of a given (year, month).
+
+    GET  → renders the plan form pre-filled with any existing plan.
+    POST → validates and creates/updates the plan, then redirects.
+
+    URL forms:
+      /budgets/plano/                     → current month
+      /budgets/plano/<year>/<month>/      → arbitrary month
+    """
+
+    template_name = 'budgets/monthly_plan.html'
+
+    def _resolve_period(self, year, month):
+        if year is None or month is None:
+            today = date.today()
+            return today.year, today.month
+        try:
+            year, month = int(year), int(month)
+            if not (1 <= month <= 12 and 2000 <= year <= 2100):
+                raise ValueError
+        except (TypeError, ValueError):
+            today = date.today()
+            return today.year, today.month
+        return year, month
+
+    def _adjacent_months(self, year, month):
+        first = date(year, month, 1)
+        prev = (first - timedelta(days=1))
+        from calendar import monthrange
+        last = date(year, month, monthrange(year, month)[1])
+        nxt = last + timedelta(days=1)
+        return prev, nxt
+
+    def _build_context(self, request, year, month, form, plan):
+        from calendar import monthrange
+        first = date(year, month, 1)
+        prev, nxt = self._adjacent_months(year, month)
+        category_budgets = Budget.get_monthly_budgets(request.user, year, month)
+        return {
+            'form': form,
+            'plan': plan,
+            'year': year,
+            'month': month,
+            'period_label': first.strftime('%B %Y'),
+            'period_start': first,
+            'period_end': date(year, month, monthrange(year, month)[1]),
+            'prev_year': prev.year,
+            'prev_month': prev.month,
+            'next_year': nxt.year,
+            'next_month': nxt.month,
+            'is_current_month': (year == date.today().year and month == date.today().month),
+            'category_budgets': category_budgets,
+            'category_budgets_total_planned': sum(
+                b.planned_amount for b in category_budgets
+            ),
+            'category_budgets_total_spent': sum(
+                b.spent_amount for b in category_budgets
+            ),
+        }
+
+    def get(self, request, year=None, month=None):
+        year, month = self._resolve_period(year, month)
+        plan = MonthlyPlan.get_or_none(request.user, year, month)
+        form = MonthlyPlanForm(instance=plan)
+        ctx = self._build_context(request, year, month, form, plan)
+        return render(request, self.template_name, ctx)
+
+    def post(self, request, year=None, month=None):
+        year, month = self._resolve_period(year, month)
+        plan = MonthlyPlan.get_or_none(request.user, year, month)
+        form = MonthlyPlanForm(request.POST, instance=plan)
+
+        if form.is_valid():
+            new_plan = form.save(commit=False)
+            new_plan.user = request.user
+            new_plan.year = year
+            new_plan.month = month
+            new_plan.save()
+            verb = 'atualizado' if plan else 'criado'
+            messages.success(
+                request,
+                f'Plano mensal de {date(year, month, 1).strftime("%B/%Y")} {verb} com sucesso!',
+            )
+            return redirect(
+                reverse('budgets:monthly_plan_for', kwargs={'year': year, 'month': month})
+            )
+
+        messages.error(request, 'Corrija os erros abaixo antes de salvar.')
+        ctx = self._build_context(request, year, month, form, plan)
+        return render(request, self.template_name, ctx)
+
+
+class MonthlyPlanListView(LoginRequiredMixin, ListView):
+    """List all monthly plans for the current user, newest first."""
+
+    model = MonthlyPlan
+    template_name = 'budgets/monthly_plan_list.html'
+    context_object_name = 'plans'
+    paginate_by = 12
+
+    def get_queryset(self):
+        return MonthlyPlan.objects.filter(user=self.request.user)
 
 
 class BudgetAlertListView(LoginRequiredMixin, ListView):

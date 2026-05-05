@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import Budget, BudgetAlert
+from .models import Budget, BudgetAlert, MonthlyPlan
 
 
 @admin.register(Budget)
@@ -199,6 +199,15 @@ class BudgetAdmin(admin.ModelAdmin):
             f"Successfully refreshed cache for {count} budget(s)."
         )
     refresh_cache.short_description = "Refresh cache for selected budgets"
+
+
+@admin.register(MonthlyPlan)
+class MonthlyPlanAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'user', 'renda_prevista', 'teto_despesas', 'created_at')
+    list_filter = ('year', 'month', ('user', admin.RelatedOnlyFieldListFilter))
+    search_fields = ('user__username', 'user__email')
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('-year', '-month')
 
 
 @admin.register(BudgetAlert)
