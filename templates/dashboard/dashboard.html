@@ -197,7 +197,7 @@
                 <div class="card">
                     <div class="flex items-center justify-between mb-6">
                         <h3 class="text-lg font-semibold text-white">Orçamentos</h3>
-                        <a href="{% url 'budgets:list' %}" class="text-primary-400 hover:text-primary-300 text-sm">Ver todos</a>
+                        <a href="{% url 'budgets:planning_entry' %}" class="text-primary-400 hover:text-primary-300 text-sm">Ver todos</a>
                     </div>
                     <div class="space-y-4">
                         {% for budget in active_budgets %}
@@ -222,7 +222,7 @@
                         {% empty %}
                         <div class="text-center py-6">
                             <p class="text-gray-500 text-sm">Nenhum orçamento ativo para este período.</p>
-                            <a href="{% url 'budgets:create' %}" class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">+ Criar orçamento</a>
+                            <a href="{% url 'budgets:planning_entry' %}" class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">+ Criar planejamento</a>
                         </div>
                         {% endfor %}
                     </div>

@@ -13,6 +13,7 @@ sprint.
 - [x] Sprint 4 - Validação final e evidências
 - [x] Sprint 5 - Módulo de Metas Financeiras (goals)
 - [x] Sprint 6 - Plano Mensal Global (MonthlyPlan)
+- [x] Sprint 7 - Módulo de Planejamento Mensal (Wizard + API)
 
 ## Sprint 0 - Planejamento Documentado
 
@@ -650,6 +651,54 @@ Checklist:
 - Migration `budgets/migrations/0003_monthly_plan.py` gerada e aplicada.
 - Testes: ~46 novos testes cobrindo model, validações, propriedades calculadas
   e views (isolamento, GET, POST create/update, rejeição de inválidos).
+
+---
+
+### Critérios de Aceite do Sprint 7
+
+- [x] Usuário cria planejamento mensal completo via wizard em 3 passos.
+- [x] "Copiar mês anterior" pré-preenche distribuição com valores do mês anterior.
+- [x] Valor da categoria mãe calculado automaticamente como soma das filhas (JS).
+- [x] Usuário pode lançar despesa diretamente na categoria mãe.
+- [x] Acompanhamento exibe gasto real vs planejado por categoria em tempo real.
+- [x] Alertas disparados quando gasto atinge threshold configurado.
+- [x] API REST cobre criação, edição, ativação, cópia e consulta de planos e itens.
+- [x] Todos os endpoints da API filtram por usuário autenticado (404 para outros).
+- [x] `manage.py check` e `manage.py test` passam sem erros.
+
+### Evidências Sprint 7
+
+- Model `MonthlyPlanItem` criado em `budgets/models.py` com FK para `MonthlyPlan`
+  e `Category`, propriedades `spent_amount`, `percentage_used`, `remaining_amount`,
+  `is_over_budget`, `status_color`, `progress_bar_color`.
+- `MonthlyPlan` evoluído com campos `savings_goal` e `status` (DRAFT/ACTIVE/CLOSED),
+  constantes de status, propriedade `teto_calculado` e `health_status` (renomeado
+  de `status` para evitar conflito com o campo DB).
+- `BudgetAlert` evoluído com FK nullable `plan_item` → `MonthlyPlanItem`.
+- Migrations `0004_sprint7_monthly_plan_item.py` e `0005_add_status_to_monthlyplan.py`
+  geradas e aplicadas sem erros.
+- Formulários `MonthlyPlanHeaderForm` e `MonthlyPlanItemForm` + `MonthlyPlanItemFormSet`
+  adicionados em `budgets/forms.py`.
+- 6 views do wizard implementadas em `budgets/views.py`:
+  `PlanningEntryView`, `PlanningHeaderView`, `PlanningDistributeView`,
+  `PlanningReviewView`, `PlanningDashboardView`, `PlanningCopyView`.
+- Views de CRUD avulso de `Budget` removidas.
+- 6 rotas do wizard + 3 rotas de alertas em `budgets/urls.py`.
+- 5 templates criados em `templates/budgets/`:
+  `planning_entry.html`, `planning_header.html`, `planning_distribute.html`,
+  `planning_review.html`, `planning_dashboard.html`.
+- Templates obsoletos de Budget avulso mantidos no repositório (histórico).
+- API REST: `MonthlyPlanViewSet` e `MonthlyPlanItemViewSet` com serializers
+  `MonthlyPlanSerializer`, `MonthlyPlanItemSerializer`, `MonthlyPlanSummarySerializer`
+  registrados no router DRF em `api/urls.py`.
+- Actions de API: `activate`, `copy_from_previous`, `summary`.
+- Admin atualizado: `MonthlyPlanItemInline`, `MonthlyPlanItemAdmin`,
+  `BudgetAlertAdmin` com `plan_item`.
+- Testes: 175 testes passando (98 em `budgets`, incluindo 37 novos do Sprint 7
+  cobrindo `MonthlyPlanItemModelTests`, `PlanningWizardViewTests`,
+  `MonthlyPlanAPITests`).
+- `manage.py check`: 0 issues.
+- `manage.py test`: 175 testes, 0 falhas.
 
 ---
 

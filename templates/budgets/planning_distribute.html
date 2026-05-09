@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Passo 2 — Distribuir Orçamento — FinanPy{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+  <div class="mb-6">
+    <div class="flex items-center gap-3 mb-1">
+      <span class="text-xs font-semibold text-primary-400 uppercase tracking-wider">Passo 2 de 3</span>
+      <span class="text-xs text-gray-500">Distribua seu orçamento</span>
+    </div>
+    <div class="flex gap-1.5">
+      <div class="h-1 flex-1 rounded-full bg-primary-500"></div>
+      <div class="h-1 flex-1 rounded-full bg-primary-500"></div>
+      <div class="h-1 flex-1 rounded-full bg-dark-700"></div>
+    </div>
+  </div>
+
+  <h1 class="text-2xl font-bold text-white mb-2">Distribuir Orçamento</h1>
+  <p class="text-gray-400 text-sm mb-6">Aloque valores para cada categoria de despesa.</p>
+
+  <div class="sticky top-16 z-40 bg-dark-900/90 backdrop-blur-sm border border-dark-700 rounded-xl px-5 py-3 mb-6 flex flex-wrap gap-4 text-sm">
+    <span class="text-gray-400">
+      Teto:
+      <span id="teto-value" class="text-white font-semibold"
+            data-teto="{{ teto_calculado }}">
+        R$ {{ teto_calculado }}
+      </span>
+    </span>
+    <span class="text-gray-400">
+      Alocado:
+      <span id="alocado-display" class="text-primary-300 font-semibold">R$ 0,00</span>
+    </span>
+    <span class="text-gray-400">
+      Restante:
+      <span id="restante-display" class="text-green-400 font-semibold">R$ 0,00</span>
+    </span>
+  </div>
+
+  {% if messages %}
+  <div class="mb-6 space-y-2">
+    {% for msg in messages %}
+    <div class="p-3 rounded-lg text-sm font-medium
+      {% if msg.tags == 'success' %}bg-green-900/30 border border-green-700/50 text-green-300
+      {% elif msg.tags == 'error' %}bg-red-900/30 border border-red-700/50 text-red-300
+      {% else %}bg-blue-900/30 border border-blue-700/50 text-blue-300{% endif %}">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post"
+        action="{% url 'budgets:planning_distribute' year=plan.year month=plan.month %}"
+        novalidate>
+    {% csrf_token %}
+
+    <div class="space-y-4">
+      {% for node in categories_tree %}
+      <div class="bg-dark-800/70 border border-dark-700 rounded-xl overflow-hidden">
+        <div class="px-5 py-3 bg-dark-900/50 border-b border-dark-700 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            {% if node.category.icon %}
+            <span class="text-lg">{{ node.category.icon }}</span>
+            {% endif %}
+            <span class="font-semibold text-white text-sm">{{ node.category.name }}</span>
+          </div>
+          {% if node.children %}
+          <span class="text-xs text-gray-400">
+            Total:
+            <span id="parent-total-{{ node.category.pk }}" class="text-primary-300 font-semibold">R$ 0,00</span>
+          </span>
+          {% endif %}
+        </div>
+
+        <div class="p-4 space-y-3">
+          {% if node.children %}
+            {% for child in node.children %}
+            <div class="flex items-center gap-3">
+              <label for="amount_{{ child.category.pk }}"
+                     class="text-sm text-gray-300 flex-1 min-w-0 truncate">
+                {% if child.category.icon %}{{ child.category.icon }} {% endif %}{{ child.category.name }}
+              </label>
+              <input type="number"
+                     id="amount_{{ child.category.pk }}"
+                     name="amount_{{ child.category.pk }}"
+                     min="0" step="0.01"
+                     value="{{ child.item.planned_amount|default:'' }}"
+                     placeholder="0,00"
+                     class="form-input w-36 text-right amount-input child-input-{{ node.category.pk }}"
+                     data-parent="{{ node.category.pk }}"
+                     aria-label="Valor para {{ child.category.name }}">
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="flex items-center gap-3">
+              <label for="amount_{{ node.category.pk }}"
+                     class="text-sm text-gray-300 flex-1">
+                Valor planejado
+              </label>
+              <input type="number"
+                     id="amount_{{ node.category.pk }}"
+                     name="amount_{{ node.category.pk }}"
+                     min="0" step="0.01"
+                     value="{{ node.item.planned_amount|default:'' }}"
+                     placeholder="0,00"
+                     class="form-input w-36 text-right amount-input"
+                     aria-label="Valor para {{ node.category.name }}">
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}
+      <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-8 text-center">
+        <p class="text-gray-400 text-sm">Nenhuma categoria de despesa ativa encontrada.</p>
+        <a href="{% url 'categories:category-list' %}"
+           class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">
+          Gerenciar categorias &rarr;
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="flex items-center justify-between mt-8">
+      <a href="{% url 'budgets:planning_header' %}"
+         class="text-sm text-gray-400 hover:text-gray-200 transition-colors">
+        &larr; Voltar
+      </a>
+      <button type="submit"
+              class="btn-primary px-6 py-2 rounded-lg text-sm font-semibold">
+        Próximo &rarr;
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+function formatBRL(val) {
+    if (isNaN(val)) val = 0;
+    return 'R$ ' + val.toFixed(2)
+        .replace('.', ',')
+        .replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+}
+
+function updateParentTotal(parentId) {
+    let sum = 0;
+    document.querySelectorAll('.child-input-' + parentId).forEach(function(inp) {
+        sum += parseFloat(inp.value) || 0;
+    });
+    const display = document.getElementById('parent-total-' + parentId);
+    if (display) display.textContent = formatBRL(sum);
+}
+
+function updateTotals() {
+    let total = 0;
+    document.querySelectorAll('.amount-input').forEach(function(inp) {
+        total += parseFloat(inp.value) || 0;
+    });
+    const teto = parseFloat(document.getElementById('teto-value').dataset.teto) || 0;
+    const restante = teto - total;
+    document.getElementById('alocado-display').textContent = formatBRL(total);
+    document.getElementById('restante-display').textContent = formatBRL(restante);
+    document.getElementById('restante-display').className = restante < 0
+        ? 'text-red-400 font-semibold'
+        : 'text-green-400 font-semibold';
+}
+
+document.querySelectorAll('.amount-input').forEach(function(inp) {
+    inp.addEventListener('input', function() {
+        if (inp.dataset.parent) updateParentTotal(inp.dataset.parent);
+        updateTotals();
+    });
+});
+
+document.querySelectorAll('[id^="parent-total-"]').forEach(function(el) {
+    const parentId = el.id.replace('parent-total-', '');
+    updateParentTotal(parentId);
+});
+updateTotals();
+</script>
+{% endblock %}

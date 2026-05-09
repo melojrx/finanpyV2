@@ -6,7 +6,9 @@ Coverage:
 - Calculated properties (spent_amount, percentage_used, remaining_amount,
   daily_* metrics) including subcategory aggregation and period boundaries
 - Signal-driven cache refresh on Transaction save/delete
-- View-level user isolation (List, Detail, Create, Update, Delete)
+- MonthlyPlan and MonthlyPlanItem model validation and KPIs
+- Planning wizard views (entry, header, distribute, review, dashboard, copy)
+- MonthlyPlan and MonthlyPlanItem REST API endpoints
 """
 
 from datetime import date, timedelta
@@ -18,7 +20,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import Account
-from budgets.models import Budget, BudgetAlert, MonthlyPlan
+from budgets.models import Budget, BudgetAlert, MonthlyPlan, MonthlyPlanItem
 from categories.models import Category
 from transactions.models import Transaction
 
@@ -334,192 +336,6 @@ class BudgetSignalTests(BudgetTestMixin, TestCase):
         # spent_amount must remain 0 — income does not consume an EXPENSE budget
         self.budget.clear_cache()
         self.assertEqual(self.budget.spent_amount, Decimal("0.00"))
-
-
-class BudgetViewIsolationTests(BudgetTestMixin, TestCase):
-    """User data isolation across all budget views."""
-
-    def setUp(self):
-        self.alice = self.make_user(suffix="-alice")
-        self.bob = self.make_user(suffix="-bob")
-        self.alice_cat = self.make_expense_category(self.alice)
-        self.bob_cat = self.make_expense_category(self.bob)
-        self.alice_budget = self.make_budget(self.alice, self.alice_cat)
-        self.bob_budget = self.make_budget(self.bob, self.bob_cat)
-
-    def test_list_view_only_shows_own_budgets(self):
-        self.client.force_login(self.alice)
-        resp = self.client.get(reverse("budgets:list"))
-        self.assertEqual(resp.status_code, 200)
-        budgets = list(resp.context["budgets"])
-        self.assertIn(self.alice_budget, budgets)
-        self.assertNotIn(self.bob_budget, budgets)
-
-    def test_detail_view_blocks_other_users_budgets(self):
-        self.client.force_login(self.alice)
-        resp = self.client.get(reverse("budgets:detail", args=[self.bob_budget.pk]))
-        self.assertEqual(resp.status_code, 404)
-
-    def test_update_view_blocks_other_users_budgets(self):
-        self.client.force_login(self.alice)
-        resp = self.client.get(reverse("budgets:update", args=[self.bob_budget.pk]))
-        self.assertEqual(resp.status_code, 404)
-
-    def test_delete_view_blocks_other_users_budgets(self):
-        self.client.force_login(self.alice)
-        resp = self.client.get(reverse("budgets:delete", args=[self.bob_budget.pk]))
-        self.assertEqual(resp.status_code, 404)
-
-    def test_create_view_assigns_request_user(self):
-        self.client.force_login(self.alice)
-        first, last = _month_range()
-        new_cat = self.make_expense_category(self.alice, name="Lazer")
-        resp = self.client.post(
-            reverse("budgets:create"),
-            data={
-                "category": new_cat.pk,
-                "name": "Lazer Mensal",
-                "planned_amount": "200.00",
-                "start_date": first.isoformat(),
-                "end_date": last.isoformat(),
-                "is_active": "on",
-            },
-        )
-        self.assertIn(resp.status_code, (302, 200))  # redirect on success
-        budget = Budget.objects.filter(name="Lazer Mensal").first()
-        self.assertIsNotNone(budget)
-        self.assertEqual(budget.user, self.alice)
-
-    def test_anonymous_user_redirected_from_list(self):
-        resp = self.client.get(reverse("budgets:list"))
-        self.assertEqual(resp.status_code, 302)
-        self.assertIn("/login", resp.url)
-
-
-class MonthlyBudgetViewTests(BudgetTestMixin, TestCase):
-    """Bulk monthly editor: create/update/delete in one submission."""
-
-    def setUp(self):
-        self.user = self.make_user()
-        self.account = self.make_account(self.user)
-        self.food = self.make_expense_category(self.user, name="Alimentação")
-        self.transport = self.make_expense_category(self.user, name="Transporte")
-        self.client.force_login(self.user)
-        first, last = _month_range()
-        self.year, self.month = first.year, first.month
-        self.first, self.last = first, last
-
-    def _post_url(self):
-        return reverse("budgets:monthly_for", args=[self.year, self.month])
-
-    def _field(self, category):
-        return f"planned_amount_{category.id}"
-
-    def test_get_renders_one_row_per_active_expense_category(self):
-        resp = self.client.get(reverse("budgets:monthly"))
-        self.assertEqual(resp.status_code, 200)
-        rows = resp.context["rows"]
-        category_ids = {r["category"].id for r in rows}
-        self.assertIn(self.food.id, category_ids)
-        self.assertIn(self.transport.id, category_ids)
-
-    def test_get_excludes_income_and_inactive_categories(self):
-        Category.objects.create(
-            user=self.user, name="Salário", category_type="INCOME",
-        )
-        inactive = self.make_expense_category(self.user, name="Antigo")
-        inactive.is_active = False
-        inactive.save()
-
-        resp = self.client.get(reverse("budgets:monthly"))
-        ids = {r["category"].id for r in resp.context["rows"]}
-        self.assertNotIn(inactive.id, ids)
-        # income categories should also not appear
-        self.assertEqual(
-            len([c for c in ids if Category.objects.get(pk=c).category_type != "EXPENSE"]),
-            0,
-        )
-
-    def test_post_creates_budgets_for_filled_rows_only(self):
-        resp = self.client.post(self._post_url(), data={
-            self._field(self.food): "500.00",
-            self._field(self.transport): "",
-        })
-        self.assertEqual(resp.status_code, 302)
-        self.assertEqual(Budget.objects.filter(user=self.user, category=self.food).count(), 1)
-        self.assertEqual(Budget.objects.filter(user=self.user, category=self.transport).count(), 0)
-
-    def test_post_updates_existing_budget(self):
-        existing = self.make_budget(
-            self.user, self.food,
-            planned_amount=Decimal("400.00"),
-            start_date=self.first, end_date=self.last,
-        )
-        self.client.post(self._post_url(), data={
-            self._field(self.food): "650.00",
-            self._field(self.transport): "",
-        })
-        existing.refresh_from_db()
-        self.assertEqual(existing.planned_amount, Decimal("650.00"))
-
-    def test_post_removes_empty_budget_with_no_spending(self):
-        budget = self.make_budget(
-            self.user, self.food,
-            planned_amount=Decimal("400.00"),
-            start_date=self.first, end_date=self.last,
-        )
-        self.client.post(self._post_url(), data={
-            self._field(self.food): "",
-            self._field(self.transport): "",
-        })
-        self.assertFalse(Budget.objects.filter(pk=budget.pk).exists())
-
-    def test_post_keeps_empty_budget_when_spending_exists(self):
-        budget = self.make_budget(
-            self.user, self.food,
-            planned_amount=Decimal("400.00"),
-            start_date=self.first, end_date=self.last,
-        )
-        self.make_expense(self.user, self.account, self.food, "50.00")
-
-        self.client.post(self._post_url(), data={
-            self._field(self.food): "",
-            self._field(self.transport): "",
-        })
-        # Budget must NOT be deleted because it already has spend recorded
-        self.assertTrue(Budget.objects.filter(pk=budget.pk).exists())
-
-    def test_post_rejects_negative_value_with_inline_error(self):
-        resp = self.client.post(self._post_url(), data={
-            self._field(self.food): "-10",
-            self._field(self.transport): "",
-        }, follow=False)
-        # On error, view re-renders (200) instead of redirecting
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(Budget.objects.filter(user=self.user).count(), 0)
-        rows = resp.context["rows"]
-        food_row = next(r for r in rows if r["category"].id == self.food.id)
-        self.assertIsNotNone(food_row["error"])
-
-    def test_post_rejects_invalid_decimal(self):
-        resp = self.client.post(self._post_url(), data={
-            self._field(self.food): "abc",
-            self._field(self.transport): "",
-        })
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(Budget.objects.count(), 0)
-
-    def test_does_not_leak_other_users_categories(self):
-        other = self.make_user(suffix="2")
-        other_cat = self.make_expense_category(other, name="OutroUser")
-        resp = self.client.get(reverse("budgets:monthly"))
-        ids = {r["category"].id for r in resp.context["rows"]}
-        self.assertNotIn(other_cat.id, ids)
-
-    def test_anonymous_redirected(self):
-        self.client.logout()
-        resp = self.client.get(reverse("budgets:monthly"))
-        self.assertEqual(resp.status_code, 302)
 
 
 class BudgetAlertTests(BudgetTestMixin, TestCase):
@@ -857,7 +673,7 @@ class MonthlyPlanModelTests(MonthlyPlanTestMixin, TestCase):
             reserva_investimentos=Decimal("0.00"),
         )
         self.make_expense(self.user, self.account, self.expense_cat, "500.00")
-        self.assertEqual(plan.status, "ok")
+        self.assertEqual(plan.health_status, "ok")
 
     def test_status_atencao_at_80_percent(self):
         plan = self.make_plan(
@@ -869,7 +685,7 @@ class MonthlyPlanModelTests(MonthlyPlanTestMixin, TestCase):
             reserva_investimentos=Decimal("0.00"),
         )
         self.make_expense(self.user, self.account, self.expense_cat, "800.00")
-        self.assertEqual(plan.status, "atencao")
+        self.assertEqual(plan.health_status, "atencao")
 
     def test_status_critico_at_100_percent(self):
         plan = self.make_plan(
@@ -881,7 +697,7 @@ class MonthlyPlanModelTests(MonthlyPlanTestMixin, TestCase):
             reserva_investimentos=Decimal("0.00"),
         )
         self.make_expense(self.user, self.account, self.expense_cat, "1000.00")
-        self.assertEqual(plan.status, "critico")
+        self.assertEqual(plan.health_status, "critico")
 
     def test_limite_diario_recomendado_zero_when_no_days_remaining(self):
         past = date.today() - timedelta(days=40)
@@ -922,106 +738,440 @@ class MonthlyPlanModelTests(MonthlyPlanTestMixin, TestCase):
         self.assertEqual(found.pk, plan.pk)
 
 
-class MonthlyPlanViewTests(MonthlyPlanTestMixin, TestCase):
-    """HTTP-level tests for the MonthlyPlan create/update/list views."""
+
+
+# =============================================================================
+# Sprint 7 — MonthlyPlanItem model tests
+# =============================================================================
+
+class MonthlyPlanItemModelTests(MonthlyPlanTestMixin, TestCase):
+    """MonthlyPlanItem validation, constraints and spent_amount calculation."""
 
     def setUp(self):
         self.user = self.make_user()
         self.other = self.make_user(suffix="2")
+        self.account = self.make_account(self.user)
+        self.parent_cat = self.make_expense_category(self.user, name="Alimentação")
+        self.child_cat = Category.objects.create(
+            user=self.user,
+            name="Supermercado",
+            category_type="EXPENSE",
+            parent=self.parent_cat,
+        )
+        self.income_cat = Category.objects.create(
+            user=self.user,
+            name="Salário",
+            category_type="INCOME",
+        )
+        today = date.today()
+        self.plan = MonthlyPlan.objects.create(
+            user=self.user,
+            year=today.year,
+            month=today.month,
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("3000.00"),
+            savings_goal=Decimal("500.00"),
+        )
+
+    def _make_item(self, category=None, amount="500.00"):
+        return MonthlyPlanItem.objects.create(
+            monthly_plan=self.plan,
+            category=category or self.parent_cat,
+            planned_amount=Decimal(amount),
+        )
+
+    def _make_tx(self, category, amount, delta_days=0):
+        tx_date = date(self.plan.year, self.plan.month, 1)
+        return Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=category,
+            transaction_type="EXPENSE",
+            amount=Decimal(amount),
+            description="Test",
+            transaction_date=tx_date,
+        )
+
+    def test_create_valid_item(self):
+        item = self._make_item()
+        self.assertEqual(item.monthly_plan, self.plan)
+        self.assertEqual(item.category, self.parent_cat)
+        self.assertEqual(item.planned_amount, Decimal("500.00"))
+
+    def test_income_category_rejected(self):
+        with self.assertRaises(ValidationError):
+            MonthlyPlanItem(
+                monthly_plan=self.plan,
+                category=self.income_cat,
+                planned_amount=Decimal("100.00"),
+            ).full_clean()
+
+    def test_duplicate_item_rejected(self):
+        self._make_item()
+        from django.db import IntegrityError
+        with self.assertRaises((IntegrityError, ValidationError)):
+            MonthlyPlanItem.objects.create(
+                monthly_plan=self.plan,
+                category=self.parent_cat,
+                planned_amount=Decimal("200.00"),
+            )
+
+    def test_spent_amount_sums_direct_transactions(self):
+        item = self._make_item(self.parent_cat, "500.00")
+        self._make_tx(self.parent_cat, "150.00")
+        self._make_tx(self.parent_cat, "100.00")
+        self.assertEqual(item.spent_amount, Decimal("250.00"))
+
+    def test_spent_amount_includes_subcategory_transactions(self):
+        item = self._make_item(self.parent_cat, "500.00")
+        self._make_tx(self.child_cat, "200.00")
+        self.assertEqual(item.spent_amount, Decimal("200.00"))
+
+    def test_spent_amount_includes_direct_parent_and_child_transactions(self):
+        item = self._make_item(self.parent_cat, "500.00")
+        self._make_tx(self.parent_cat, "100.00")
+        self._make_tx(self.child_cat, "150.00")
+        self.assertEqual(item.spent_amount, Decimal("250.00"))
+
+    def test_spent_amount_excludes_other_months(self):
+        item = self._make_item(self.parent_cat, "500.00")
+        other_month = date(self.plan.year, self.plan.month, 1) - timedelta(days=1)
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=self.parent_cat,
+            transaction_type="EXPENSE",
+            amount=Decimal("300.00"),
+            description="Other month",
+            transaction_date=other_month,
+        )
+        self.assertEqual(item.spent_amount, Decimal("0.00"))
+
+    def test_percentage_used_calculation(self):
+        item = self._make_item(self.parent_cat, "500.00")
+        self._make_tx(self.parent_cat, "250.00")
+        self.assertEqual(item.percentage_used, Decimal("50.00"))
+
+    def test_is_over_budget_when_spent_exceeds_planned(self):
+        item = self._make_item(self.parent_cat, "100.00")
+        self._make_tx(self.parent_cat, "150.00")
+        self.assertTrue(item.is_over_budget)
+
+    def test_alert_threshold_must_be_0_to_100(self):
+        with self.assertRaises(ValidationError):
+            MonthlyPlanItem(
+                monthly_plan=self.plan,
+                category=self.parent_cat,
+                planned_amount=Decimal("100.00"),
+                alert_threshold=101,
+            ).full_clean()
+
+
+# =============================================================================
+# Sprint 7 — Planning wizard view tests
+# =============================================================================
+
+class PlanningWizardViewTests(MonthlyPlanTestMixin, TestCase):
+    """HTTP-level tests for the planning wizard views."""
+
+    def setUp(self):
+        self.user = self.make_user()
+        self.other = self.make_user(suffix="2")
+        self.account = self.make_account(self.user)
+        self.expense_cat = self.make_expense_category(self.user, name="Alimentação")
         self.client.force_login(self.user)
         self.today = date.today()
-        self.url = reverse("budgets:monthly_plan")
-        self.url_for = reverse(
-            "budgets:monthly_plan_for",
-            kwargs={"year": self.today.year, "month": self.today.month},
+        self.year = self.today.year
+        self.month = self.today.month
+
+    def _make_plan(self, status="DRAFT", user=None):
+        u = user or self.user
+        return MonthlyPlan.objects.create(
+            user=u,
+            year=self.year,
+            month=self.month,
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("3000.00"),
+            savings_goal=Decimal("500.00"),
+            status=status,
         )
 
-    def _post_valid(self, **overrides):
-        data = dict(
-            renda_prevista="5000.00",
-            teto_despesas="3000.00",
-            reserva_dividas="500.00",
-            reserva_metas="200.00",
-            reserva_investimentos="300.00",
-            notes="",
-        )
-        data.update(overrides)
-        return self.client.post(self.url, data)
+    def _entry_url(self):
+        return reverse("budgets:planning_entry")
 
-    # ── GET ───────────────────────────────────────────────────────────────────
+    def _header_url(self):
+        return reverse("budgets:planning_header")
 
-    def test_get_current_month_returns_200(self):
-        resp = self.client.get(self.url)
+    def _distribute_url(self):
+        return reverse("budgets:planning_distribute", kwargs={"year": self.year, "month": self.month})
+
+    def _review_url(self):
+        return reverse("budgets:planning_review", kwargs={"year": self.year, "month": self.month})
+
+    def _dashboard_url(self):
+        return reverse("budgets:planning_dashboard", kwargs={"year": self.year, "month": self.month})
+
+    def test_entry_view_returns_200_when_no_plan(self):
+        resp = self.client.get(self._entry_url())
         self.assertEqual(resp.status_code, 200)
-        self.assertTemplateUsed(resp, "budgets/monthly_plan.html")
 
-    def test_get_shows_form_prepopulated_when_plan_exists(self):
-        MonthlyPlan.objects.create(
-            user=self.user,
-            year=self.today.year,
-            month=self.today.month,
-            renda_prevista=Decimal("4000.00"),
-            teto_despesas=Decimal("2000.00"),
-        )
-        resp = self.client.get(self.url)
-        self.assertContains(resp, "4000")
+    def test_entry_view_redirects_to_dashboard_when_active_plan_exists(self):
+        self._make_plan(status="ACTIVE")
+        resp = self.client.get(self._entry_url())
+        self.assertRedirects(resp, self._dashboard_url(), fetch_redirect_response=False)
 
-    def test_get_redirects_anonymous(self):
-        self.client.logout()
-        resp = self.client.get(self.url)
-        self.assertRedirects(resp, f"/login/?next={self.url}", fetch_redirect_response=False)
+    def test_entry_view_redirects_to_distribute_when_draft_exists(self):
+        self._make_plan(status="DRAFT")
+        resp = self.client.get(self._entry_url())
+        self.assertRedirects(resp, self._distribute_url(), fetch_redirect_response=False)
 
-    # ── POST create ───────────────────────────────────────────────────────────
+    def test_header_view_get_returns_200(self):
+        resp = self.client.get(self._header_url())
+        self.assertEqual(resp.status_code, 200)
 
-    def test_post_creates_plan(self):
-        resp = self._post_valid()
+    def test_header_view_post_creates_draft_plan(self):
+        resp = self.client.post(self._header_url(), {
+            "renda_prevista": "5000.00",
+            "savings_goal": "500.00",
+            "teto_despesas": "3000.00",
+            "reserva_dividas": "0.00",
+            "reserva_metas": "0.00",
+            "reserva_investimentos": "0.00",
+            "notes": "",
+        })
+        self.assertEqual(resp.status_code, 302)
+        plan = MonthlyPlan.objects.filter(user=self.user, year=self.year, month=self.month).first()
+        self.assertIsNotNone(plan)
+        self.assertEqual(plan.status, "DRAFT")
+
+    def test_header_view_post_updates_existing_plan(self):
+        self._make_plan()
+        self.client.post(self._header_url(), {
+            "renda_prevista": "6000.00",
+            "savings_goal": "600.00",
+            "teto_despesas": "3500.00",
+            "reserva_dividas": "0.00",
+            "reserva_metas": "0.00",
+            "reserva_investimentos": "0.00",
+            "notes": "",
+        })
+        self.assertEqual(MonthlyPlan.objects.filter(user=self.user).count(), 1)
+        plan = MonthlyPlan.objects.get(user=self.user, year=self.year, month=self.month)
+        self.assertEqual(plan.renda_prevista, Decimal("6000.00"))
+
+    def test_distribute_view_get_returns_200(self):
+        self._make_plan()
+        resp = self.client.get(self._distribute_url())
+        self.assertEqual(resp.status_code, 200)
+
+    def test_distribute_view_post_creates_items(self):
+        plan = self._make_plan()
+        resp = self.client.post(self._distribute_url(), {
+            f"amount_{self.expense_cat.pk}": "400.00",
+        })
         self.assertEqual(resp.status_code, 302)
         self.assertTrue(
-            MonthlyPlan.objects.filter(
-                user=self.user,
-                year=self.today.year,
-                month=self.today.month,
-            ).exists()
+            MonthlyPlanItem.objects.filter(monthly_plan=plan, category=self.expense_cat).exists()
         )
 
-    def test_post_assigns_correct_user(self):
-        self._post_valid()
-        plan = MonthlyPlan.objects.get(user=self.user, year=self.today.year, month=self.today.month)
-        self.assertEqual(plan.user, self.user)
+    def test_review_view_get_returns_200(self):
+        plan = self._make_plan()
+        MonthlyPlanItem.objects.create(
+            monthly_plan=plan, category=self.expense_cat, planned_amount=Decimal("400.00")
+        )
+        resp = self.client.get(self._review_url())
+        self.assertEqual(resp.status_code, 200)
 
-    def test_post_updates_existing_plan(self):
-        MonthlyPlan.objects.create(
+    def test_review_view_post_activates_plan(self):
+        plan = self._make_plan()
+        MonthlyPlanItem.objects.create(
+            monthly_plan=plan, category=self.expense_cat, planned_amount=Decimal("400.00")
+        )
+        self.client.post(self._review_url(), {})
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, "ACTIVE")
+
+    def test_dashboard_view_get_returns_200(self):
+        self._make_plan(status="ACTIVE")
+        resp = self.client.get(self._dashboard_url())
+        self.assertEqual(resp.status_code, 200)
+
+    def test_dashboard_view_redirects_when_no_plan(self):
+        resp = self.client.get(self._dashboard_url())
+        self.assertRedirects(resp, self._entry_url(), fetch_redirect_response=False)
+
+    def test_copy_view_copies_items_from_previous_month(self):
+        prev_month = self.month - 1 if self.month > 1 else 12
+        prev_year = self.year if self.month > 1 else self.year - 1
+        prev_plan = MonthlyPlan.objects.create(
+            user=self.user, year=prev_year, month=prev_month,
+            renda_prevista=Decimal("5000.00"), teto_despesas=Decimal("3000.00"),
+            savings_goal=Decimal("500.00"),
+        )
+        MonthlyPlanItem.objects.create(
+            monthly_plan=prev_plan, category=self.expense_cat, planned_amount=Decimal("400.00")
+        )
+        new_plan = self._make_plan()
+        copy_url = reverse("budgets:planning_copy", kwargs={"year": self.year, "month": self.month})
+        self.client.post(copy_url)
+        self.assertTrue(
+            MonthlyPlanItem.objects.filter(monthly_plan=new_plan, category=self.expense_cat).exists()
+        )
+
+    def test_anonymous_user_redirected(self):
+        self.client.logout()
+        resp = self.client.get(self._entry_url())
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/login", resp.url)
+
+    def test_other_user_cannot_access_plan(self):
+        other_plan = self._make_plan(user=self.other)
+        url = reverse("budgets:planning_distribute", kwargs={"year": self.year, "month": self.month})
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 404)
+
+
+# =============================================================================
+# Sprint 7 — MonthlyPlan REST API tests
+# =============================================================================
+
+class MonthlyPlanAPITests(MonthlyPlanTestMixin, TestCase):
+    """REST API tests for MonthlyPlan and MonthlyPlanItem endpoints."""
+
+    def setUp(self):
+        from rest_framework.authtoken.models import Token
+        from rest_framework.test import APIClient
+        self.user = self.make_user()
+        self.other = self.make_user(suffix="2")
+        self.account = self.make_account(self.user)
+        self.expense_cat = self.make_expense_category(self.user, name="Alimentação")
+        self.token = Token.objects.create(user=self.user)
+        self.other_token = Token.objects.create(user=self.other)
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        self.today = date.today()
+        self.plan = MonthlyPlan.objects.create(
             user=self.user,
             year=self.today.year,
             month=self.today.month,
-            renda_prevista=Decimal("4000.00"),
-            teto_despesas=Decimal("2000.00"),
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("3000.00"),
+            savings_goal=Decimal("500.00"),
+            status="DRAFT",
         )
-        self._post_valid(renda_prevista="6000.00", teto_despesas="3000.00")
-        plan = MonthlyPlan.objects.get(user=self.user, year=self.today.year, month=self.today.month)
-        self.assertEqual(plan.renda_prevista, Decimal("6000.00"))
-        self.assertEqual(MonthlyPlan.objects.filter(user=self.user).count(), 1)
+        self.item = MonthlyPlanItem.objects.create(
+            monthly_plan=self.plan,
+            category=self.expense_cat,
+            planned_amount=Decimal("400.00"),
+        )
 
-    def test_post_invalid_shows_errors(self):
-        # teto + reserves > renda → invalid
-        resp = self._post_valid(renda_prevista="1000.00", teto_despesas="900.00",
-                                reserva_dividas="200.00")
-        self.assertEqual(resp.status_code, 200)
-        self.assertFalse(MonthlyPlan.objects.filter(user=self.user).exists())
+    def _plan_url(self, pk=None, action=None):
+        if action:
+            return reverse(f"api-monthly-plan-{action}", kwargs={"pk": pk})
+        if pk:
+            return reverse("api-monthly-plan-detail", kwargs={"pk": pk})
+        return reverse("api-monthly-plan-list")
 
-    # ── user isolation ────────────────────────────────────────────────────────
+    def _item_url(self, pk=None):
+        if pk:
+            return reverse("api-monthly-plan-item-detail", kwargs={"pk": pk})
+        return reverse("api-monthly-plan-item-list")
 
-    def test_plan_list_only_shows_own_plans(self):
+    def test_list_returns_only_own_plans(self):
         MonthlyPlan.objects.create(
-            user=self.user, year=2026, month=1,
+            user=self.other, year=self.today.year, month=self.today.month,
+            renda_prevista=Decimal("4000.00"), teto_despesas=Decimal("2000.00"),
+        )
+        resp = self.client.get(self._plan_url())
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data["results"]), 1)
+        self.assertEqual(resp.data["results"][0]["id"], self.plan.pk)
+
+    def test_create_plan(self):
+        resp = self.client.post(self._plan_url(), {
+            "year": self.today.year,
+            "month": self.today.month - 1 if self.today.month > 1 else 12,
+            "renda_prevista": "4000.00",
+            "teto_despesas": "2500.00",
+            "savings_goal": "300.00",
+            "reserva_dividas": "0.00",
+            "reserva_metas": "0.00",
+            "reserva_investimentos": "0.00",
+        }, content_type="application/json")
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.data["renda_prevista"], "4000.00")
+
+    def test_retrieve_plan_includes_kpis(self):
+        resp = self.client.get(self._plan_url(pk=self.plan.pk))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("teto_calculado", resp.data)
+        self.assertIn("status_display", resp.data)
+
+    def test_activate_action_changes_status(self):
+        resp = self.client.post(f"{self._plan_url(pk=self.plan.pk)}activate/")
+        self.assertEqual(resp.status_code, 200)
+        self.plan.refresh_from_db()
+        self.assertEqual(self.plan.status, "ACTIVE")
+
+    def test_activate_rejects_non_draft(self):
+        self.plan.status = "ACTIVE"
+        self.plan.save(update_fields=["status"])
+        resp = self.client.post(f"{self._plan_url(pk=self.plan.pk)}activate/")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_summary_action_includes_items(self):
+        resp = self.client.get(f"{self._plan_url(pk=self.plan.pk)}summary/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("items", resp.data)
+        self.assertEqual(len(resp.data["items"]), 1)
+
+    def test_copy_from_previous_copies_items(self):
+        prev_month = self.today.month - 1 if self.today.month > 1 else 12
+        prev_year = self.today.year if self.today.month > 1 else self.today.year - 1
+        prev_plan = MonthlyPlan.objects.create(
+            user=self.user, year=prev_year, month=prev_month,
             renda_prevista=Decimal("5000.00"), teto_despesas=Decimal("3000.00"),
         )
-        MonthlyPlan.objects.create(
-            user=self.other, year=2026, month=1,
-            renda_prevista=Decimal("9000.00"), teto_despesas=Decimal("5000.00"),
+        MonthlyPlanItem.objects.create(
+            monthly_plan=prev_plan, category=self.expense_cat,
+            planned_amount=Decimal("300.00"),
         )
-        resp = self.client.get(reverse("budgets:monthly_plan_list"))
+        # Remove existing item from current plan to avoid unique constraint
+        self.item.delete()
+        resp = self.client.post(f"{self._plan_url(pk=self.plan.pk)}copy_from_previous/")
         self.assertEqual(resp.status_code, 200)
-        plans = list(resp.context["plans"])
-        self.assertTrue(all(p.user == self.user for p in plans))
-        self.assertEqual(len(plans), 1)
+        self.assertEqual(resp.data["copied_items"], 1)
+
+    def test_other_user_plan_returns_404(self):
+        other_plan = MonthlyPlan.objects.create(
+            user=self.other, year=self.today.year, month=self.today.month,
+            renda_prevista=Decimal("4000.00"), teto_despesas=Decimal("2000.00"),
+        )
+        resp = self.client.get(self._plan_url(pk=other_plan.pk))
+        self.assertEqual(resp.status_code, 404)
+
+    def test_list_items_filtered_by_plan(self):
+        resp = self.client.get(f"{self._item_url()}?monthly_plan={self.plan.pk}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data["results"]), 1)
+        self.assertEqual(resp.data["results"][0]["id"], self.item.pk)
+
+    def test_create_item(self):
+        cat2 = self.make_expense_category(self.user, name="Transporte")
+        resp = self.client.post(self._item_url(), {
+            "monthly_plan": self.plan.pk,
+            "category": cat2.pk,
+            "planned_amount": "200.00",
+        }, content_type="application/json")
+        self.assertEqual(resp.status_code, 201)
+
+    def test_item_response_includes_spent_amount(self):
+        resp = self.client.get(self._item_url(pk=self.item.pk))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("spent_amount", resp.data)
+        self.assertIn("percentage_used", resp.data)
+
+    def test_unauthenticated_request_rejected(self):
+        self.client.credentials()
+        resp = self.client.get(self._plan_url())
+        self.assertEqual(resp.status_code, 401)

@@ -2,9 +2,10 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, Avg, Count, Q
+from django.forms import modelformset_factory
 from decimal import Decimal
 from datetime import date, datetime, timedelta
-from .models import Budget, MonthlyPlan
+from .models import Budget, MonthlyPlan, MonthlyPlanItem
 from categories.models import Category
 from transactions.models import Transaction
 
@@ -652,3 +653,110 @@ class BudgetDeleteConfirmationForm(forms.Form):
             f'{budget.end_date.strftime("%d/%m/%Y")}). '
             'Esta ação não pode ser desfeita.'
         )
+
+
+class MonthlyPlanHeaderForm(forms.ModelForm):
+    """Passo 1 do wizard: cabeçalho do plano mensal.
+
+    year e month são injetados pela view; teto_despesas é calculado e
+    exibido como read-only no template — nenhum dos três aparece aqui.
+    """
+
+    class Meta:
+        model = MonthlyPlan
+        fields = [
+            'renda_prevista',
+            'savings_goal',
+            'reserva_dividas',
+            'reserva_metas',
+            'reserva_investimentos',
+            'notes',
+        ]
+        widgets = {
+            'renda_prevista': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'step': '0.01',
+            }),
+            'savings_goal': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'step': '0.01',
+            }),
+            'reserva_dividas': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'step': '0.01',
+            }),
+            'reserva_metas': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'step': '0.01',
+            }),
+            'reserva_investimentos': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'step': '0.01',
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-input',
+                'rows': 3,
+            }),
+        }
+        labels = {
+            'renda_prevista': 'Renda Prevista (R$)',
+            'savings_goal': 'Meta de Economia (R$)',
+            'reserva_dividas': 'Reserva Dívidas (R$)',
+            'reserva_metas': 'Reserva Metas (R$)',
+            'reserva_investimentos': 'Reserva Investimentos (R$)',
+            'notes': 'Observações',
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        renda = cleaned.get('renda_prevista') or Decimal('0.00')
+        economia = cleaned.get('savings_goal') or Decimal('0.00')
+        dividas = cleaned.get('reserva_dividas') or Decimal('0.00')
+        metas = cleaned.get('reserva_metas') or Decimal('0.00')
+        investimentos = cleaned.get('reserva_investimentos') or Decimal('0.00')
+
+        teto = renda - economia - dividas - metas - investimentos
+        if teto < Decimal('0.00'):
+            raise ValidationError(
+                'A soma de meta de economia e reservas não pode exceder '
+                'a renda prevista. Revise os valores informados.'
+            )
+        return cleaned
+
+
+class MonthlyPlanItemForm(forms.ModelForm):
+    """Formulário para um único item do plano (usado no formset do Passo 2).
+
+    category e monthly_plan são injetados pela view e não aparecem aqui.
+    """
+
+    class Meta:
+        model = MonthlyPlanItem
+        fields = ['planned_amount', 'alert_threshold']
+        widgets = {
+            'planned_amount': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'step': '0.01',
+            }),
+            'alert_threshold': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'min': '0',
+                'max': '100',
+            }),
+        }
+        labels = {
+            'planned_amount': 'Valor Planejado (R$)',
+            'alert_threshold': 'Alerta (%)',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['alert_threshold'].required = False
+
+
+MonthlyPlanItemFormSet = modelformset_factory(
+    MonthlyPlanItem,
+    form=MonthlyPlanItemForm,
+    extra=0,
+    can_delete=False,
+)

@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Sum, Q
 from django.utils.timezone import now
 from decimal import Decimal
@@ -639,9 +639,8 @@ class Budget(models.Model):
         return f"R$ {sign}{formatted_amount}"
     
     def get_absolute_url(self):
-        """Return the absolute URL to view this budget."""
         from django.urls import reverse
-        return reverse('budgets:detail', kwargs={'pk': self.pk})
+        return reverse('budgets:planning_entry')
     
     # Class methods for budget analysis and reporting
     @classmethod
@@ -893,6 +892,7 @@ class MonthlyPlan(models.Model):
     ────────────
     renda_prevista        — total income expected this month
     teto_despesas         — maximum allowed spending (expense ceiling)
+    savings_goal          — amount the user wants to save this month
     reserva_dividas       — portion earmarked for debt payments      (FIN-7 hook)
     reserva_metas         — portion earmarked for goal contributions  (FIN-9 hook)
     reserva_investimentos — portion earmarked for investments         (FIN-10 hook)
@@ -909,6 +909,15 @@ class MonthlyPlan(models.Model):
     percentual_consumido      — despesas_realizadas / teto_despesas × 100
     limite_diario_recomendado — remaining_despesas / days_remaining_in_month
     """
+
+    STATUS_DRAFT = 'DRAFT'
+    STATUS_ACTIVE = 'ACTIVE'
+    STATUS_CLOSED = 'CLOSED'
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, 'Rascunho'),
+        (STATUS_ACTIVE, 'Ativo'),
+        (STATUS_CLOSED, 'Encerrado'),
+    ]
 
     user = models.ForeignKey(
         User,
@@ -956,6 +965,20 @@ class MonthlyPlan(models.Model):
         verbose_name='Reserva Investimentos',
         help_text='Valor separado para investimentos (preparado para FIN-10).',
     )
+    savings_goal = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        verbose_name='Meta de Economia',
+        help_text='Valor que o usuário deseja economizar no mês.',
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default=STATUS_DRAFT,
+        verbose_name='Status',
+    )
     notes = models.TextField(
         blank=True,
         default='',
@@ -1002,9 +1025,11 @@ class MonthlyPlan(models.Model):
                 + (self.reserva_metas or Decimal('0.00'))
                 + (self.reserva_investimentos or Decimal('0.00'))
             )
-            if self.teto_despesas + total_reserves > self.renda_prevista:
+            economia = self.savings_goal or Decimal('0.00')
+            # teto_calculado must be >= 0: renda - economia - reservas - teto >= 0
+            if self.renda_prevista - economia - total_reserves - self.teto_despesas < Decimal('0.00'):
                 raise ValidationError(
-                    'Teto de despesas + reservas não pode exceder a renda prevista.'
+                    'Despesas + reservas + meta de economia excedem a renda prevista.'
                 )
 
     def save(self, *args, **kwargs):
@@ -1053,6 +1078,17 @@ class MonthlyPlan(models.Model):
             self.reserva_dividas
             + self.reserva_metas
             + self.reserva_investimentos
+        )
+
+    @property
+    def teto_calculado(self):
+        """Teto de despesas = renda - economia - reservas."""
+        return (
+            self.renda_prevista
+            - self.savings_goal
+            - self.reserva_dividas
+            - self.reserva_metas
+            - self.reserva_investimentos
         )
 
     @property
@@ -1140,12 +1176,12 @@ class MonthlyPlan(models.Model):
         )
 
     @property
-    def status(self):
+    def health_status(self):
         """
-        Simple health indicator:
-          'ok'       — within ceiling
-          'atencao'  — consumed >= 80%
-          'critico'  — consumed >= 100%
+        Indicador de saúde financeira baseado no consumo do teto:
+          'ok'       — dentro do teto
+          'atencao'  — consumido >= 80%
+          'critico'  — consumido >= 100%
         """
         pct = float(self.percentual_consumido)
         if pct >= 100:
@@ -1155,20 +1191,25 @@ class MonthlyPlan(models.Model):
         return 'ok'
 
     @property
-    def status_color(self):
+    def health_color(self):
         return {
             'ok': 'text-green-400',
             'atencao': 'text-yellow-400',
             'critico': 'text-red-400',
-        }[self.status]
+        }[self.health_status]
 
     @property
-    def status_label(self):
+    def health_label(self):
         return {
             'ok': 'Saudável',
             'atencao': 'Atenção',
             'critico': 'Crítico',
-        }[self.status]
+        }[self.health_status]
+
+    @property
+    def status_display(self):
+        """Label legível para o campo DB status (DRAFT/ACTIVE/CLOSED)."""
+        return dict(self.STATUS_CHOICES).get(self.status, self.status)
 
     # ── display helpers ───────────────────────────────────────────────────────
 
@@ -1221,6 +1262,155 @@ class MonthlyPlan(models.Model):
         )
 
 
+class MonthlyPlanItem(models.Model):
+    """
+    Item de planejamento mensal por categoria de despesa.
+
+    Cada item vincula uma categoria de despesa a um MonthlyPlan com um valor
+    planejado. O gasto real é calculado dinamicamente a partir das transações
+    do mês — nunca armazenado — seguindo a mesma estratégia do Budget.
+
+    Categorias mãe não precisam ter um item próprio: a view agrega os valores
+    das filhas. Mas o usuário pode lançar despesas diretamente na mãe, e isso
+    é contabilizado via _calculate_spent_amount (inclui descendentes).
+    """
+
+    monthly_plan = models.ForeignKey(
+        'MonthlyPlan',
+        on_delete=models.CASCADE,
+        related_name='items',
+        verbose_name='Plano Mensal',
+    )
+    category = models.ForeignKey(
+        'categories.Category',
+        on_delete=models.CASCADE,
+        related_name='plan_items',
+        verbose_name='Categoria',
+    )
+    planned_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name='Valor Planejado',
+    )
+    alert_threshold = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Alerta (%)',
+        help_text='Percentual de uso para disparar alerta (ex: 80 = alertar ao atingir 80%).',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['category__name']
+        verbose_name = 'Item do Plano'
+        verbose_name_plural = 'Itens do Plano'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['monthly_plan', 'category'],
+                name='unique_plan_item_per_category',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['monthly_plan', 'category']),
+            models.Index(fields=['monthly_plan']),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.category.name} — R$ {self.planned_amount} ({self.monthly_plan})"
+        )
+
+    def clean(self):
+        super().clean()
+        if self.planned_amount is not None and self.planned_amount <= 0:
+            raise ValidationError(
+                {'planned_amount': 'O valor planejado deve ser maior que zero.'}
+            )
+
+        if self.alert_threshold is not None and not (0 <= self.alert_threshold <= 100):
+            raise ValidationError(
+                {'alert_threshold': 'O threshold deve estar entre 0 e 100.'}
+            )
+
+        if self.category_id:
+            try:
+                if self.category.category_type != 'EXPENSE':
+                    raise ValidationError(
+                        {'category': 'Apenas categorias de despesa podem ser planejadas.'}
+                    )
+                if self.monthly_plan_id and self.category.user != self.monthly_plan.user:
+                    raise ValidationError(
+                        {'category': 'A categoria deve pertencer ao mesmo usuário do plano.'}
+                    )
+            except (AttributeError, ObjectDoesNotExist):
+                pass
+
+    @property
+    def spent_amount(self):
+        """Gasto real calculado das transações do mês — nunca armazenado."""
+        from transactions.models import Transaction
+        from calendar import monthrange
+
+        plan = self.monthly_plan
+        first_day = date(plan.year, plan.month, 1)
+        last_day = date(plan.year, plan.month, monthrange(plan.year, plan.month)[1])
+
+        category_ids = [self.category_id]
+        if hasattr(self.category, 'get_descendants'):
+            category_ids += list(
+                self.category.get_descendants().values_list('id', flat=True)
+            )
+
+        total = Transaction.objects.filter(
+            user=plan.user,
+            category_id__in=category_ids,
+            transaction_type='EXPENSE',
+            transaction_date__gte=first_day,
+            transaction_date__lte=last_day,
+        ).aggregate(total=Sum('amount'))['total']
+
+        return total or Decimal('0.00')
+
+    @property
+    def remaining_amount(self):
+        return self.planned_amount - self.spent_amount
+
+    @property
+    def percentage_used(self):
+        if not self.planned_amount or self.planned_amount == 0:
+            return Decimal('0.00')
+        return round((self.spent_amount / self.planned_amount) * Decimal('100'), 2)
+
+    @property
+    def is_over_budget(self):
+        return self.spent_amount > self.planned_amount
+
+    @property
+    def status_color(self):
+        """Classe CSS TailwindCSS baseada no percentual consumido."""
+        pct = float(self.percentage_used)
+        if pct < 70:
+            return 'text-green-400'
+        elif pct < 90:
+            return 'text-yellow-400'
+        elif pct < 100:
+            return 'text-orange-400'
+        return 'text-red-400'
+
+    @property
+    def progress_bar_color(self):
+        pct = float(self.percentage_used)
+        if pct < 70:
+            return 'bg-green-500'
+        elif pct < 90:
+            return 'bg-yellow-500'
+        elif pct < 100:
+            return 'bg-orange-500'
+        return 'bg-red-500'
+
+
 class BudgetAlertManager(models.Manager):
     """Convenience queries for BudgetAlert."""
 
@@ -1271,7 +1461,17 @@ class BudgetAlert(models.Model):
     budget = models.ForeignKey(
         Budget,
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name='alerts',
+    )
+    plan_item = models.ForeignKey(
+        'MonthlyPlanItem',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='alerts',
+        verbose_name='Item do Plano',
     )
     user = models.ForeignKey(
         User,

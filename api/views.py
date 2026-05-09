@@ -7,10 +7,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Account
+from budgets.models import MonthlyPlan, MonthlyPlanItem
 from categories.models import Category
 from transactions.models import Transaction
 
-from .serializers import AccountSerializer, CategorySerializer, TransactionSerializer
+from .serializers import (
+    AccountSerializer,
+    CategorySerializer,
+    MonthlyPlanItemSerializer,
+    MonthlyPlanSerializer,
+    MonthlyPlanSummarySerializer,
+    TransactionSerializer,
+)
 
 
 class AccountViewSet(viewsets.ModelViewSet):
@@ -151,3 +159,82 @@ class YearlySummaryView(APIView):
             'total_balance': str(total_income - total_expenses),
             'months': months,
         })
+
+
+class MonthlyPlanViewSet(viewsets.ModelViewSet):
+    serializer_class = MonthlyPlanSerializer
+
+    def get_queryset(self):
+        return MonthlyPlan.objects.filter(
+            user=self.request.user
+        ).order_by('-year', '-month')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def activate(self, request, pk=None):
+        plan = self.get_object()
+        if plan.status != MonthlyPlan.STATUS_DRAFT:
+            return Response(
+                {'detail': 'Apenas planos em rascunho podem ser ativados.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        MonthlyPlan.objects.filter(pk=plan.pk).update(status=MonthlyPlan.STATUS_ACTIVE)
+        plan.refresh_from_db()
+        return Response(self.get_serializer(plan).data)
+
+    @action(detail=True, methods=['post'])
+    def copy_from_previous(self, request, pk=None):
+        plan = self.get_object()
+        previous = (
+            MonthlyPlan.objects.filter(user=request.user)
+            .exclude(pk=plan.pk)
+            .filter(
+                Q(year__lt=plan.year)
+                | Q(year=plan.year, month__lt=plan.month)
+            )
+            .order_by('-year', '-month')
+            .first()
+        )
+        if not previous:
+            return Response(
+                {'detail': 'Nenhum plano anterior encontrado.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        copied = 0
+        for item in previous.items.all():
+            _, created = MonthlyPlanItem.objects.get_or_create(
+                monthly_plan=plan,
+                category=item.category,
+                defaults={
+                    'planned_amount': item.planned_amount,
+                    'alert_threshold': item.alert_threshold,
+                },
+            )
+            if created:
+                copied += 1
+        return Response({'copied_items': copied, 'plan': self.get_serializer(plan).data})
+
+    @action(detail=True, methods=['get'])
+    def summary(self, request, pk=None):
+        plan = self.get_object()
+        return Response(
+            MonthlyPlanSummarySerializer(plan, context={'request': request}).data
+        )
+
+
+class MonthlyPlanItemViewSet(viewsets.ModelViewSet):
+    serializer_class = MonthlyPlanItemSerializer
+
+    def get_queryset(self):
+        qs = MonthlyPlanItem.objects.filter(
+            monthly_plan__user=self.request.user
+        ).select_related('category', 'monthly_plan')
+        monthly_plan_id = self.request.query_params.get('monthly_plan')
+        if monthly_plan_id:
+            qs = qs.filter(monthly_plan_id=monthly_plan_id)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save()

@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import Budget, BudgetAlert, MonthlyPlan
+from .models import Budget, BudgetAlert, MonthlyPlan, MonthlyPlanItem
 
 
 @admin.register(Budget)
@@ -201,23 +201,46 @@ class BudgetAdmin(admin.ModelAdmin):
     refresh_cache.short_description = "Refresh cache for selected budgets"
 
 
+class MonthlyPlanItemInline(admin.TabularInline):
+    model = MonthlyPlanItem
+    extra = 0
+    fields = ['category', 'planned_amount', 'alert_threshold']
+    readonly_fields = []
+    autocomplete_fields = ['category']
+
+
 @admin.register(MonthlyPlan)
 class MonthlyPlanAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'user', 'renda_prevista', 'teto_despesas', 'created_at')
-    list_filter = ('year', 'month', ('user', admin.RelatedOnlyFieldListFilter))
-    search_fields = ('user__username', 'user__email')
-    readonly_fields = ('created_at', 'updated_at')
-    ordering = ('-year', '-month')
+    list_display = [
+        'user', 'year', 'month', 'renda_prevista', 'teto_despesas', 'created_at'
+    ]
+    list_filter = ['year', 'month']
+    search_fields = ['user__username', 'user__email']
+    ordering = ['-year', '-month']
+    inlines = [MonthlyPlanItemInline]
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(MonthlyPlanItem)
+class MonthlyPlanItemAdmin(admin.ModelAdmin):
+    list_display = [
+        'monthly_plan', 'category', 'planned_amount', 'alert_threshold', 'created_at'
+    ]
+    list_filter = ['monthly_plan__year', 'monthly_plan__month']
+    search_fields = ['category__name', 'monthly_plan__user__username']
+    ordering = ['monthly_plan', 'category__name']
+    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(BudgetAlert)
 class BudgetAlertAdmin(admin.ModelAdmin):
     list_display = (
-        'budget', 'user', 'threshold', 'percentage_at_trigger',
+        'budget', 'plan_item', 'user', 'threshold', 'percentage_at_trigger',
         'spent_at_trigger', 'triggered_at', 'acknowledged_at',
     )
-    list_filter = ('threshold', 'acknowledged_at', 'triggered_at')
+    list_filter = ('threshold', 'acknowledged_at', 'triggered_at', 'plan_item')
     search_fields = ('budget__name', 'user__username', 'user__email')
+    raw_id_fields = ('plan_item',)
     readonly_fields = (
         'budget', 'user', 'threshold', 'spent_at_trigger',
         'percentage_at_trigger', 'triggered_at',
