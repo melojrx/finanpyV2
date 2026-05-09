@@ -30,7 +30,7 @@
                     </button>
                 </form>
                 {% endif %}
-                <a href="{% url 'budgets:list' %}" class="px-4 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 text-gray-200">
+                <a href="{% url 'budgets:planning_entry' %}" class="px-4 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 text-gray-200">
                     Voltar para orçamentos
                 </a>
             </div>
@@ -47,7 +47,7 @@
                     </div>
                     <div>
                         <div class="flex items-center gap-2 flex-wrap">
-                            <a href="{% url 'budgets:detail' alert.budget.pk %}"
+                            <a href="{% url 'budgets:planning_entry' %}"
                                class="font-semibold text-white hover:text-primary-300">
                                 {{ alert.budget.name }}
                             </a>

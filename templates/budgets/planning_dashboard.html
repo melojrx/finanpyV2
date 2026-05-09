@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Acompanhamento — {{ plan.month_name }} {{ plan.year }} — FinanPy{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-white">{{ plan.month_name }} {{ plan.year }}</h1>
+      <p class="text-gray-400 mt-1 text-sm">Acompanhamento do planejamento mensal</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'budgets:planning_dashboard' year=prev_month.year month=prev_month.month %}"
+         class="bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white px-3 py-2 rounded-lg transition-colors text-sm">
+        &larr; Mês anterior
+      </a>
+      <a href="{% url 'budgets:planning_dashboard' year=next_month.year month=next_month.month %}"
+         class="bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white px-3 py-2 rounded-lg transition-colors text-sm">
+        Próximo mês &rarr;
+      </a>
+    </div>
+  </div>
+
+  <div class="mb-4 flex items-center gap-3">
+    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+      {% if plan.status == 'ACTIVE' %}bg-green-900/30 border border-green-700/50 text-green-300
+      {% elif plan.status == 'CLOSED' %}bg-gray-700/50 border border-gray-600/50 text-gray-400
+      {% else %}bg-yellow-900/30 border border-yellow-700/50 text-yellow-300{% endif %}">
+      {{ plan.status_display }}
+    </span>
+    <a href="{% url 'budgets:planning_distribute' year=plan.year month=plan.month %}"
+       class="text-xs text-primary-400 hover:text-primary-300 transition-colors">
+      Ajustar Planejamento &rarr;
+    </a>
+  </div>
+
+  {% if messages %}
+  <div class="mb-6 space-y-2">
+    {% for msg in messages %}
+    <div class="p-3 rounded-lg text-sm font-medium
+      {% if msg.tags == 'success' %}bg-green-900/30 border border-green-700/50 text-green-300
+      {% elif msg.tags == 'error' %}bg-red-900/30 border border-red-700/50 text-red-300
+      {% else %}bg-blue-900/30 border border-blue-700/50 text-blue-300{% endif %}">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+    <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-4">
+      <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Renda</p>
+      <p class="text-lg font-bold text-green-400">{{ plan.renda_prevista_display }}</p>
+      <p class="text-xs text-gray-500 mt-1">
+        Realizada: <span class="text-green-300">{{ plan.renda_realizada_display }}</span>
+      </p>
+    </div>
+
+    <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-4">
+      <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Despesas</p>
+      <p class="text-lg font-bold text-white">{{ plan.despesas_realizadas_display }}</p>
+      <p class="text-xs text-gray-500 mt-1">Teto: {{ plan.teto_despesas_display }}</p>
+      <div class="mt-2 h-1.5 bg-dark-700 rounded-full overflow-hidden">
+        <div class="h-full rounded-full
+          {% if plan.percentual_consumido >= 100 %}bg-red-500
+          {% elif plan.percentual_consumido >= 80 %}bg-yellow-500
+          {% else %}bg-green-500{% endif %}"
+          style="width: {{ plan.percentual_consumido|floatformat:0 }}%; max-width: 100%;">
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-4">
+      <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Saldo Disponível</p>
+      <p class="text-lg font-bold
+        {% if plan.saldo_disponivel >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+        {{ plan.saldo_disponivel_display }}
+      </p>
+      <p class="text-xs text-gray-500 mt-1">Sobra: {{ plan.sobra_planejada_display }}</p>
+    </div>
+
+    <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-4">
+      <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Limite Diário</p>
+      <p class="text-lg font-bold text-primary-300">{{ plan.limite_diario_recomendado_display }}</p>
+      <p class="text-xs text-gray-500 mt-1">{{ plan.days_remaining }} dias restantes</p>
+    </div>
+
+  </div>
+
+  {% if alerts %}
+  <div class="bg-red-900/20 border border-red-700/40 rounded-xl overflow-hidden mb-8">
+    <div class="px-5 py-3 border-b border-red-700/40 flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-red-300">
+        Alertas Ativos
+        <span class="ml-2 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">{{ alerts|length }}</span>
+      </h2>
+      <form method="post" action="{% url 'budgets:alert_ack_all' %}">
+        {% csrf_token %}
+        <button type="submit"
+                class="text-xs text-red-400 hover:text-red-300 transition-colors">
+          Marcar todos como lidos
+        </button>
+      </form>
+    </div>
+    <div class="divide-y divide-red-700/20">
+      {% for alert in alerts %}
+      <div class="px-5 py-3 flex items-center justify-between gap-4">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-red-200 truncate">{{ alert.message }}</p>
+          <p class="text-xs text-red-400/70 mt-0.5">{{ alert.triggered_at|date:"d/m/Y H:i" }}</p>
+        </div>
+        <form method="post" action="{% url 'budgets:alert_ack' pk=alert.pk %}">
+          {% csrf_token %}
+          <button type="submit"
+                  class="text-xs bg-red-900/40 hover:bg-red-900/60 border border-red-700/50 text-red-300 px-3 py-1 rounded-lg transition-colors shrink-0">
+            Lido
+          </button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="bg-dark-800/70 border border-dark-700 rounded-xl overflow-hidden">
+    <div class="px-5 py-3 bg-dark-900/50 border-b border-dark-700">
+      <h2 class="text-sm font-semibold text-white">Orçamento por Categoria</h2>
+    </div>
+    <div class="divide-y divide-dark-700">
+      {% for node in categories_tree %}
+        {% if node.item or node.children %}
+        <div class="px-5 py-4">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              {% if node.category.icon %}
+              <span class="text-base">{{ node.category.icon }}</span>
+              {% endif %}
+              <span class="text-sm font-semibold text-white">{{ node.category.name }}</span>
+            </div>
+            {% if node.item %}
+            <div class="text-right shrink-0">
+              <span class="text-sm font-semibold
+                {% if node.item.percentage_used >= 100 %}text-red-400
+                {% elif node.item.percentage_used >= 80 %}text-yellow-400
+                {% else %}text-gray-300{% endif %}">
+                {{ node.item.spent_amount_display }}
+              </span>
+              <span class="text-xs text-gray-500"> / {{ node.item.planned_amount_display }}</span>
+            </div>
+            {% endif %}
+          </div>
+          {% if node.item %}
+          <div class="h-2 rounded-full bg-dark-700 overflow-hidden mb-1">
+            <div class="h-2 rounded-full {{ node.item.progress_bar_color }}"
+                 style="width: {{ node.item.percentage_used|floatformat:0 }}%; max-width: 100%;"></div>
+          </div>
+          <p class="text-xs text-gray-500">{{ node.item.percentage_used|floatformat:0 }}% utilizado</p>
+          {% endif %}
+
+          {% if node.children %}
+          <div class="mt-3 space-y-3 pl-4 border-l border-dark-700">
+            {% for child in node.children %}
+              {% if child.item %}
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-xs text-gray-300">
+                    {% if child.category.icon %}{{ child.category.icon }} {% endif %}{{ child.category.name }}
+                  </span>
+                  <div class="text-right shrink-0">
+                    <span class="text-xs font-medium
+                      {% if child.item.percentage_used >= 100 %}text-red-400
+                      {% elif child.item.percentage_used >= 80 %}text-yellow-400
+                      {% else %}text-gray-300{% endif %}">
+                      {{ child.item.spent_amount_display }}
+                    </span>
+                    <span class="text-xs text-gray-500"> / {{ child.item.planned_amount_display }}</span>
+                  </div>
+                </div>
+                <div class="h-1.5 rounded-full bg-dark-700 overflow-hidden">
+                  <div class="h-1.5 rounded-full {{ child.item.progress_bar_color }}"
+                       style="width: {{ child.item.percentage_used|floatformat:0 }}%; max-width: 100%;"></div>
+                </div>
+              </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      {% empty %}
+      <div class="px-5 py-8 text-center">
+        <p class="text-gray-400 text-sm">Nenhuma categoria com orçamento definido.</p>
+        <a href="{% url 'budgets:planning_distribute' year=plan.year month=plan.month %}"
+           class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">
+          Distribuir orçamento &rarr;
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
