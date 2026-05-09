@@ -70,6 +70,14 @@
     border-color: rgb(107, 114, 128) !important; /* hover:border-gray-500 */
 }
 
+.form-input:disabled {
+    background-color: rgb(31, 41, 55) !important; /* bg-dark-800 */
+    border-color: rgb(55, 65, 81) !important;
+    color: rgb(75, 85, 99) !important;
+    cursor: not-allowed !important;
+    opacity: 0.5 !important;
+}
+
 /* Select dropdown styling */
 .form-select,
 select.form-input {

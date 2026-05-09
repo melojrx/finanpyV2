@@ -20,6 +20,7 @@
 
   <h1 class="text-2xl font-bold text-white mb-6">Revisar Planejamento</h1>
 
+  <!-- Resumo do plano -->
   <div class="bg-dark-800/70 border border-dark-700 rounded-xl overflow-hidden mb-6">
     <div class="px-5 py-3 bg-dark-900/50 border-b border-dark-700">
       <h2 class="text-sm font-semibold text-white">Resumo do Plano</h2>
@@ -66,34 +67,69 @@
     {% if items %}
     <div class="bg-dark-800/70 border border-dark-700 rounded-xl overflow-hidden mb-6">
       <div class="px-5 py-3 bg-dark-900/50 border-b border-dark-700">
-        <h2 class="text-sm font-semibold text-white">Categorias Planejadas</h2>
+        <h2 class="text-sm font-semibold text-white">Alertas por Categoria</h2>
         <p class="text-xs text-gray-400 mt-0.5">
-          Defina um percentual de alerta para ser notificado quando o gasto se aproximar do limite.
+          Ative o alerta e defina o percentual para ser notificado quando o gasto se aproximar do limite.
         </p>
       </div>
+
+      <!-- Header -->
+      <div class="hidden sm:grid grid-cols-12 gap-2 px-5 py-2 bg-dark-900/30 border-b border-dark-700 text-xs text-gray-500 uppercase tracking-wider">
+        <span class="col-span-5">Categoria</span>
+        <span class="col-span-3 text-right">Planejado</span>
+        <span class="col-span-2 text-center">Alertar</span>
+        <span class="col-span-2 text-right">% Limite</span>
+      </div>
+
       <div class="divide-y divide-dark-700">
         {% for item in items %}
-        <div class="px-5 py-3 flex items-center gap-4">
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-white truncate">
+        <div class="px-5 py-3 grid grid-cols-12 gap-2 items-center hover:bg-dark-700/20 transition-colors">
+
+          <!-- Nome + subcategoria -->
+          <div class="col-span-5">
+            <p class="text-sm font-medium text-white">
               {% if item.category.icon %}{{ item.category.icon }} {% endif %}{{ item.category.name }}
             </p>
-            <p class="text-xs text-gray-400 mt-0.5">{{ item.planned_amount_display }}</p>
+            {% if item.category.parent %}
+            <p class="text-xs text-gray-500 mt-0.5">{{ item.category.parent.name }}</p>
+            {% endif %}
           </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <label for="threshold_{{ item.pk }}"
-                   class="text-xs text-gray-400 whitespace-nowrap">
-              Alertar em %
+
+          <!-- Valor planejado -->
+          <div class="col-span-3 text-right">
+            <span class="text-sm font-semibold text-primary-300">{{ item.planned_amount_display }}</span>
+          </div>
+
+          <!-- Toggle -->
+          <div class="col-span-2 flex justify-center">
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox"
+                     id="alert_on_{{ item.pk }}"
+                     name="alert_on_{{ item.pk }}"
+                     class="sr-only peer"
+                     {% if item.alert_threshold %}checked{% endif %}
+                     onchange="toggleThreshold({{ item.pk }}, this.checked)">
+              <div class="w-9 h-5 bg-dark-600 rounded-full peer
+                          peer-checked:bg-primary-500
+                          after:content-[''] after:absolute after:top-[2px] after:left-[2px]
+                          after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                          peer-checked:after:translate-x-full relative"></div>
             </label>
+          </div>
+
+          <!-- Threshold input -->
+          <div class="col-span-2 flex items-center justify-end gap-1">
             <input type="number"
                    id="threshold_{{ item.pk }}"
                    name="threshold_{{ item.pk }}"
-                   min="0" max="100"
-                   value="{{ item.alert_threshold|default:'' }}"
-                   placeholder="Ex: 80"
-                   class="form-input w-24 text-right text-sm"
+                   min="1" max="100"
+                   value="{{ item.alert_threshold|default:'80' }}"
+                   class="form-input w-16 text-right text-sm py-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                   {% if not item.alert_threshold %}disabled{% endif %}
                    aria-label="Percentual de alerta para {{ item.category.name }}">
+            <span class="text-xs text-gray-400">%</span>
           </div>
+
         </div>
         {% endfor %}
       </div>
@@ -107,9 +143,19 @@
       </a>
       <button type="submit"
               class="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-lg text-sm font-semibold transition-colors">
-        Ativar Planejamento
+        ✓ Ativar Planejamento
       </button>
     </div>
   </form>
 </div>
+
+<script>
+function toggleThreshold(itemId, enabled) {
+  const input = document.getElementById('threshold_' + itemId);
+  if (!input) return;
+  input.disabled = !enabled;
+  if (!enabled) input.value = '';
+  else if (!input.value) input.value = '80';
+}
+</script>
 {% endblock %}

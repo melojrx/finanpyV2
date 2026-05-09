@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
@@ -108,12 +109,16 @@ class PlanningHeaderView(LoginRequiredMixin, View):
     template_name = 'budgets/planning_header.html'
 
     def get(self, request):
+        today = date.today()
+        year = int(request.GET.get('year', today.year))
+        month = int(request.GET.get('month', today.month))
         form = MonthlyPlanHeaderForm()
-        return render(request, self.template_name, {'form': form})
+        return render(request, self.template_name, {'form': form, 'year': year, 'month': month})
 
     def post(self, request):
         today = date.today()
-        year, month = today.year, today.month
+        year = int(request.POST.get('_year', today.year))
+        month = int(request.POST.get('_month', today.month))
 
         existing = MonthlyPlan.get_or_none(request.user, year, month)
         form = MonthlyPlanHeaderForm(request.POST, instance=existing)
@@ -123,14 +128,13 @@ class PlanningHeaderView(LoginRequiredMixin, View):
             plan.user = request.user
             plan.year = year
             plan.month = month
-            # teto_despesas = renda - economia - reservas
             plan.teto_despesas = plan.teto_calculado
             if not plan.pk:
                 plan.status = MonthlyPlan.STATUS_DRAFT
             plan.save()
             return redirect('budgets:planning_distribute', year=year, month=month)
 
-        return render(request, self.template_name, {'form': form})
+        return render(request, self.template_name, {'form': form, 'year': year, 'month': month})
 
 
 class PlanningDistributeView(LoginRequiredMixin, View):
@@ -264,12 +268,14 @@ class PlanningDashboardView(LoginRequiredMixin, View):
 
     def get(self, request, year, month):
         plan = MonthlyPlan.get_or_none(request.user, year, month)
+        prev_month, next_month = _adjacent_months(year, month)
         if plan is None:
-            return redirect('budgets:planning_entry')
+            return redirect(
+                f"{reverse('budgets:planning_header')}?year={year}&month={month}"
+            )
 
         items = plan.items.select_related('category').order_by('category__name')
         alerts = BudgetAlert.objects.unacknowledged_for_user(request.user)
-        prev_month, next_month = _adjacent_months(year, month)
         tree = _build_categories_tree(request.user, plan)
 
         context = {

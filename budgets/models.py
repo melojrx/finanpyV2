@@ -1039,6 +1039,15 @@ class MonthlyPlan(models.Model):
     # ── period helpers ────────────────────────────────────────────────────────
 
     @property
+    def month_name(self):
+        names = {
+            1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
+            5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
+            9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro',
+        }
+        return names.get(self.month, '')
+
+    @property
     def period_start(self):
         return date(self.year, self.month, 1)
 

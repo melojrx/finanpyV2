@@ -1,24 +1,27 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Acompanhamento — {{ plan.month_name }} {{ plan.year }} — FinanPy{% endblock %}
+{% block title %}Acompanhamento — {{ plan.month_name }} {{ plan.year|stringformat:"d" }} — FinanPy{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
   <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-white">{{ plan.month_name }} {{ plan.year }}</h1>
-      <p class="text-gray-400 mt-1 text-sm">Acompanhamento do planejamento mensal</p>
+      <h1 class="text-3xl font-bold text-white">Acompanhamento Mensal</h1>
+      <p class="text-gray-400 mt-1 text-sm">Planejamento de {{ plan.month_name }} {{ plan.year|stringformat:"d" }}</p>
     </div>
     <div class="flex items-center gap-2">
       <a href="{% url 'budgets:planning_dashboard' year=prev_month.year month=prev_month.month %}"
-         class="bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white px-3 py-2 rounded-lg transition-colors text-sm">
-        &larr; Mês anterior
+         class="bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white px-3 py-2 rounded-lg transition-colors text-sm font-medium">
+        &larr;
       </a>
+      <span class="bg-dark-800 border border-dark-700 text-white font-semibold text-sm px-5 py-2 rounded-lg min-w-[150px] text-center">
+        {{ plan.month_name }} {{ plan.year|stringformat:"d" }}
+      </span>
       <a href="{% url 'budgets:planning_dashboard' year=next_month.year month=next_month.month %}"
-         class="bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white px-3 py-2 rounded-lg transition-colors text-sm">
-        Próximo mês &rarr;
+         class="bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white px-3 py-2 rounded-lg transition-colors text-sm font-medium">
+        &rarr;
       </a>
     </div>
   </div>

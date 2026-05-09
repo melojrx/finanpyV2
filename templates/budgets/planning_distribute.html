@@ -80,34 +80,42 @@
             {% for child in node.children %}
             <div class="flex items-center gap-3">
               <label for="amount_{{ child.category.pk }}"
-                     class="text-sm text-gray-300 flex-1 min-w-0 truncate">
+                     class="text-sm text-gray-300 flex-1">
                 {% if child.category.icon %}{{ child.category.icon }} {% endif %}{{ child.category.name }}
               </label>
-              <input type="number"
-                     id="amount_{{ child.category.pk }}"
-                     name="amount_{{ child.category.pk }}"
-                     min="0" step="0.01"
-                     value="{{ child.item.planned_amount|default:'' }}"
-                     placeholder="0,00"
-                     class="form-input w-36 text-right amount-input child-input-{{ node.category.pk }}"
-                     data-parent="{{ node.category.pk }}"
-                     aria-label="Valor para {{ child.category.name }}">
+              <div class="relative w-40 shrink-0">
+                <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">R$</span>
+                <input type="text"
+                       id="amount_{{ child.category.pk }}"
+                       name="amount_{{ child.category.pk }}"
+                       inputmode="numeric" autocomplete="off"
+                       value="{{ child.item.planned_amount|default:'0,00' }}"
+                       placeholder="0,00"
+                       class="form-input pl-8 text-right text-sm amount-input child-input-{{ node.category.pk }}"
+                       data-parent="{{ node.category.pk }}"
+                       data-brl-mask
+                       aria-label="Valor para {{ child.category.name }}">
+              </div>
             </div>
             {% endfor %}
           {% else %}
             <div class="flex items-center gap-3">
               <label for="amount_{{ node.category.pk }}"
                      class="text-sm text-gray-300 flex-1">
-                Valor planejado
+                {% if node.category.icon %}{{ node.category.icon }} {% endif %}{{ node.category.name }}
               </label>
-              <input type="number"
-                     id="amount_{{ node.category.pk }}"
-                     name="amount_{{ node.category.pk }}"
-                     min="0" step="0.01"
-                     value="{{ node.item.planned_amount|default:'' }}"
-                     placeholder="0,00"
-                     class="form-input w-36 text-right amount-input"
-                     aria-label="Valor para {{ node.category.name }}">
+              <div class="relative w-40 shrink-0">
+                <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">R$</span>
+                <input type="text"
+                       id="amount_{{ node.category.pk }}"
+                       name="amount_{{ node.category.pk }}"
+                       inputmode="numeric" autocomplete="off"
+                       value="{{ node.item.planned_amount|default:'0,00' }}"
+                       placeholder="0,00"
+                       class="form-input pl-8 text-right text-sm amount-input"
+                       data-brl-mask
+                       aria-label="Valor para {{ node.category.name }}">
+              </div>
             </div>
           {% endif %}
         </div>
@@ -137,47 +145,76 @@
 </div>
 
 <script>
-function formatBRL(val) {
-    if (isNaN(val)) val = 0;
-    return 'R$ ' + val.toFixed(2)
-        .replace('.', ',')
-        .replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+// ── BRL mask ──────────────────────────────────────────────────────────────
+function formatBRL(cents) {
+  const s = String(Math.abs(cents)).padStart(3, '0');
+  const intPart = s.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (cents < 0 ? '-' : '') + intPart + ',' + s.slice(-2);
+}
+function brlToCents(str) {
+  return parseInt(String(str).replace(/\./g, '').replace(',', '').replace(/\D/g, '') || '0', 10);
+}
+function applyMask(input) {
+  const cents = brlToCents(input.value);
+  input.value = formatBRL(cents);
 }
 
+document.querySelectorAll('[data-brl-mask]').forEach(function(el) {
+  // Pre-fill: se valor existente não é BRL, converte (ex: "400.00" → "400,00")
+  const raw = el.value.replace('.', ',');
+  el.value = formatBRL(brlToCents(raw));
+
+  el.addEventListener('input', function() {
+    applyMask(this);
+    if (this.dataset.parent) updateParentTotal(this.dataset.parent);
+    updateTotals();
+  });
+  el.addEventListener('focus', function() {
+    if (this.value === '0,00') this.value = '';
+  });
+  el.addEventListener('blur', function() {
+    if (!this.value) this.value = '0,00';
+    applyMask(this);
+    if (this.dataset.parent) updateParentTotal(this.dataset.parent);
+    updateTotals();
+  });
+});
+
+// ── Totais ────────────────────────────────────────────────────────────────
 function updateParentTotal(parentId) {
-    let sum = 0;
-    document.querySelectorAll('.child-input-' + parentId).forEach(function(inp) {
-        sum += parseFloat(inp.value) || 0;
-    });
-    const display = document.getElementById('parent-total-' + parentId);
-    if (display) display.textContent = formatBRL(sum);
+  let sum = 0;
+  document.querySelectorAll('.child-input-' + parentId).forEach(function(inp) {
+    sum += brlToCents(inp.value);
+  });
+  const display = document.getElementById('parent-total-' + parentId);
+  if (display) display.textContent = 'R$ ' + formatBRL(sum);
 }
 
 function updateTotals() {
-    let total = 0;
-    document.querySelectorAll('.amount-input').forEach(function(inp) {
-        total += parseFloat(inp.value) || 0;
-    });
-    const teto = parseFloat(document.getElementById('teto-value').dataset.teto) || 0;
-    const restante = teto - total;
-    document.getElementById('alocado-display').textContent = formatBRL(total);
-    document.getElementById('restante-display').textContent = formatBRL(restante);
-    document.getElementById('restante-display').className = restante < 0
-        ? 'text-red-400 font-semibold'
-        : 'text-green-400 font-semibold';
+  let total = 0;
+  document.querySelectorAll('.amount-input').forEach(function(inp) {
+    total += brlToCents(inp.value);
+  });
+  const teto = brlToCents(String(document.getElementById('teto-value').dataset.teto || '0'));
+  const restante = teto - total;
+  document.getElementById('alocado-display').textContent = 'R$ ' + formatBRL(total);
+  document.getElementById('restante-display').textContent = 'R$ ' + formatBRL(restante);
+  document.getElementById('restante-display').className = restante < 0
+    ? 'text-red-400 font-semibold'
+    : 'text-green-400 font-semibold';
 }
 
-document.querySelectorAll('.amount-input').forEach(function(inp) {
-    inp.addEventListener('input', function() {
-        if (inp.dataset.parent) updateParentTotal(inp.dataset.parent);
-        updateTotals();
-    });
-});
-
+// Inicializa totais dos pais
 document.querySelectorAll('[id^="parent-total-"]').forEach(function(el) {
-    const parentId = el.id.replace('parent-total-', '');
-    updateParentTotal(parentId);
+  updateParentTotal(el.id.replace('parent-total-', ''));
 });
 updateTotals();
+
+// ── Submit: converte BRL → decimal para Django ────────────────────────────
+document.querySelector('form').addEventListener('submit', function() {
+  document.querySelectorAll('[data-brl-mask]').forEach(function(inp) {
+    inp.value = (brlToCents(inp.value) / 100).toFixed(2);
+  });
+});
 </script>
 {% endblock %}

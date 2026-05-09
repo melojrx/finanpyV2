@@ -998,7 +998,8 @@ class PlanningWizardViewTests(MonthlyPlanTestMixin, TestCase):
 
     def test_dashboard_view_redirects_when_no_plan(self):
         resp = self.client.get(self._dashboard_url())
-        self.assertRedirects(resp, self._entry_url(), fetch_redirect_response=False)
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/budgets/plano/novo/', resp.url)
 
     def test_copy_view_copies_items_from_previous_month(self):
         prev_month = self.month - 1 if self.month > 1 else 12
