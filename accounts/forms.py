@@ -15,6 +15,7 @@ class AccountForm(forms.ModelForm):
     class Meta:
         model = Account
         fields = ['name', 'account_type', 'balance', 'currency']
+        localized_fields = ('balance',)
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-input',

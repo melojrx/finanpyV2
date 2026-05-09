@@ -31,20 +31,32 @@
       {% endif %}
 
       <div>
-        <label for="{{ form.renda_prevista.id_for_label }}" class="form-label">
+        <label for="id_renda_prevista" class="form-label">
           Renda Mensal Esperada <span class="text-red-400">*</span>
         </label>
-        {{ form.renda_prevista }}
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">R$</span>
+          <input type="text" id="id_renda_prevista" name="renda_prevista"
+                 inputmode="numeric" autocomplete="off"
+                 class="form-input pl-9 text-right"
+                 data-brl-mask placeholder="0,00">
+        </div>
         {% if form.renda_prevista.errors %}
         <p class="text-xs text-red-400 mt-1">{{ form.renda_prevista.errors.0 }}</p>
         {% endif %}
       </div>
 
       <div>
-        <label for="{{ form.savings_goal.id_for_label }}" class="form-label">
+        <label for="id_savings_goal" class="form-label">
           Meta de Economia
         </label>
-        {{ form.savings_goal }}
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">R$</span>
+          <input type="text" id="id_savings_goal" name="savings_goal"
+                 inputmode="numeric" autocomplete="off"
+                 class="form-input pl-9 text-right"
+                 data-brl-mask placeholder="0,00">
+        </div>
         {% if form.savings_goal.errors %}
         <p class="text-xs text-red-400 mt-1">{{ form.savings_goal.errors.0 }}</p>
         {% endif %}
@@ -57,30 +69,42 @@
           </svg>
           Reservas <span class="text-gray-500 font-normal">(opcional)</span>
         </summary>
-        <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="mt-4 grid grid-cols-3 gap-4">
           <div>
-            <label for="{{ form.reserva_dividas.id_for_label }}" class="form-label">
-              {{ form.reserva_dividas.label }}
-            </label>
-            {{ form.reserva_dividas }}
+            <label for="id_reserva_dividas" class="form-label text-xs">Dívidas</label>
+            <div class="relative">
+              <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">R$</span>
+              <input type="text" id="id_reserva_dividas" name="reserva_dividas"
+                     inputmode="numeric" autocomplete="off"
+                     class="form-input pl-8 text-right text-sm"
+                     data-brl-mask placeholder="0,00">
+            </div>
             {% if form.reserva_dividas.errors %}
             <p class="text-xs text-red-400 mt-1">{{ form.reserva_dividas.errors.0 }}</p>
             {% endif %}
           </div>
           <div>
-            <label for="{{ form.reserva_metas.id_for_label }}" class="form-label">
-              {{ form.reserva_metas.label }}
-            </label>
-            {{ form.reserva_metas }}
+            <label for="id_reserva_metas" class="form-label text-xs">Metas</label>
+            <div class="relative">
+              <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">R$</span>
+              <input type="text" id="id_reserva_metas" name="reserva_metas"
+                     inputmode="numeric" autocomplete="off"
+                     class="form-input pl-8 text-right text-sm"
+                     data-brl-mask placeholder="0,00">
+            </div>
             {% if form.reserva_metas.errors %}
             <p class="text-xs text-red-400 mt-1">{{ form.reserva_metas.errors.0 }}</p>
             {% endif %}
           </div>
           <div>
-            <label for="{{ form.reserva_investimentos.id_for_label }}" class="form-label">
-              {{ form.reserva_investimentos.label }}
-            </label>
-            {{ form.reserva_investimentos }}
+            <label for="id_reserva_investimentos" class="form-label text-xs">Investimentos</label>
+            <div class="relative">
+              <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">R$</span>
+              <input type="text" id="id_reserva_investimentos" name="reserva_investimentos"
+                     inputmode="numeric" autocomplete="off"
+                     class="form-input pl-8 text-right text-sm"
+                     data-brl-mask placeholder="0,00">
+            </div>
             {% if form.reserva_investimentos.errors %}
             <p class="text-xs text-red-400 mt-1">{{ form.reserva_investimentos.errors.0 }}</p>
             {% endif %}
@@ -112,17 +136,49 @@
 </div>
 
 <script>
-function calcTeto() {
-    const renda = parseFloat(document.getElementById('id_renda_prevista').value) || 0;
-    const eco = parseFloat(document.getElementById('id_savings_goal').value) || 0;
-    const div = parseFloat(document.getElementById('id_reserva_dividas').value) || 0;
-    const met = parseFloat(document.getElementById('id_reserva_metas').value) || 0;
-    const inv = parseFloat(document.getElementById('id_reserva_investimentos').value) || 0;
-    const teto = renda - eco - div - met - inv;
-    document.getElementById('teto-display').textContent = 'R$ ' + teto.toFixed(2).replace('.', ',');
-    document.getElementById('teto-display').className = teto < 0 ? 'text-red-400 font-bold text-xl' : 'text-green-400 font-bold text-xl';
+// Máscara BRL — formata enquanto digita, envia no formato "1.234,56"
+// Django com localized_fields aceita vírgula como separador decimal (pt-br)
+function formatBRL(cents) {
+  const s = String(Math.abs(cents)).padStart(3, '0');
+  const intPart = s.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (cents < 0 ? '-' : '') + intPart + ',' + s.slice(-2);
 }
-document.querySelectorAll('#id_renda_prevista, #id_savings_goal, #id_reserva_dividas, #id_reserva_metas, #id_reserva_investimentos').forEach(el => el.addEventListener('input', calcTeto));
+function brlToCents(str) {
+  return parseInt(str.replace(/\./g, '').replace(',', '').replace(/\D/g, '') || '0', 10);
+}
+function applyMask(input) {
+  const cents = brlToCents(input.value);
+  input.value = formatBRL(cents);
+  calcTeto();
+}
+document.querySelectorAll('[data-brl-mask]').forEach(function(el) {
+  el.value = '0,00';
+  el.addEventListener('input', function() { applyMask(this); });
+  el.addEventListener('focus', function() {
+    if (this.value === '0,00') this.value = '';
+  });
+  el.addEventListener('blur', function() {
+    if (!this.value) this.value = '0,00';
+    applyMask(this);
+  });
+});
+
+function getDecimal(id) {
+  const el = document.getElementById(id);
+  return el ? brlToCents(el.value) / 100 : 0;
+}
+function calcTeto() {
+  const teto = getDecimal('id_renda_prevista')
+             - getDecimal('id_savings_goal')
+             - getDecimal('id_reserva_dividas')
+             - getDecimal('id_reserva_metas')
+             - getDecimal('id_reserva_investimentos');
+  const display = document.getElementById('teto-display');
+  display.textContent = 'R$ ' + formatBRL(Math.round(teto * 100));
+  display.className = teto < 0
+    ? 'text-red-400 font-bold text-xl'
+    : 'text-green-400 font-bold text-xl';
+}
 calcTeto();
 </script>
 {% endblock %}

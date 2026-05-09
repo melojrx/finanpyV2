@@ -55,6 +55,7 @@ class GoalForm(forms.ModelForm):
     class Meta:
         model = Goal
         fields = ['name', 'description', 'target_amount', 'deadline', 'icon', 'color']
+        localized_fields = ('target_amount',)
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-input',
@@ -99,6 +100,7 @@ class GoalContributionForm(forms.ModelForm):
     class Meta:
         model = GoalContribution
         fields = ['amount', 'date', 'notes']
+        localized_fields = ('amount',)
         widgets = {
             'date': forms.DateInput(attrs={
                 'class': 'form-input',

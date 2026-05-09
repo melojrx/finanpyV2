@@ -28,6 +28,7 @@ class BudgetForm(forms.ModelForm):
     class Meta:
         model = Budget
         fields = ['category', 'name', 'planned_amount', 'start_date', 'end_date', 'is_active']
+        localized_fields = ('planned_amount',)
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-input',
@@ -542,6 +543,7 @@ class MonthlyPlanForm(forms.ModelForm):
             'reserva_investimentos',
             'notes',
         ]
+        localized_fields = ('renda_prevista', 'teto_despesas', 'reserva_dividas', 'reserva_metas', 'reserva_investimentos')
         widgets = {
             'renda_prevista': forms.NumberInput(attrs={
                 'class': 'form-input',
@@ -672,6 +674,7 @@ class MonthlyPlanHeaderForm(forms.ModelForm):
             'reserva_investimentos',
             'notes',
         ]
+        localized_fields = ('renda_prevista', 'savings_goal', 'reserva_dividas', 'reserva_metas', 'reserva_investimentos')
         widgets = {
             'renda_prevista': forms.NumberInput(attrs={
                 'class': 'form-input',
@@ -733,6 +736,7 @@ class MonthlyPlanItemForm(forms.ModelForm):
     class Meta:
         model = MonthlyPlanItem
         fields = ['planned_amount', 'alert_threshold']
+        localized_fields = ('planned_amount',)
         widgets = {
             'planned_amount': forms.NumberInput(attrs={
                 'class': 'form-input',

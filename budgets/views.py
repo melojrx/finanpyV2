@@ -10,7 +10,7 @@ from datetime import date
 from decimal import Decimal
 
 from .models import Budget, BudgetAlert, MonthlyPlan, MonthlyPlanItem
-from .forms import MonthlyPlanForm
+from .forms import MonthlyPlanHeaderForm
 from categories.models import Category
 
 MONTH_NAMES_PT = {
@@ -108,7 +108,7 @@ class PlanningHeaderView(LoginRequiredMixin, View):
     template_name = 'budgets/planning_header.html'
 
     def get(self, request):
-        form = MonthlyPlanForm()
+        form = MonthlyPlanHeaderForm()
         return render(request, self.template_name, {'form': form})
 
     def post(self, request):
@@ -116,13 +116,15 @@ class PlanningHeaderView(LoginRequiredMixin, View):
         year, month = today.year, today.month
 
         existing = MonthlyPlan.get_or_none(request.user, year, month)
-        form = MonthlyPlanForm(request.POST, instance=existing)
+        form = MonthlyPlanHeaderForm(request.POST, instance=existing)
 
         if form.is_valid():
             plan = form.save(commit=False)
             plan.user = request.user
             plan.year = year
             plan.month = month
+            # teto_despesas = renda - economia - reservas
+            plan.teto_despesas = plan.teto_calculado
             if not plan.pk:
                 plan.status = MonthlyPlan.STATUS_DRAFT
             plan.save()

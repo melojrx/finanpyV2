@@ -28,6 +28,7 @@ class TransactionForm(forms.ModelForm):
             'transaction_type', 'account', 'category', 'amount', 
             'description', 'transaction_date', 'notes'
         ]
+        localized_fields = ('amount',)
         widgets = {
             'transaction_type': forms.Select(attrs={
                 'class': 'form-select',
