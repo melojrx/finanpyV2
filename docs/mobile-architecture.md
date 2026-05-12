@@ -408,6 +408,37 @@ usuário autenticado, branch `main` em `bff9118`.
    não é usado no dashboard. *(purge automático do django-tailwind
    resolve no M0)*
 
+### Comparativo entre as 3 telas medidas
+
+| Métrica | Dashboard | Transactions | Budgets/Plano |
+|---|---|---|---|
+| Performance | 72 | 82 | **85** |
+| Accessibility | 87 | 82 ⚠️ | **100** 🏆 |
+| Best Practices | 96 | 100 | 100 |
+| FCP | 2.97 s | 2.61 s | **2.52 s** |
+| LCP | 4.22 s | 4.08 s | **3.78 s** |
+| TBT | 367 ms | 77 ms | **0 ms** 🏆 |
+| Total bytes | 606 KiB | 565 KiB | **532 KiB** |
+
+> Detalhes individuais em `docs/lighthouse-baseline/{dashboard,transactions,budgets-plano}.md`.
+
+**Observações cruzadas:**
+
+1. **Render-blocking de ~1.5–1.9 s é universal** (Tailwind CDN + Google
+   Fonts em todas as telas). M0 + auto-host de Inter resolverá em todas.
+2. **`bg-primary-600` (`#0284c7`) com texto branco falha contraste WCAG
+   AA (4.09:1 < 4.5:1)** — afeta TODA a aplicação. Definir paleta
+   acessível como pré-requisito do M0 nos design tokens.
+3. **`/budgets/plano/` é referência de qualidade técnica** — replicar o
+   padrão (H1 LCP, selects com label, sem JS bloqueante após render) no
+   M2/M4/M6.
+4. **`main.js` não-usado: 79% em todas as telas** — code-splitting por
+   rota (M5/M7) é alto valor.
+5. **Avatar 256 KiB sem cache aparece nas 3** — fix de Nginx no M0/M5
+   beneficia tudo.
+6. **`/transactions/api/categories/` é chamado 2× na lista** —
+   consolidar (M3).
+
 ### KPIs de produto
 
 - Tempo médio para registrar uma transação (mobile): alvo **< 8s**
