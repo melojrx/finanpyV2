@@ -353,18 +353,60 @@ URL scheme `web+finanpy://` registrado no manifest. Exemplos:
 
 ### KPIs técnicos
 
-| Métrica | Baseline atual (estimado) | Alvo pós-implementação |
+**Baseline medido em 2026-05-12** — Lighthouse 13.0.2, mobile preset
+(412×823 @ 1.75x), throttling 4G simulado, página `/dashboard/`,
+usuário autenticado, branch `main` em `bff9118`.
+*Relatório completo arquivado em `docs/lighthouse-baseline/dashboard.json`.*
+
+| Métrica | Baseline medido | Alvo pós-implementação |
 |---|---|---|
-| **Lighthouse PWA score** | 0 (não é PWA) | ≥ 90 |
-| **Lighthouse Performance (mobile)** | ~50-60 | ≥ 85 |
-| **Lighthouse Accessibility** | ~70 | ≥ 95 |
-| **LCP (4G)** | ~4.5s | ≤ 2.5s |
-| **FID** | ~150ms | ≤ 100ms |
-| **CLS** | ~0.15 | ≤ 0.1 |
-| **TBT** | ~600ms | ≤ 200ms |
-| **JS inicial (gzip)** | ~150 KB | ≤ 80 KB |
-| **CSS (gzip)** | ~80 KB (CDN) | ≤ 30 KB |
+| **Lighthouse Performance (mobile)** | **72** | ≥ 85 |
+| **Lighthouse Accessibility** | **87** | ≥ 95 |
+| **Lighthouse Best Practices** | **96** | ≥ 95 (manter) |
+| **Lighthouse SEO** | **90** | ≥ 90 (manter) |
+| **Lighthouse PWA** | n/a (não é PWA) | instalável + offline |
+| **FCP (4G)** | **2.97 s** | ≤ 1.8 s |
+| **LCP (4G)** | **4.22 s** | ≤ 2.5 s |
+| **TBT** | **367 ms** | ≤ 200 ms |
+| **CLS** | **0** ✅ | ≤ 0.1 (manter) |
+| **Speed Index** | **2.97 s** | ≤ 2.5 s |
+| **TTI** | **4.22 s** | ≤ 3.5 s |
+| **Max Potential FID** | **292 ms** | ≤ 130 ms |
+| **Total bytes (transfer)** | **606 KiB** | ≤ 350 KiB |
+| **Tailwind CDN bundle** | **126 KiB transfer / 407 KiB descomprimido** | substituído por CSS local ≤ 30 KiB |
+| **JS render-blocking** | **1.520 ms** (Chart.js) + 150 ms (date-fns) | 0 ms (defer/lazy) |
+| **CSS render-blocking** | **818 ms** (Tailwind CDN) + 869 ms (Google Fonts) + 159 ms (custom) | ≤ 200 ms total |
+| **`main.js` JS não usado** | **33.8 KiB / 42.6 KiB (79%)** | ≤ 20% via code-splitting |
 | **Instalações PWA** | 0 | tracking habilitado |
+
+> ⚠️ **Observação sobre PWA score:** Lighthouse 13 removeu a categoria
+> "PWA" como nota numérica. A validação será feita por checagens
+> individuais no `manifest.webmanifest`, ícones maskable, Service Worker
+> registrado, instalability prompt e `display: standalone`.
+
+### Achados adicionais do baseline (oportunidades de M0–M7)
+
+1. **Erro JavaScript no console** — `date-fns@2.29.3/index.min.js` lança
+   `Uncaught ReferenceError: exports is not defined`. O build CommonJS
+   está sendo carregado direto no browser. **Trocar para a versão ESM
+   (`date-fns@latest/esm`)** ou remover dependência inútil. *(escopo do
+   M5 ou M7 polish)*
+2. **`heading-order` falha** — `<h3>Resumo Financeiro</h3>` sem H1/H2
+   antecedendo no `dashboard.html`. *(corrigir no M4 — refactor do
+   dashboard mobile)*
+3. **`select-name` falha** — `<select>` "Últimos 6 meses" sem
+   `<label>`/`aria-label`. *(corrigir no M4)*
+4. **`identical-links-same-purpose`** — dois `<a>"Ver todas"</a>` apontam
+   para `/transactions/` e `/goals/` mas têm o mesmo texto visível.
+   *(corrigir no M4 — usar `aria-label` distintivo)*
+5. **`avatar.jpeg` 256 KiB sem cache** — imagem grande do perfil sem
+   `Cache-Control`. *(adicionar headers no Nginx no M0/M5)*
+6. **`render-blocking-insight` estima 1.900 ms de economia só do M0**
+   (Tailwind CDN + Chart.js síncrono). Excelente confirmação de que o
+   M0 (django-tailwind) tem retorno gigantesco antes mesmo do M1.
+7. **`unused-css-rules`** — 11.4 KiB de 12.2 KiB (94%) do `custom.css`
+   não é usado no dashboard. *(purge automático do django-tailwind
+   resolve no M0)*
 
 ### KPIs de produto
 
