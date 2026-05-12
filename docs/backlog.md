@@ -46,9 +46,13 @@ documentação do repositório.
 
 ## Infraestrutura
 
-- Migrar TailwindCSS CDN para build local quando houver necessidade de otimizar
-  performance, CSP ou customização profunda.
-- Adicionar Redis/cache somente após identificar gargalo real.
+- **INF-001 — Migrar TailwindCSS CDN para build local com `django-tailwind`.**
+  Decisão aprovada em `docs/mobile-architecture.md` (Sprint 8 / M0). Resolve
+  CSS de ~3 MB (CDN) → ~30 KB gzip (build), libera plugins
+  `@tailwindcss/forms` e `@tailwindcss/typography`, e habilita CSP estrito.
+  *(Em execução na branch `feature/mobile-first-architecture`.)*
+- **INF-002 — Adicionar Redis/cache** após identificar gargalo real (alinhado
+  com cache do endpoint `/api/v1/dashboard/snapshot/` no M4 da Sprint 8).
 - Adicionar Sentry ou serviço equivalente após o primeiro deploy estável.
 - Avaliar storage externo para media, como S3 compatível, quando uploads forem
   relevantes em produção.

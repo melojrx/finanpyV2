@@ -137,6 +137,64 @@ The system follows Django's MVT (Model-View-Template) pattern with these key arc
 - Calculated fields cached where appropriate
 - Static files served efficiently in development
 
+## Mobile-First & PWA (Sprint 8 — em execução)
+
+A partir da branch `feature/mobile-first-architecture`, o projeto está sendo
+refatorado para mobile-first com arquitetura PWA completa (offline-write).
+**Documento oficial:** `docs/mobile-architecture.md`.
+
+### Decisões aprovadas (não relitigar sem nova ADR)
+
+- **Build de CSS:** `django-tailwind` (PyPI: `django-tailwind[reload]`).
+  Substitui o `cdn.tailwindcss.com`. App Django chamado `theme/`.
+- **Navegação mobile:** bottom-nav fixo (5 slots) + FAB central elevado
+  para "Nova transação". Drawer lateral só para itens secundários
+  (Categorias, Metas, Perfil, Logout).
+- **PWA:** instalável (manifest + ícones maskable), offline shell, e
+  Background Sync via Workbox para POST de transações sem rede.
+- **Hermes integration:** deeplinks `web+finanpy://`, `share_target` para
+  recebimento de comprovantes, e endpoints `/api/v1/transactions/quick/`,
+  `/api/v1/dashboard/snapshot/`, `/api/v1/transactions/from-receipt/`,
+  `/api/v1/sync/since/`.
+
+### Workflow de desenvolvimento com django-tailwind
+
+```bash
+# Após pip install -r requirements.txt
+python manage.py tailwind install   # uma vez (instala node deps em theme/)
+python manage.py tailwind start     # dev: watch + hot reload
+python manage.py tailwind build     # produção: gera CSS minificado
+```
+
+Em templates use `{% load tailwind_tags %}` + `{% tailwind_css %}` no
+`<head>` em vez do `<script src="https://cdn.tailwindcss.com">`.
+
+### Princípios de UI mobile-first
+
+- **Touch targets ≥ 44×44px** (Apple HIG / Material 48dp).
+- **Single column < 768px**, sem scroll horizontal acidental.
+- **Safe areas:** sempre usar `env(safe-area-inset-*)` (vars em
+  `static/css/tokens.css`). Nunca hardcoded `top-20 right-4`.
+- **Tabular numerals** em valores monetários (`font-variant-numeric: tabular-nums`).
+- **Inputs financeiros:** `inputmode="decimal"`, máscara BR (vírgula),
+  `enterkeyhint`, `autocomplete` semântico.
+- **Skeletons, não spinners**, em transições.
+- **Listas:** mobile = cards verticais com swipe-actions; desktop ≥md =
+  tabela compacta. Nunca tabela `hidden lg:block` sem fallback.
+- **Modais:** mobile = bottom-sheet com handle drag-to-close;
+  desktop = modal centralizado.
+
+### Onde colocar o quê
+
+| Tipo | Pasta |
+|---|---|
+| Componentes reutilizáveis (bottom-nav, fab, top-bar, sheets) | `templates/components/_*.html` |
+| Service worker | `static/sw.js` |
+| Manifest PWA | `static/manifest.webmanifest` |
+| Ícones maskable | `static/images/icons/icon-{192,512}.png` |
+| Tokens CSS (safe-area, layout vars) | `static/css/tokens.css` |
+| Config Tailwind | `theme/static_src/tailwind.config.js` |
+
 ## Coding Standards
 
 Follow PEP 8 strictly with these project-specific conventions:

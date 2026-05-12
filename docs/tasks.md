@@ -14,6 +14,7 @@ sprint.
 - [x] Sprint 5 - Módulo de Metas Financeiras (goals)
 - [x] Sprint 6 - Plano Mensal Global (MonthlyPlan)
 - [x] Sprint 7 - Módulo de Planejamento Mensal (Wizard + API)
+- [ ] Sprint 8 - Mobile-First Architecture + PWA (M0..M7)
 
 ## Sprint 0 - Planejamento Documentado
 
@@ -702,6 +703,129 @@ Checklist:
 
 ---
 
+## Sprint 8 - Mobile-First Architecture + PWA
+
+Objetivo: refatorar o frontend para mobile-first, transformar o sistema em PWA
+instalável com offline-write, e expor endpoints novos para o agente Hermes.
+
+**Documento aprovado:** `docs/mobile-architecture.md` (espelho da nota Obsidian
+`02-Projetos/FinanPy/2026-05-11-mobile-first-architecture.md`).
+
+**Decisões aprovadas:**
+
+- Build de CSS: `django-tailwind` (substitui CDN — resolve INF-001).
+- Escopo PWA: completo, com offline-write via Background Sync.
+- Navegação mobile: bottom-nav 5 slots + FAB central elevado.
+
+**Estimativa total:** ~19 dias úteis (M0 a M7).
+
+**Pré-flight (concluído nesta sessão):**
+
+- [x] Sincronizar `docs/mobile-architecture.md` com a versão Obsidian aprovada.
+- [x] Criar branch `feature/mobile-first-architecture` a partir de `main`.
+- [x] Remover templates obsoletos `transaction_list_backup.html` e
+  `transaction_list_enhanced.html` (sem referências no código).
+- [x] Atualizar `.gitignore` para `theme/node_modules/` e
+  `theme/static/css/dist/`.
+- [x] Adicionar `django-tailwind[reload]` ao `requirements.txt`.
+- [x] Criar estrutura `templates/components/` e `static/images/icons/`.
+- [ ] Capturar baseline Lighthouse mobile (manual — DevTools, mobile preset,
+  4G slow throttling) e registrar em `docs/mobile-architecture.md` §4.
+
+### M0 — Fundação (2 dias)
+
+- [ ] `pip install -r requirements.txt` (puxa `django-tailwind[reload]`).
+- [ ] `python manage.py tailwind init theme` (cria app `theme/`).
+- [ ] Adicionar `tailwind`, `theme`, `django_browser_reload` em
+  `INSTALLED_APPS`.
+- [ ] `python manage.py tailwind install`.
+- [ ] Migrar configuração custom de `templates/base.html:14-135` para
+  `theme/static_src/tailwind.config.js`.
+- [ ] Habilitar plugins `@tailwindcss/forms`, `@tailwindcss/typography` e
+  plugin custom `safe-area`.
+- [ ] Criar `static/css/tokens.css` com design tokens
+  (safe-areas, h-vars, surfaces, motion).
+- [ ] Remover `<script src="https://cdn.tailwindcss.com">` do `base.html` e
+  trocar pelo `{% tailwind_css %}`.
+- [ ] Atualizar `docker/entrypoint.sh` e `Dockerfile` para rodar
+  `python manage.py tailwind build` antes de `collectstatic`.
+
+### M1 — Shell PWA (3 dias)
+
+- [ ] Criar `static/manifest.webmanifest` (com `share_target` e
+  `protocol_handlers`).
+- [ ] Criar `static/sw.js` com Workbox (estratégias por rota; ver §2.5 do doc).
+- [ ] Criar `static/offline.html`.
+- [ ] Gerar ícones maskable: `icon-192.png`, `icon-512.png`,
+  `apple-touch-icon.png` (180x180), `favicon.svg`, `shortcut-add.png` (96x96).
+- [ ] Refatorar `templates/base.html`: `viewport-fit=cover`, `theme-color`,
+  registro do SW, link para manifest, top-bar minimalista.
+- [ ] Criar componentes: `_bottom_nav.html`, `_top_bar.html`, `_drawer.html`,
+  `_fab.html`, `_toast.html` (com safe-area), `_empty_state.html`,
+  `_skeleton.html`, `_bottom_sheet.html`, `_swipe_card.html`.
+
+### M2 — Lista de Transações (2 dias)
+
+- [x] Apagar `transaction_list_backup.html` e `transaction_list_enhanced.html`.
+  *(feito no pré-flight)*
+- [ ] Substituir tabela `hidden lg:block` por lista de cards swipeáveis
+  (delete/edit) usando `_swipe_card.html`.
+- [ ] Mover filtros para bottom-sheet (`_bottom_sheet.html`).
+- [ ] Implementar pull-to-refresh.
+
+### M3 — Form rápido + bottom-sheet (2 dias)
+
+- [ ] Refatorar `transaction_form.html` em bottom-sheet.
+- [ ] Aplicar `inputmode="decimal"`, máscara de moeda BR, `enterkeyhint`,
+  `autocomplete` semântico.
+- [ ] Autocomplete de categoria com fuzzy match.
+- [ ] Sticky CTA inferior.
+
+### M4 — Dashboard mobile (2 dias)
+
+- [ ] Snap-scroll horizontal de stat cards.
+- [ ] Charts em swiper (Receitas / Despesas / Saldo) com lazy-load do
+  Chart.js.
+- [ ] Implementar endpoint `GET /api/v1/dashboard/snapshot/` (1 request agrega
+  saldo, mês, últimas 5 tx, alertas, top 3 budgets).
+- [ ] Refatorar `dashboard.html` para consumir `/snapshot/`.
+
+### M5 — Background Sync + Hermes (3 dias)
+
+- [ ] SW: queue Workbox `finanpy-tx-queue` para POST de transações offline.
+- [ ] Endpoint `POST /api/v1/transactions/quick/` (resolve categoria por
+  similaridade).
+- [ ] Endpoint `POST /api/v1/transactions/from-receipt/` (multipart → Google
+  Vision → draft).
+- [ ] Endpoint `GET /api/v1/sync/since/?ts=<iso>` (delta).
+- [ ] Endpoint `GET /api/v1/handler/?q=<deeplink>` para `web+finanpy://`.
+- [ ] Implementar `share_target` no manifest (já no M1) + view de recebimento.
+
+### M6 — Demais telas (3 dias)
+
+- [ ] `accounts/account_list.html`: cards verticais com saldo grande, badge
+  de tipo.
+- [ ] `categories/category_list.html`: lista hierárquica com indentação +
+  chevrons.
+- [ ] `budgets/planning_*.html`: wizard vertical, progress bar topo, sticky
+  CTA.
+- [ ] `budgets/budget_detail.html` e `goals/goal_detail.html`: cards mobile +
+  tabela ≥md.
+
+### M7 — Polimento (2 dias)
+
+- [ ] Lighthouse PWA ≥ 90, Performance ≥ 85, A11y ≥ 95.
+- [ ] axe-core no CI.
+- [ ] Testes E2E mobile com Playwright (login, FAB→nova tx, offline→sync,
+  install PWA, share_target).
+- [ ] Bundle analysis (CSS ≤ 30 KB gzip, JS inicial ≤ 80 KB gzip).
+- [ ] Atualizar documentação espelho: `architecture.md`,
+  `frontend-guidelines.md`, `tailwindcss-setup.md` (substituir),
+  `JAVASCRIPT_FEATURES.md`, `B1-API-REST-SPEC.md`, `setup-guide.md`,
+  `deployment.md`.
+
+---
+
 ## Backlog de Produção Pós-MVP
 
 O backlog oficial e rastreável do produto está em `docs/backlog.md`, alinhado
@@ -712,7 +836,7 @@ Jira.
 Itens abaixo não bloqueiam o primeiro deploy em VPS:
 
 - [x] Implementar app `goals` — ver Sprint 5.
-- [ ] Migrar Tailwind CDN para build local.
+- [ ] Migrar Tailwind CDN para build local. *(coberto pelo M0 da Sprint 8)*
 - [ ] Implementar anexos/comprovantes de transação.
 - [x] Adicionar avatar de perfil com upload validado.
 - [ ] Implementar preferências avançadas de usuário (tema, moeda padrão, dashboard).
