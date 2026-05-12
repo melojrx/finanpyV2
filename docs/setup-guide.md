@@ -7,6 +7,8 @@ Este guia prepara o ambiente de desenvolvimento local do FinanPy.
 - Python compatível com Django 5.2.
 - Git.
 - SQLite, já usado pelo Django localmente.
+- **Node.js ≥ 18 e npm** (necessário para `django-tailwind` desde a Sprint 8;
+  build do CSS de produção e watcher de desenvolvimento).
 
 O ambiente atual do projeto usa um diretório `venv/`. Se preferir `.venv/`,
 ajuste os comandos localmente.
@@ -31,6 +33,25 @@ Instale dependências:
 
 ```bash
 pip install -r requirements.txt
+```
+
+Instale dependências do Tailwind (Node.js + npm — uma única vez por clone):
+
+```bash
+python manage.py tailwind install
+```
+
+Gere o CSS pelo menos uma vez antes do primeiro `runserver`:
+
+```bash
+python manage.py tailwind build
+```
+
+Em desenvolvimento, mantenha o watcher do Tailwind rodando em paralelo
+(em um segundo terminal) para hot reload de classes:
+
+```bash
+python manage.py tailwind start
 ```
 
 Aplique migrações:
@@ -114,6 +135,13 @@ finanpy_v2/
 
 - O desenvolvimento local usa SQLite.
 - Produção usa PostgreSQL via Docker Compose.
-- TailwindCSS está via CDN no template base.
-- CSS estático deve ser CSS de navegador; não há build Tailwind local hoje.
+- **TailwindCSS é compilado localmente via `django-tailwind`** desde a
+  Sprint 8 (substitui o antigo CDN `cdn.tailwindcss.com`). Detalhes em
+  `docs/mobile-architecture.md`.
+- O Dockerfile de produção tem um stage `tailwind-build` (Node 20) que
+  gera o CSS minificado antes de copiar para a imagem final. Não é
+  necessário ter Node instalado em runtime na produção.
+- O watcher `tailwind start` reescreve `theme/static/css/dist/styles.css`
+  a cada mudança de classe em templates. Esse arquivo está no
+  `.gitignore` (build artifact).
 - Recursos não implementados ficam documentados em `docs/backlog.md`.
