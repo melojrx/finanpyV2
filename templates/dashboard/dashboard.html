@@ -5,9 +5,14 @@
 {% block title %}Dashboard - FinanPy{% endblock %}
 
 {% block extra_head %}
-<!-- Chart.js for financial charts -->
+{# Chart.js — usado pelos graficos do dashboard #}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+{# date-fns removido na Sprint 8 / M0 — era CommonJS carregado em browser
+   ('Uncaught ReferenceError: exports is not defined') e nao tinha uso real
+   em nenhum lugar do projeto. Se voltar a precisar, usar build ESM:
+   <script type="module">
+     import { format } from "https://cdn.jsdelivr.net/npm/date-fns@4/+esm";
+   </script> #}
 {% endblock %}
 
 {% block content %}
