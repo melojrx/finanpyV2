@@ -1,0 +1,134 @@
+{% comment %}
+  Drawer lateral (mobile) para itens secundários.
+  Itens primários ficam no bottom-nav; aqui ficam: Contas, Categorias, Perfil,
+  Alterar senha, Sair, e (em desktop) duplicação dos primários.
+
+  Controlado por:
+    - botão #drawer-open  (no _top_bar.html)
+    - botão #drawer-close (interno)
+    - clique no backdrop
+    - tecla Escape
+
+  JS está em static/js/shell.js. Aria-aware (role=dialog, aria-modal).
+{% endcomment %}
+{% load static %}
+
+{# Backdrop #}
+<div id="finanpy-drawer-backdrop"
+     class="fixed inset-0 z-40 bg-black/60 opacity-0 pointer-events-none transition-opacity duration-200 md:hidden"
+     aria-hidden="true"></div>
+
+{# Painel #}
+<aside id="finanpy-drawer"
+       class="fixed top-0 left-0 z-50 h-full w-[82%] max-w-[320px]
+              bg-dark-900 border-r border-dark-800
+              -translate-x-full transition-transform duration-200 ease-out
+              md:hidden flex flex-col"
+       style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);"
+       role="dialog" aria-modal="true" aria-labelledby="drawer-title" aria-hidden="true" tabindex="-1">
+
+    {# Header #}
+    <div class="px-4 h-14 flex items-center justify-between border-b border-dark-800">
+        <span id="drawer-title" class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-lg bg-gradient-to-br from-primary-700 to-primary-500 flex items-center justify-center">
+                <span class="text-white font-bold text-sm">F</span>
+            </span>
+            <span class="text-base font-bold text-white">FinanPy</span>
+        </span>
+        <button type="button" id="drawer-close"
+                class="inline-flex items-center justify-center w-11 h-11 rounded-xl text-gray-300 hover:bg-dark-800 transition"
+                aria-label="Fechar menu">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+
+    {# Conteúdo rolável #}
+    <nav class="flex-1 overflow-y-auto px-2 py-3" aria-label="Menu secundário">
+        {% if user.is_authenticated %}
+            <div class="px-3 py-3 mb-2 rounded-xl bg-dark-800/60">
+                <p class="text-sm font-medium text-white truncate">{{ user.get_full_name|default:user.email }}</p>
+                <p class="text-xs text-gray-400 truncate">{{ user.email }}</p>
+            </div>
+
+            <ul class="space-y-1">
+                <li>
+                    <a href="{% url 'accounts:account-list' %}"
+                       class="flex items-center gap-3 px-3 py-3 min-h-[44px] rounded-xl text-gray-200 hover:bg-dark-800 transition">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M3 10h18M7 15h.01M11 15h2m4-12H7a4 4 0 00-4 4v10a4 4 0 004 4h10a4 4 0 004-4V7a4 4 0 00-4-4z"/>
+                        </svg>
+                        <span class="text-sm font-medium">Contas</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'categories:category-list' %}"
+                       class="flex items-center gap-3 px-3 py-3 min-h-[44px] rounded-xl text-gray-200 hover:bg-dark-800 transition">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                        </svg>
+                        <span class="text-sm font-medium">Categorias</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'users:profile' %}"
+                       class="flex items-center gap-3 px-3 py-3 min-h-[44px] rounded-xl text-gray-200 hover:bg-dark-800 transition">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                        <span class="text-sm font-medium">Meu perfil</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'users:password_change' %}"
+                       class="flex items-center gap-3 px-3 py-3 min-h-[44px] rounded-xl text-gray-200 hover:bg-dark-800 transition">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                        <span class="text-sm font-medium">Alterar senha</span>
+                    </a>
+                </li>
+            </ul>
+
+            <hr class="my-3 border-dark-800">
+
+            <form method="post" action="{% url 'users:logout' %}">
+                {% csrf_token %}
+                <button type="submit"
+                        class="w-full flex items-center gap-3 px-3 py-3 min-h-[44px] rounded-xl text-red-400 hover:bg-red-500/10 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    <span class="text-sm font-semibold">Sair</span>
+                </button>
+            </form>
+        {% else %}
+            <ul class="space-y-1">
+                <li>
+                    <a href="{% url 'home' %}"
+                       class="flex items-center px-3 py-3 min-h-[44px] rounded-xl text-gray-200 hover:bg-dark-800 transition text-sm font-medium">
+                        Início
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'users:login' %}"
+                       class="flex items-center px-3 py-3 min-h-[44px] rounded-xl text-gray-200 hover:bg-dark-800 transition text-sm font-medium">
+                        Entrar
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'users:signup' %}"
+                       class="flex items-center justify-center px-3 py-3 min-h-[44px] rounded-xl bg-primary-700 hover:bg-primary-600 text-white text-sm font-semibold transition">
+                        Criar conta
+                    </a>
+                </li>
+            </ul>
+        {% endif %}
+    </nav>
+</aside>

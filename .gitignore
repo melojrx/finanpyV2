@@ -10,14 +10,23 @@ media/test.txt
 # Static files
 /staticfiles/
 
+# django-tailwind / Node toolchain
+theme/node_modules/
+theme/static_src/node_modules/
+theme/static/css/dist/
+package-lock.json.tmp
+.npm/
+
 # Virtual environment
 venv/
 env/
 .venv/
 
-# IDE files
+# IDE / agent tooling files
 .vscode/
 .idea/
+.opencode/
+.claude/worktrees/
 *.swp
 *.swo
 *~

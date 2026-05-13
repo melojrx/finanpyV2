@@ -3,28 +3,40 @@
 
 {% block title %}Acompanhamento — {{ plan.month_name }} {{ plan.year|stringformat:"d" }} — FinanPy{% endblock %}
 
+{% block extra_head %}
+<style>
+  .num-tabular { font-variant-numeric: tabular-nums; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-  <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+  <header class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-white">Acompanhamento Mensal</h1>
+      <h1 class="text-2xl sm:text-3xl font-bold text-white">Acompanhamento Mensal</h1>
       <p class="text-gray-400 mt-1 text-sm">Planejamento de {{ plan.month_name }} {{ plan.year|stringformat:"d" }}</p>
     </div>
-    <div class="flex items-center gap-2">
+    <nav class="flex items-center gap-2" aria-label="Navegar entre meses">
       <a href="{% url 'budgets:planning_dashboard' year=prev_month.year month=prev_month.month %}"
-         class="bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white px-3 py-2 rounded-lg transition-colors text-sm font-medium">
-        &larr;
+         class="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white transition-colors"
+         aria-label="Mês anterior">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
       </a>
-      <span class="bg-dark-800 border border-dark-700 text-white font-semibold text-sm px-5 py-2 rounded-lg min-w-[150px] text-center">
+      <span class="bg-dark-800 border border-dark-700 text-white font-semibold text-sm px-5 h-11 inline-flex items-center justify-center rounded-lg min-w-[150px] text-center">
         {{ plan.month_name }} {{ plan.year|stringformat:"d" }}
       </span>
       <a href="{% url 'budgets:planning_dashboard' year=next_month.year month=next_month.month %}"
-         class="bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white px-3 py-2 rounded-lg transition-colors text-sm font-medium">
-        &rarr;
+         class="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white transition-colors"
+         aria-label="Próximo mês">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
       </a>
-    </div>
-  </div>
+    </nav>
+  </header>
 
   <div class="mb-4 flex items-center gap-3">
     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
@@ -52,21 +64,26 @@
   </div>
   {% endif %}
 
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+  <h2 class="sr-only">Indicadores do mês</h2>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8" role="region" aria-label="Indicadores do plano">
 
     <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-4">
       <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Renda</p>
-      <p class="text-lg font-bold text-green-400">{{ plan.renda_prevista_display }}</p>
+      <p class="text-lg font-bold text-green-400 num-tabular truncate">{{ plan.renda_prevista_display }}</p>
       <p class="text-xs text-gray-500 mt-1">
-        Realizada: <span class="text-green-300">{{ plan.renda_realizada_display }}</span>
+        Realizada: <span class="text-green-300 num-tabular">{{ plan.renda_realizada_display }}</span>
       </p>
     </div>
 
     <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-4">
       <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Despesas</p>
-      <p class="text-lg font-bold text-white">{{ plan.despesas_realizadas_display }}</p>
-      <p class="text-xs text-gray-500 mt-1">Teto: {{ plan.teto_despesas_display }}</p>
-      <div class="mt-2 h-1.5 bg-dark-700 rounded-full overflow-hidden">
+      <p class="text-lg font-bold text-white num-tabular truncate">{{ plan.despesas_realizadas_display }}</p>
+      <p class="text-xs text-gray-500 mt-1">Teto: <span class="num-tabular">{{ plan.teto_despesas_display }}</span></p>
+      <div class="mt-2 h-1.5 bg-dark-700 rounded-full overflow-hidden"
+           role="progressbar"
+           aria-valuenow="{{ plan.percentual_consumido|floatformat:0 }}"
+           aria-valuemin="0" aria-valuemax="100"
+           aria-label="Despesas consumidas em relação ao teto">
         <div class="h-full rounded-full
           {% if plan.percentual_consumido >= 100 %}bg-red-500
           {% elif plan.percentual_consumido >= 80 %}bg-yellow-500
@@ -78,16 +95,16 @@
 
     <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-4">
       <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Saldo Disponível</p>
-      <p class="text-lg font-bold
+      <p class="text-lg font-bold num-tabular truncate
         {% if plan.saldo_disponivel >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
         {{ plan.saldo_disponivel_display }}
       </p>
-      <p class="text-xs text-gray-500 mt-1">Sobra: {{ plan.sobra_planejada_display }}</p>
+      <p class="text-xs text-gray-500 mt-1">Sobra: <span class="num-tabular">{{ plan.sobra_planejada_display }}</span></p>
     </div>
 
     <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-4">
       <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Limite Diário</p>
-      <p class="text-lg font-bold text-primary-300">{{ plan.limite_diario_recomendado_display }}</p>
+      <p class="text-lg font-bold text-primary-300 num-tabular truncate">{{ plan.limite_diario_recomendado_display }}</p>
       <p class="text-xs text-gray-500 mt-1">{{ plan.days_remaining }} dias restantes</p>
     </div>
 
@@ -128,35 +145,39 @@
   </div>
   {% endif %}
 
-  <div class="bg-dark-800/70 border border-dark-700 rounded-xl overflow-hidden">
+  <section class="bg-dark-800/70 border border-dark-700 rounded-xl overflow-hidden" aria-labelledby="cat-budget-title">
     <div class="px-5 py-3 bg-dark-900/50 border-b border-dark-700">
-      <h2 class="text-sm font-semibold text-white">Orçamento por Categoria</h2>
+      <h2 id="cat-budget-title" class="text-sm font-semibold text-white">Orçamento por Categoria</h2>
     </div>
     <div class="divide-y divide-dark-700">
       {% for node in categories_tree %}
         {% if node.item or node.children %}
         <div class="px-5 py-4">
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2">
+          <div class="flex items-center justify-between mb-2 gap-3">
+            <div class="flex items-center gap-2 min-w-0">
               {% if node.category.icon %}
-              <span class="text-base">{{ node.category.icon }}</span>
+              <span class="text-base" aria-hidden="true">{{ node.category.icon }}</span>
               {% endif %}
-              <span class="text-sm font-semibold text-white">{{ node.category.name }}</span>
+              <span class="text-sm font-semibold text-white truncate">{{ node.category.name }}</span>
             </div>
             {% if node.item %}
             <div class="text-right shrink-0">
-              <span class="text-sm font-semibold
+              <span class="text-sm font-semibold num-tabular
                 {% if node.item.percentage_used >= 100 %}text-red-400
                 {% elif node.item.percentage_used >= 80 %}text-yellow-400
                 {% else %}text-gray-300{% endif %}">
                 {{ node.item.spent_amount_display }}
               </span>
-              <span class="text-xs text-gray-500"> / {{ node.item.planned_amount_display }}</span>
+              <span class="text-xs text-gray-500 num-tabular"> / {{ node.item.planned_amount_display }}</span>
             </div>
             {% endif %}
           </div>
           {% if node.item %}
-          <div class="h-2 rounded-full bg-dark-700 overflow-hidden mb-1">
+          <div class="h-2 rounded-full bg-dark-700 overflow-hidden mb-1"
+               role="progressbar"
+               aria-valuenow="{{ node.item.percentage_used|floatformat:0 }}"
+               aria-valuemin="0" aria-valuemax="100"
+               aria-label="Progresso de {{ node.category.name }}">
             <div class="h-2 rounded-full {{ node.item.progress_bar_color }}"
                  style="width: {{ node.item.percentage_used|floatformat:0 }}%; max-width: 100%;"></div>
           </div>
@@ -203,7 +224,7 @@
       </div>
       {% endfor %}
     </div>
-  </div>
+  </section>
 
 </div>
 {% endblock %}

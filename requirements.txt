@@ -9,3 +9,9 @@ Pillow==11.3.0
 psycopg[binary]==3.2.10
 pycparser==2.22
 sqlparse==0.5.3
+
+# Mobile-First / PWA (Sprint 8 - Mobile-First Architecture)
+# Substitui o TailwindCSS via CDN por build local integrado ao Django.
+# Pré-requisito: Node.js >= 18 e npm instalados na máquina de desenvolvimento.
+# Setup: python manage.py tailwind init theme && python manage.py tailwind install
+django-tailwind[reload]==3.8.0

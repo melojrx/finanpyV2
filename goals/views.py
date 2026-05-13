@@ -15,6 +15,12 @@ from .models import Goal, GoalContribution
 
 
 class GoalListView(LoginRequiredMixin, ListView):
+    """Lista de metas com KPIs agregados.
+
+    Os KPIs são calculados sobre **todas** as metas do usuário (não apenas
+    a página corrente) — paginação altera só a lista renderizada.
+    """
+
     model = Goal
     template_name = 'goals/goal_list.html'
     context_object_name = 'goals'
@@ -22,6 +28,31 @@ class GoalListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         return Goal.objects.filter(user=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        from decimal import Decimal
+        from django.db.models import Sum
+
+        context = super().get_context_data(**kwargs)
+        all_goals = Goal.objects.filter(user=self.request.user)
+
+        agg = all_goals.aggregate(
+            total_target=Sum('target_amount'),
+            total_current=Sum('current_amount'),
+        )
+        target = agg['total_target'] or Decimal('0.00')
+        current = agg['total_current'] or Decimal('0.00')
+        progress = (current / target * 100) if target > 0 else Decimal('0')
+
+        context['goal_stats'] = {
+            'total': all_goals.count(),
+            'active': all_goals.filter(status=Goal.STATUS_ACTIVE).count(),
+            'completed': sum(1 for g in all_goals if g.is_completed),
+            'total_target': target,
+            'total_current': current,
+            'overall_progress_pct': float(round(progress, 1)),
+        }
+        return context
 
 
 class GoalDetailView(LoginRequiredMixin, DetailView):

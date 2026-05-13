@@ -82,7 +82,14 @@ class AccountListView(LoginRequiredMixin, ListView):
         context['total_accounts'] = user_accounts.count()
         context['active_accounts'] = user_accounts.filter(is_active=True).count()
         context['inactive_accounts'] = user_accounts.filter(is_active=False).count()
-        
+
+        # Indicador único de "tem filtro ativo?" — evita lookups frágeis no
+        # template (request.GET.<key> dispara VariableDoesNotExist quando a
+        # chave não existe no QueryDict, mesmo com `|default:''`).
+        context['has_filters'] = any(
+            self.request.GET.get(k) for k in ('account_type', 'currency', 'status')
+        )
+
         return context
 
 

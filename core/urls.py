@@ -21,10 +21,24 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.authtoken.views import obtain_auth_token
 
+from core.pwa_views import (
+    DeeplinkHandlerView,
+    OfflineView,
+    manifest,
+    service_worker,
+)
+
 urlpatterns = [
     # Admin interface
     path('admin/', admin.site.urls),
-    
+
+    # PWA endpoints (servidos na raiz para escopo correto)
+    path('sw.js', service_worker, name='service-worker'),
+    path('manifest.webmanifest', manifest, name='pwa-manifest'),
+    path('offline/', OfflineView.as_view(), name='offline'),
+    # Resolver de deeplinks web+finanpy:// (registrado no manifest)
+    path('handler/', DeeplinkHandlerView.as_view(), name='deeplink-handler'),
+
     # Home page
     path('', TemplateView.as_view(template_name='index.html'), name='home'),
     
@@ -58,3 +72,5 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # django_browser_reload — hot reload de templates/CSS em dev
+    urlpatterns += [path('__reload__/', include('django_browser_reload.urls'))]

@@ -30,42 +30,63 @@ class TransactionForm(forms.ModelForm):
         ]
         localized_fields = ('amount',)
         widgets = {
+            # transaction_type renderizado pelo template como segmented control
+            # custom (hidden input + 2 botões). Mantém Select como fallback
+            # acessível e para compat com templates legados.
             'transaction_type': forms.Select(attrs={
                 'class': 'form-select',
                 'id': 'id_transaction_type',
-                'onchange': 'filterCategoriesByType()'
+                'aria-label': 'Tipo da transação',
+                'onchange': 'filterCategoriesByType()',
             }),
             'account': forms.Select(attrs={
                 'class': 'form-select',
-                'required': True
+                'id': 'id_account',
+                'aria-label': 'Conta',
+                'required': True,
             }),
             'category': forms.Select(attrs={
                 'class': 'form-select',
                 'id': 'id_category',
-                'required': True
+                'aria-label': 'Categoria',
+                'required': True,
             }),
+            # Mobile: inputmode=decimal abre teclado numérico com vírgula no
+            # iOS/Android; enterkeyhint=next ajuda fluxo de preenchimento.
             'amount': forms.NumberInput(attrs={
                 'class': 'form-input',
                 'step': '0.01',
                 'min': '0.01',
                 'placeholder': '0,00',
+                'inputmode': 'decimal',
+                'enterkeyhint': 'next',
+                'autocomplete': 'off',
+                'aria-label': 'Valor',
                 'onblur': 'formatCurrency(this)',
-                'onfocus': 'unformatCurrency(this)'
+                'onfocus': 'unformatCurrency(this)',
             }),
             'description': forms.TextInput(attrs={
                 'class': 'form-input',
                 'maxlength': '200',
-                'placeholder': 'Descrição da transação'
+                'placeholder': 'Descrição da transação',
+                'enterkeyhint': 'next',
+                'autocomplete': 'off',
+                'autocapitalize': 'sentences',
+                'aria-label': 'Descrição',
             }),
             'transaction_date': forms.DateInput(attrs={
                 'class': 'form-input',
                 'type': 'date',
-                'max': date.today().isoformat()
+                'max': date.today().isoformat(),
+                'aria-label': 'Data da transação',
             }),
             'notes': forms.Textarea(attrs={
                 'class': 'form-textarea',
                 'rows': 3,
-                'placeholder': 'Observações adicionais (opcional)'
+                'placeholder': 'Observações adicionais (opcional)',
+                'enterkeyhint': 'done',
+                'autocapitalize': 'sentences',
+                'aria-label': 'Observações',
             }),
         }
     
@@ -235,56 +256,63 @@ class TransactionFilterForm(forms.Form):
         widget=forms.DateInput(attrs={
             'class': 'form-input',
             'type': 'date',
-            'placeholder': 'Data inicial'
+            'placeholder': 'Data inicial',
+            'aria-label': 'Data inicial',
         })
     )
-    
+
     date_to = forms.DateField(
         required=False,
         label='Data final',
         widget=forms.DateInput(attrs={
             'class': 'form-input',
             'type': 'date',
-            'placeholder': 'Data final'
+            'placeholder': 'Data final',
+            'aria-label': 'Data final',
         })
     )
-    
+
     account = forms.ModelChoiceField(
         queryset=Account.objects.none(),
         required=False,
         label='Conta',
         empty_label='Todas as contas',
         widget=forms.Select(attrs={
-            'class': 'form-select'
+            'class': 'form-select',
+            'aria-label': 'Filtrar por conta',
         })
     )
-    
+
     category = forms.ModelChoiceField(
         queryset=Category.objects.none(),
         required=False,
         label='Categoria',
         empty_label='Todas as categorias',
         widget=forms.Select(attrs={
-            'class': 'form-select'
+            'class': 'form-select',
+            'aria-label': 'Filtrar por categoria',
         })
     )
-    
+
     transaction_type = forms.ChoiceField(
         choices=[('', 'Todos os tipos')] + Transaction.TRANSACTION_TYPE_CHOICES,
         required=False,
         label='Tipo',
         widget=forms.Select(attrs={
-            'class': 'form-select'
+            'class': 'form-select',
+            'aria-label': 'Filtrar por tipo de transação',
         })
     )
-    
+
     search = forms.CharField(
         required=False,
         label='Buscar',
         max_length=100,
         widget=forms.TextInput(attrs={
             'class': 'form-input',
-            'placeholder': 'Buscar na descrição...'
+            'placeholder': 'Buscar na descrição...',
+            'enterkeyhint': 'search',
+            'aria-label': 'Buscar transações',
         })
     )
     

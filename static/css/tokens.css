@@ -1,0 +1,67 @@
+/**
+ * FinanPy — Design Tokens (Sprint 8 / M0)
+ * ----------------------------------------------------------------------
+ * Variáveis CSS globais consumidas pelo Tailwind config e por componentes
+ * mobile-first. Carregar SEMPRE antes do CSS gerado pelo django-tailwind.
+ *
+ * Ref: docs/mobile-architecture.md §2.3
+ */
+
+:root {
+    /* ------------------------------------------------------------------
+     * Safe areas (iOS notch / Android cutout / home indicator)
+     * Fallback para 0px em browsers/dispositivos sem suporte.
+     * ------------------------------------------------------------------ */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+
+    /* ------------------------------------------------------------------
+     * Layout — alturas e espaçamentos do shell mobile
+     * ------------------------------------------------------------------ */
+    --top-bar-h: 56px;
+    --bottom-nav-h: 64px;
+    --touch-min: 44px; /* Apple HIG (44pt) / Material (48dp) */
+    /* Reserva de espaço inferior em rolagem para conteúdo não ficar atrás
+     * do bottom-nav fixo + safe-area-inset-bottom + folga visual. */
+    --content-pb: calc(var(--bottom-nav-h) + var(--safe-bottom) + 16px);
+
+    /* ------------------------------------------------------------------
+     * Surfaces — bottom-sheets, cards, FAB
+     * ------------------------------------------------------------------ */
+    --radius-sheet: 20px 20px 0 0;
+    --radius-card: 12px;
+    --shadow-sheet: 0 -4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-fab: 0 8px 24px rgba(14, 165, 233, 0.4);
+
+    /* ------------------------------------------------------------------
+     * Motion — easing recomendada para sheets e transições
+     * ------------------------------------------------------------------ */
+    --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* ----------------------------------------------------------------------
+ * Tabular numerals para valores monetários — usar `font-tnum` (utilitário
+ * gerado pelo plugin custom em theme/static_src/tailwind.config.js).
+ * ---------------------------------------------------------------------- */
+@supports (font-variant-numeric: tabular-nums) {
+    .font-tnum {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+/* ----------------------------------------------------------------------
+ * Respeito a `prefers-reduced-motion` — desabilita animações pesadas
+ * para usuários que preferem menos movimento.
+ * ---------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

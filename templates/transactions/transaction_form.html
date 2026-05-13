@@ -5,527 +5,373 @@
 
 {% block extra_head %}
 <style>
-    .form-group {
-        margin-bottom: 2rem;
-        position: relative;
-    }
-    
-    .form-label {
-        display: block;
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #E5E7EB;
-        margin-bottom: 0.75rem;
-        transition: color 0.2s ease;
-    }
-    
-    .form-label.required::after {
-        content: " *";
-        color: #EF4444;
-        font-weight: bold;
-    }
-    
-    .form-group:focus-within .form-label {
-        color: #60A5FA;
-    }
-    
-    .form-help {
-        font-size: 0.75rem;
-        color: #9CA3AF;
-        margin-top: 0.25rem;
-    }
-    
-    .form-error {
-        color: #EF4444;
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
-    }
-    
-    .form-success {
-        color: #10B981;
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
-    }
-    
+    /* Estilos legados consumidos por main.js (transactionManager, FormValidator).
+       Mantidos enxutos; M5/M7 absorvem para Tailwind utilities. */
     .form-input, .form-select, .form-textarea {
         width: 100%;
-        padding: 1rem;
+        padding: 0.875rem 1rem;
         border: 2px solid #374151;
         border-radius: 0.75rem;
         background-color: #1F2937;
         color: #F9FAFB;
         font-size: 1rem;
-        font-weight: 500;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        backdrop-filter: blur(8px);
+        transition: border-color .15s ease, box-shadow .15s ease;
     }
-    
     .form-input:focus, .form-select:focus, .form-textarea:focus {
         outline: none;
-        border-color: #3B82F6;
-        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), 0 8px 25px rgba(59, 130, 246, 0.1);
-        background-color: #111827;
-        transform: translateY(-2px);
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 3px rgba(14,165,233,.2);
     }
-    
-    .form-input:hover, .form-select:hover, .form-textarea:hover {
-        border-color: #4B5563;
-    }
-    
-    .form-checkbox {
-        width: 1rem;
-        height: 1rem;
-        border: 1px solid #374151;
-        border-radius: 0.25rem;
-        background-color: #1F2937;
-        cursor: pointer;
-    }
-    
-    .form-checkbox:checked {
-        background-color: #3B82F6;
-        border-color: #3B82F6;
-    }
-    
-    .currency-input {
-        position: relative;
-    }
-    
+    .form-textarea { resize: vertical; min-height: 80px; }
+
+    /* Currency input com prefixo R$ */
+    .currency-input { position: relative; }
     .currency-input::before {
         content: 'R$';
-        position: absolute;
-        left: 1rem;
-        top: 50%;
+        position: absolute; left: 1rem; top: 50%;
         transform: translateY(-50%);
-        color: #9CA3AF;
-        font-weight: 700;
-        font-size: 1.1rem;
+        color: #9CA3AF; font-weight: 700; font-size: 1rem;
         pointer-events: none;
-        z-index: 10;
-        transition: color 0.3s ease;
     }
-    
     .currency-input input {
-        padding-left: 3rem;
+        padding-left: 2.75rem;
         text-align: right;
         font-weight: 700;
         font-size: 1.25rem;
-        letter-spacing: -0.025em;
+        font-variant-numeric: tabular-nums;
     }
-    
-    .currency-input:focus-within::before {
-        color: #60A5FA;
-    }
-    
-    
+
+    /* Preview de categoria escolhida (mantido para compat com JS) */
     .category-preview {
-        display: flex;
-        align-items: center;
-        margin-top: 0.75rem;
-        padding: 1rem;
-        background: rgba(30, 41, 59, 0.6);
-        border: 1px solid rgba(59, 130, 246, 0.3);
-        border-radius: 0.75rem;
-        opacity: 0;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        transform: translateY(-10px);
-        backdrop-filter: blur(8px);
+        display: flex; align-items: center; gap: .75rem;
+        margin-top: .75rem; padding: .75rem 1rem;
+        background: rgba(30,41,59,.6);
+        border: 1px solid rgba(14,165,233,.25);
+        border-radius: .75rem;
+        opacity: 0; transform: translateY(-6px);
+        transition: all .2s ease;
     }
-    
-    .category-preview.show {
-        opacity: 1;
-        transform: translateY(0);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
-    }
-    
+    .category-preview.show { opacity: 1; transform: translateY(0); }
     .category-preview .icon {
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: 0.75rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 1rem;
-        font-size: 1rem;
-        transition: transform 0.3s ease;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        width: 2.25rem; height: 2.25rem; flex-shrink: 0;
+        border-radius: .5rem;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem;
     }
-    
-    .category-preview:hover .icon {
-        transform: scale(1.1) rotate(5deg);
+    .category-preview .name { color: #E5E7EB; font-weight: 600; }
+
+    /* Segmented control — Receita/Despesa */
+    .segmented-control {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: .5rem;
+        padding: .25rem;
+        background: rgba(15,23,42,.4);
+        border: 1px solid #374151;
+        border-radius: .75rem;
     }
-    
-    .category-preview .name {
-        font-weight: 600;
-        color: #E5E7EB;
-        font-size: 1rem;
+    .segmented-option {
+        display: flex; align-items: center; justify-content: center; gap: .5rem;
+        padding: .75rem 1rem;
+        min-height: 44px;
+        border-radius: .5rem;
+        border: 0; background: transparent;
+        color: #9CA3AF;
+        font-weight: 600; font-size: .95rem;
+        cursor: pointer;
+        transition: all .15s ease;
     }
-    
-    /* Form enhancements */
-    .form-card {
-        background: rgba(31, 41, 55, 0.85);
-        backdrop-filter: blur(15px);
-        border: 1px solid rgba(71, 85, 105, 0.4);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    .segmented-option:hover { color: #E5E7EB; }
+    .segmented-option[aria-pressed="true"][data-value="EXPENSE"] {
+        background: rgba(239,68,68,.18);
+        color: #FCA5A5;
+        box-shadow: inset 0 0 0 1px rgba(239,68,68,.45);
     }
-    
-    .form-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
-        border-color: rgba(59, 130, 246, 0.3);
+    .segmented-option[aria-pressed="true"][data-value="INCOME"] {
+        background: rgba(16,185,129,.18);
+        color: #86EFAC;
+        box-shadow: inset 0 0 0 1px rgba(16,185,129,.45);
     }
-    
-    .form-actions {
-        border-top: 1px solid rgba(71, 85, 105, 0.3);
-        background: rgba(15, 23, 42, 0.5);
-        padding: 2rem;
-        margin: 0 -2rem -2rem -2rem;
-        border-radius: 0 0 1rem 1rem;
-    }
-    
-    .btn-primary-enhanced {
-        background: linear-gradient(135deg, #3B82F6 0%, #2563EB 50%, #1D4ED8 100%);
-        border: none;
-        color: white;
-        font-weight: 700;
-        padding: 1rem 2rem;
-        border-radius: 0.75rem;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-        backdrop-filter: blur(8px);
-        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
-    }
-    
-    .btn-primary-enhanced::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
+
+    /* Trigger do bottom-sheet de categoria */
+    .category-trigger {
         width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-        transition: left 0.6s ease;
-    }
-    
-    .btn-primary-enhanced:hover {
-        transform: translateY(-3px) scale(1.02);
-        box-shadow: 0 20px 25px rgba(59, 130, 246, 0.5);
-    }
-    
-    .btn-primary-enhanced:hover::before {
-        left: 100%;
-    }
-    
-    .btn-secondary-enhanced {
-        background: rgba(31, 41, 55, 0.8);
+        display: flex; align-items: center; gap: .75rem;
+        padding: .875rem 1rem;
+        min-height: 56px;
+        background: #1F2937;
         border: 2px solid #374151;
-        color: #D1D5DB;
-        font-weight: 600;
-        padding: 1rem 2rem;
-        border-radius: 0.75rem;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        backdrop-filter: blur(8px);
+        border-radius: .75rem;
+        color: #F9FAFB;
+        text-align: left;
+        cursor: pointer;
+        transition: border-color .15s ease;
     }
-    
-    .btn-secondary-enhanced:hover {
-        transform: translateY(-2px);
-        border-color: #4B5563;
-        background: rgba(55, 65, 81, 0.9);
-        color: white;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    .category-trigger:hover { border-color: #4B5563; }
+    .category-trigger:focus-visible {
+        outline: none;
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 3px rgba(14,165,233,.2);
     }
+    .category-trigger .placeholder { color: #9CA3AF; }
+    .category-trigger .chev { margin-left: auto; color: #9CA3AF; flex-shrink: 0; }
+
+    /* Lista do bottom-sheet de categoria */
+    .category-list { max-height: 60vh; overflow-y: auto; }
+    .category-item {
+        display: flex; align-items: center; gap: .75rem;
+        padding: .75rem 1rem;
+        min-height: 56px;
+        border-radius: .5rem;
+        cursor: pointer;
+        color: #E5E7EB;
+        background: transparent;
+        border: 0;
+        width: 100%;
+        text-align: left;
+        font-size: .95rem;
+        transition: background-color .12s ease;
+    }
+    .category-item:hover { background: rgba(55,65,81,.5); }
+    .category-item[aria-selected="true"] { background: rgba(14,165,233,.15); }
+    .category-item .swatch {
+        width: 2rem; height: 2rem; flex-shrink: 0;
+        border-radius: .5rem;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1rem;
+    }
+    .category-group-title {
+        padding: .75rem 1rem .5rem;
+        text-transform: uppercase;
+        font-size: .7rem;
+        letter-spacing: .08em;
+        color: #6B7280;
+        font-weight: 700;
+    }
+
+    /* Esconde o <select> nativo de categoria, mas mantém-no acessível
+       como fallback caso o JS falhe. */
+    .sr-only-fallback {
+        position: absolute;
+        width: 1px; height: 1px;
+        padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0,0,0,0);
+        white-space: nowrap; border: 0;
+    }
+
+    /* Fields que recebem erro do form-validator JS legado */
+    .form-input.error, .form-select.error { border-color: #EF4444; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-financial-dark">
-    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Page Header -->
-        <div class="mb-8">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold text-white mb-2">
-                        <span class="text-2xl mr-2">{% if form_action == 'Criar' %}💰{% else %}✏️{% endif %}</span>
-                        {{ form_title }}
-                    </h1>
-                    <p class="text-gray-300">
-                        {% if form_action == 'Criar' %}
-                            Registre uma nova receita ou despesa
-                        {% else %}
-                            Edite os detalhes da transação
-                        {% endif %}
-                    </p>
-                </div>
-                
-                <a href="{% url 'transactions:list' %}" 
-                   class="text-gray-400 hover:text-white transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+<section class="px-4 sm:px-6 lg:px-8 pt-4 pb-8 max-w-2xl mx-auto">
+    <header class="mb-5 flex items-start justify-between gap-3">
+        <div>
+            <h1 class="text-xl sm:text-2xl font-bold text-white">{{ form_title }}</h1>
+            <p class="text-sm text-gray-400 mt-1">
+                {% if form_action == 'Criar' %}Registre uma receita ou despesa rapidamente.
+                {% else %}Edite os detalhes da transação.{% endif %}
+            </p>
+        </div>
+        <a href="{% url 'transactions:list' %}"
+           class="inline-flex items-center justify-center w-11 h-11 rounded-xl text-gray-400 hover:text-white hover:bg-dark-800 transition"
+           aria-label="Cancelar e voltar">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </a>
+    </header>
+
+    <form method="post" id="transaction-form" novalidate
+          class="bg-dark-800/70 border border-dark-700 rounded-2xl p-4 sm:p-6 space-y-5 backdrop-blur-sm">
+        {% csrf_token %}
+
+        {# Erros gerais do form #}
+        {% if form.non_field_errors %}
+        <div class="rounded-xl border border-red-700/50 bg-red-900/20 p-4" role="alert">
+            <p class="text-red-300 font-semibold mb-1">Erros no formulário</p>
+            {% for error in form.non_field_errors %}
+                <p class="text-sm text-red-200">{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# ─── Tipo: segmented control (mobile-first) ──────────────────── #}
+        <div class="form-group">
+            <span class="block text-sm font-semibold text-gray-200 mb-2">Tipo da transação</span>
+            <div role="group" aria-label="Tipo da transação" class="segmented-control" id="type-segmented">
+                <button type="button" class="segmented-option" data-value="EXPENSE" aria-pressed="false">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
                     </svg>
-                </a>
+                    Despesa
+                </button>
+                <button type="button" class="segmented-option" data-value="INCOME" aria-pressed="false">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                    </svg>
+                    Receita
+                </button>
+            </div>
+            {# Select original — escondido visualmente mas presente para form submit + JS legado #}
+            <div class="sr-only-fallback">{{ form.transaction_type }}</div>
+            {% if form.transaction_type.errors %}
+                <p class="form-error mt-2 text-sm text-red-400">{{ form.transaction_type.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        {# ─── Valor (input grande com inputmode decimal) ──────────────── #}
+        <div class="form-group">
+            <label for="{{ form.amount.id_for_label }}" class="block text-sm font-semibold text-gray-200 mb-2">
+                Valor <span class="text-red-400" aria-hidden="true">*</span>
+            </label>
+            <div class="currency-input">
+                {{ form.amount }}
+            </div>
+            {% if form.amount.errors %}
+                <p class="form-error mt-2 text-sm text-red-400">{{ form.amount.errors.0 }}</p>
+            {% endif %}
+            <p class="text-xs text-gray-500 mt-1">Use vírgula para os centavos. Ex.: 49,90</p>
+        </div>
+
+        {# ─── Conta + Categoria (grid em ≥md, stack em mobile) ────────── #}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="form-group">
+                <label for="{{ form.account.id_for_label }}" class="block text-sm font-semibold text-gray-200 mb-2">
+                    Conta <span class="text-red-400" aria-hidden="true">*</span>
+                </label>
+                {{ form.account }}
+                {% if form.account.errors %}
+                    <p class="form-error mt-2 text-sm text-red-400">{{ form.account.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="block text-sm font-semibold text-gray-200 mb-2" id="category-label">
+                    Categoria <span class="text-red-400" aria-hidden="true">*</span>
+                </label>
+
+                {# Trigger mobile-friendly que abre o bottom-sheet de busca #}
+                <button type="button" id="category-trigger" class="category-trigger"
+                        aria-haspopup="dialog" aria-controls="category-sheet"
+                        aria-labelledby="category-label">
+                    <span class="swatch w-9 h-9 rounded-lg flex items-center justify-center text-base"
+                          id="category-trigger-icon" aria-hidden="true"
+                          style="background: rgba(75,85,99,.5);">
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                        </svg>
+                    </span>
+                    <span id="category-trigger-label" class="placeholder">Selecione uma categoria</span>
+                    <svg class="chev w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+
+                {# Select original — escondido mas usado para submit + filterCategoriesByType legado #}
+                <div class="sr-only-fallback">{{ form.category }}</div>
+
+                <div id="category-preview" class="category-preview">
+                    <div class="icon"></div>
+                    <div class="name"></div>
+                </div>
+                {% if form.category.errors %}
+                    <p class="form-error mt-2 text-sm text-red-400">{{ form.category.errors.0 }}</p>
+                {% endif %}
             </div>
         </div>
 
-        <!-- Enhanced Form Card -->
-        <div class="form-card rounded-2xl p-8 shadow-2xl">
-            <form method="post" id="transaction-form" novalidate>
-                {% csrf_token %}
-                
-                <!-- Enhanced Form Errors -->
-                {% if form.non_field_errors %}
-                <div class="bg-gradient-to-r from-red-900/30 to-red-800/40 border-2 border-red-700/50 rounded-xl p-6 mb-8 backdrop-blur-sm">
-                    <div class="flex items-start">
-                        <div class="w-12 h-12 bg-red-600/20 rounded-xl flex items-center justify-center mr-4 flex-shrink-0">
-                            <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </div>
-                        <div>
-                            <h4 class="text-red-300 font-semibold mb-2">Erros no Formulário</h4>
-                            {% for error in form.non_field_errors %}
-                                <p class="text-red-200 text-sm leading-relaxed">{{ error }}</p>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
+        {# ─── Descrição ─────────────────────────────────────────────── #}
+        <div class="form-group">
+            <label for="{{ form.description.id_for_label }}" class="block text-sm font-semibold text-gray-200 mb-2">
+                Descrição <span class="text-red-400" aria-hidden="true">*</span>
+            </label>
+            {{ form.description }}
+            {% if form.description.errors %}
+                <p class="form-error mt-2 text-sm text-red-400">{{ form.description.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        {# ─── Data + Notas ─────────────────────────────────────────── #}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="form-group">
+                <label for="{{ form.transaction_date.id_for_label }}" class="block text-sm font-semibold text-gray-200 mb-2">
+                    Data <span class="text-red-400" aria-hidden="true">*</span>
+                </label>
+                {{ form.transaction_date }}
+                {% if form.transaction_date.errors %}
+                    <p class="form-error mt-2 text-sm text-red-400">{{ form.transaction_date.errors.0 }}</p>
                 {% endif %}
+            </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <!-- Transaction Type -->
-                    <div class="form-group">
-                        <label for="{{ form.transaction_type.id_for_label }}" class="form-label required">
-                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
-                            </svg>
-                            Tipo de Transação
-                        </label>
-                        {{ form.transaction_type }}
-                        {% if form.transaction_type.errors %}
-                            <div class="mt-2 p-3 bg-red-900/20 border border-red-800/50 rounded-lg">
-                                {% for error in form.transaction_type.errors %}
-                                    <div class="text-red-400 text-sm flex items-center">
-                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        {{ error }}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        <div class="text-sm text-gray-400 mt-2 flex items-center">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            Selecione se é uma receita ou despesa
-                        </div>
-                    </div>
+            <div class="form-group">
+                <label for="{{ form.notes.id_for_label }}" class="block text-sm font-semibold text-gray-200 mb-2">
+                    Observações
+                </label>
+                {{ form.notes }}
+                {% if form.notes.errors %}
+                    <p class="form-error mt-2 text-sm text-red-400">{{ form.notes.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
 
-                    <!-- Amount -->
-                    <div class="form-group">
-                        <label for="{{ form.amount.id_for_label }}" class="form-label required">
-                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-                            </svg>
-                            Valor
-                        </label>
-                        <div class="currency-input">
-                            {{ form.amount }}
-                        </div>
-                        {% if form.amount.errors %}
-                            <div class="mt-2 p-3 bg-red-900/20 border border-red-800/50 rounded-lg">
-                                {% for error in form.amount.errors %}
-                                    <div class="text-red-400 text-sm flex items-center">
-                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        {{ error }}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        <div class="text-sm text-gray-400 mt-2 flex items-center">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            Digite o valor da transação
-                        </div>
-                    </div>
-                </div>
+        {# ─── Ações ─────────────────────────────────────────────────── #}
+        <div class="pt-4 border-t border-dark-700 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <a href="{% url 'transactions:list' %}"
+               class="inline-flex items-center justify-center px-5 h-12 rounded-xl border border-dark-600 text-gray-200 hover:bg-dark-700 transition font-medium">
+                Cancelar
+            </a>
+            <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 px-5 h-12 rounded-xl
+                           bg-primary-700 hover:bg-primary-600 active:bg-primary-800
+                           text-white font-semibold shadow-lg shadow-primary-900/30 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                {{ form_action }} transação
+            </button>
+        </div>
+    </form>
+</section>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <!-- Account -->
-                    <div class="form-group">
-                        <label for="{{ form.account.id_for_label }}" class="form-label required">
-                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                            </svg>
-                            Conta
-                        </label>
-                        {{ form.account }}
-                        {% if form.account.errors %}
-                            <div class="mt-2 p-3 bg-red-900/20 border border-red-800/50 rounded-lg">
-                                {% for error in form.account.errors %}
-                                    <div class="text-red-400 text-sm flex items-center">
-                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        {{ error }}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        <div class="text-sm text-gray-400 mt-2 flex items-center">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            Conta onde a transação foi realizada
-                        </div>
-                    </div>
+{# ───── Bottom-sheet de seleção de categoria (mobile-first) ───────── #}
+<div id="category-sheet" class="finanpy-sheet fixed inset-0 z-50 hidden"
+     role="dialog" aria-modal="true" aria-labelledby="category-sheet-title">
+    <div class="absolute inset-0 bg-black/60 finanpy-sheet-backdrop opacity-0 transition-opacity duration-200"
+         data-sheet-close></div>
+    <div class="absolute inset-x-0 bottom-0 bg-dark-900 rounded-t-2xl border-t border-dark-700
+                shadow-2xl translate-y-full transition-transform duration-250 ease-out
+                finanpy-sheet-panel sm:left-1/2 sm:bottom-auto sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
+                sm:max-w-md sm:rounded-2xl sm:border"
+         style="padding-bottom: env(safe-area-inset-bottom);">
+        <div class="pt-2 pb-3 flex justify-center cursor-grab active:cursor-grabbing finanpy-sheet-handle sm:hidden"
+             role="button" aria-label="Arraste para fechar" tabindex="0">
+            <span class="block w-12 h-1.5 rounded-full bg-dark-600"></span>
+        </div>
 
-                    <!-- Category -->
-                    <div class="form-group">
-                        <label for="{{ form.category.id_for_label }}" class="form-label required">
-                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-                            </svg>
-                            Categoria
-                        </label>
-                        {{ form.category }}
-                        <div id="category-preview" class="category-preview mt-2">
-                            <div class="icon"></div>
-                            <div class="name"></div>
-                        </div>
-                        {% if form.category.errors %}
-                            <div class="mt-2 p-3 bg-red-900/20 border border-red-800/50 rounded-lg">
-                                {% for error in form.category.errors %}
-                                    <div class="text-red-400 text-sm flex items-center">
-                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        {{ error }}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        <div class="text-sm text-gray-400 mt-1 flex items-center">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            Categoria para organização da transação
-                        </div>
-                    </div>
-                </div>
+        <div class="px-5 pt-3 pb-3 flex items-center justify-between">
+            <h2 id="category-sheet-title" class="text-base font-semibold text-white">Escolha uma categoria</h2>
+            <button type="button" class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:bg-dark-800"
+                    data-sheet-close aria-label="Fechar">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
 
-                <!-- Description -->
-                <div class="form-group">
-                    <label for="{{ form.description.id_for_label }}" class="form-label required">
-                        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
-                        </svg>
-                        Descrição
-                    </label>
-                    {{ form.description }}
-                    {% if form.description.errors %}
-                        <div class="mt-2 p-3 bg-red-900/20 border border-red-800/50 rounded-lg">
-                            {% for error in form.description.errors %}
-                                <div class="text-red-400 text-sm flex items-center">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    {{ error }}
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                    <div class="text-sm text-gray-400 mt-2 flex items-center">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        Descrição breve da transação
-                    </div>
-                </div>
+        <div class="px-5 pb-3">
+            <label for="category-search" class="sr-only">Buscar categoria</label>
+            <input type="search" id="category-search" inputmode="search"
+                   placeholder="Buscar categoria…"
+                   class="form-input w-full"
+                   autocomplete="off" enterkeyhint="search">
+        </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <!-- Transaction Date -->
-                    <div class="form-group">
-                        <label for="{{ form.transaction_date.id_for_label }}" class="form-label required">
-                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                            </svg>
-                            Data da Transação
-                        </label>
-                        {{ form.transaction_date }}
-                        {% if form.transaction_date.errors %}
-                            <div class="mt-2 p-3 bg-red-900/20 border border-red-800/50 rounded-lg">
-                                {% for error in form.transaction_date.errors %}
-                                    <div class="text-red-400 text-sm flex items-center">
-                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        {{ error }}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        <div class="text-sm text-gray-400 mt-2 flex items-center">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            Data em que a transação foi realizada
-                        </div>
-                    </div>
-
-                    <!-- Notes -->
-                    <div class="form-group">
-                        <label for="{{ form.notes.id_for_label }}" class="form-label">
-                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                            </svg>
-                            Observações
-                        </label>
-                        {{ form.notes }}
-                        {% if form.notes.errors %}
-                            <div class="mt-2 p-3 bg-red-900/20 border border-red-800/50 rounded-lg">
-                                {% for error in form.notes.errors %}
-                                    <div class="text-red-400 text-sm flex items-center">
-                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        {{ error }}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        <div class="text-sm text-gray-400 mt-2 flex items-center">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            Observações adicionais (opcional)
-                        </div>
-                    </div>
-                </div>
-
-
-                <!-- Enhanced Form Actions -->
-                <div class="form-actions">
-                    <div class="flex flex-col sm:flex-row gap-4">
-                        <button type="submit" class="btn-primary-enhanced flex-1 sm:flex-initial inline-flex items-center justify-center">
-                            <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            {{ form_action }} Transação
-                        </button>
-                        
-                        <a href="{% url 'transactions:list' %}" 
-                           class="btn-secondary-enhanced text-center flex-1 sm:flex-initial inline-flex items-center justify-center text-decoration-none">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                            Cancelar
-                        </a>
-                    </div>
-                </div>
-            </form>
+        <div class="px-3 pb-5">
+            <div id="category-list" class="category-list" role="listbox" aria-labelledby="category-sheet-title">
+                {# Preenchido por JS a partir de window.categoriesData filtrado por tipo selecionado #}
+            </div>
         </div>
     </div>
 </div>
@@ -533,313 +379,206 @@
 
 {% block extra_js %}
 <script>
-// Categories data from Django context (for backward compatibility)
+// Dados de categorias serializados pelo Django (legado, M3/M5 vai para fetch /api).
 const categoriesData = {{ categories_json|safe }};
-
-// Make categories data available to TransactionManager
 window.categoriesData = categoriesData;
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Enhanced form initialization with new JavaScript architecture
-    initializeEnhancedTransactionForm();
-    
-    // Backward compatibility - ensure existing functionality works
-    const transactionTypeSelect = document.getElementById('id_transaction_type');
-    const categorySelect = document.getElementById('id_category');
-    const categoryPreview = document.getElementById('category-preview');
-    const amountInput = document.getElementById('id_amount');
-
-    // Initialize legacy handlers for immediate compatibility
-    if (transactionTypeSelect) {
-        // Initial filter on page load
-        setTimeout(() => {
-            if (window.transactionManager) {
-                window.transactionManager.updateCategoriesForType(transactionTypeSelect.value);
-            }
-        }, 100);
-    }
-
-    if (categorySelect) {
-        // Initial preview on page load
-        setTimeout(() => {
-            if (window.transactionManager) {
-                window.transactionManager.updateCategoryPreview(categorySelect);
-            }
-        }, 100);
-    }
-
-
-    // Enhanced form validation
+document.addEventListener('DOMContentLoaded', function () {
+    // ── Refs ─────────────────────────────────────────────────────────
     const form = document.getElementById('transaction-form');
-    if (form) {
-        // Real-time validation
-        setupRealTimeValidation(form);
-        
-        // Enhanced form submission
-        form.addEventListener('submit', function(e) {
-            // Use enhanced form validator
-            if (window.FormValidator) {
-                const validation = window.FormValidator.validateTransactionForm(form);
-                if (!validation.isValid) {
-                    e.preventDefault();
-                    window.FormValidator.showValidationErrors(form, validation.errors);
-                    window.toastManager?.error('Por favor, corrija os erros no formulário.');
-                    return false;
-                }
-            }
-            
-            // Prepare form data using enhanced utilities
-            if (window.transactionManager) {
-                window.transactionManager.prepareMainFormSubmission(form);
+    const typeSelect = document.getElementById('id_transaction_type');
+    const categorySelect = document.getElementById('id_category');
+    const accountSelect = document.getElementById('id_account');
+    const segmented = document.getElementById('type-segmented');
+    const triggerBtn = document.getElementById('category-trigger');
+    const triggerLabel = document.getElementById('category-trigger-label');
+    const triggerIcon = document.getElementById('category-trigger-icon');
+    const sheet = document.getElementById('category-sheet');
+    const searchInput = document.getElementById('category-search');
+    const listEl = document.getElementById('category-list');
+    const previewEl = document.getElementById('category-preview');
+
+    // ── Segmented control: sincroniza com <select name="transaction_type"> ──
+    function setSegmentedValue(value) {
+        if (!segmented) return;
+        segmented.querySelectorAll('.segmented-option').forEach(btn => {
+            btn.setAttribute('aria-pressed', String(btn.dataset.value === value));
+        });
+        if (typeSelect && typeSelect.value !== value) {
+            typeSelect.value = value;
+            typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        // Reset categoria se o tipo mudou
+        if (categorySelect && categorySelect.value) {
+            const opt = categorySelect.querySelector(`option[value="${categorySelect.value}"]`);
+            const optType = (categoriesData.INCOME || []).find(c => c.id == categorySelect.value)
+                ? 'INCOME'
+                : (categoriesData.EXPENSE || []).find(c => c.id == categorySelect.value)
+                  ? 'EXPENSE' : null;
+            if (optType && optType !== value) clearCategorySelection();
+        }
+        renderCategoryList();
+    }
+
+    if (segmented) {
+        segmented.addEventListener('click', e => {
+            const btn = e.target.closest('.segmented-option');
+            if (btn) setSegmentedValue(btn.dataset.value);
+        });
+        // Inicializa pelo valor existente do select (ou 'EXPENSE' default)
+        const initial = (typeSelect && typeSelect.value) || 'EXPENSE';
+        setSegmentedValue(initial);
+    }
+
+    // ── Bottom-sheet de categoria ──────────────────────────────────
+    function openSheet() {
+        if (!sheet) return;
+        sheet.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            const panel = sheet.querySelector('.finanpy-sheet-panel');
+            const bd = sheet.querySelector('.finanpy-sheet-backdrop');
+            if (panel) panel.classList.replace('translate-y-full', 'translate-y-0');
+            if (bd) bd.classList.replace('opacity-0', 'opacity-100');
+        });
+        document.documentElement.style.overflow = 'hidden';
+        // Focus na busca após animação
+        setTimeout(() => searchInput && searchInput.focus(), 220);
+    }
+    function closeSheet() {
+        if (!sheet) return;
+        const panel = sheet.querySelector('.finanpy-sheet-panel');
+        const bd = sheet.querySelector('.finanpy-sheet-backdrop');
+        if (panel) panel.classList.replace('translate-y-0', 'translate-y-full');
+        if (bd) bd.classList.replace('opacity-100', 'opacity-0');
+        setTimeout(() => sheet.classList.add('hidden'), 250);
+        document.documentElement.style.overflow = '';
+        if (triggerBtn) triggerBtn.focus();
+    }
+
+    if (triggerBtn) triggerBtn.addEventListener('click', openSheet);
+    if (sheet) {
+        sheet.addEventListener('click', e => {
+            if (e.target.closest('[data-sheet-close]')) closeSheet();
+        });
+    }
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && sheet && !sheet.classList.contains('hidden')) closeSheet();
+    });
+
+    function renderCategoryList(query) {
+        if (!listEl) return;
+        const type = (typeSelect && typeSelect.value) || 'EXPENSE';
+        const cats = (categoriesData[type] || []).filter(c =>
+            !query || (c.full_path || c.name).toLowerCase().includes(query.toLowerCase())
+        );
+
+        if (cats.length === 0) {
+            listEl.innerHTML = `
+                <div class="text-center py-8 text-gray-500 text-sm">
+                    Nenhuma categoria encontrada para "${(query || '').replace(/[<>&"]/g, '')}".
+                </div>`;
+            return;
+        }
+
+        const escapeHtml = s => String(s).replace(/[&<>"']/g, c =>
+            ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const items = cats.map(c => {
+            const sel = categorySelect && String(categorySelect.value) === String(c.id);
+            const swatchStyle = c.color ? `background-color:${c.color}1f;` : 'background:rgba(75,85,99,.5);';
+            return `<button type="button" class="category-item" data-id="${c.id}"
+                            role="option" aria-selected="${sel}">
+                <span class="swatch" style="${swatchStyle}">${escapeHtml(c.icon || '📁')}</span>
+                <span class="flex-1">${escapeHtml(c.full_path || c.name)}</span>
+                ${sel ? '<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>' : ''}
+            </button>`;
+        }).join('');
+        listEl.innerHTML = items;
+    }
+
+    function selectCategory(id) {
+        if (!categorySelect) return;
+        const allCats = [...(categoriesData.INCOME || []), ...(categoriesData.EXPENSE || [])];
+        const cat = allCats.find(c => String(c.id) === String(id));
+        if (!cat) return;
+
+        // Garante que a option exista (caso JS legado tenha removido)
+        let opt = categorySelect.querySelector(`option[value="${cat.id}"]`);
+        if (!opt) {
+            opt = new Option(cat.full_path || cat.name, cat.id, true, true);
+            categorySelect.add(opt);
+        }
+        categorySelect.value = cat.id;
+        categorySelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // Atualiza UI do trigger
+        triggerLabel.textContent = cat.full_path || cat.name;
+        triggerLabel.classList.remove('placeholder');
+        if (triggerIcon) {
+            triggerIcon.innerHTML = (cat.icon || '📁');
+            if (cat.color) triggerIcon.style.background = `${cat.color}26`;
+        }
+
+        // Atualiza preview legado
+        if (previewEl) {
+            previewEl.querySelector('.icon').textContent = cat.icon || '📁';
+            previewEl.querySelector('.icon').style.background = (cat.color || '#374151') + '26';
+            previewEl.querySelector('.name').textContent = cat.full_path || cat.name;
+            previewEl.classList.add('show');
+        }
+
+        closeSheet();
+    }
+
+    function clearCategorySelection() {
+        if (!categorySelect) return;
+        categorySelect.value = '';
+        categorySelect.dispatchEvent(new Event('change', { bubbles: true }));
+        triggerLabel.textContent = 'Selecione uma categoria';
+        triggerLabel.classList.add('placeholder');
+        if (triggerIcon) {
+            triggerIcon.innerHTML = '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>';
+            triggerIcon.style.background = 'rgba(75,85,99,.5)';
+        }
+        if (previewEl) previewEl.classList.remove('show');
+    }
+
+    if (listEl) {
+        listEl.addEventListener('click', e => {
+            const item = e.target.closest('.category-item');
+            if (item) selectCategory(item.dataset.id);
+        });
+    }
+
+    if (searchInput) {
+        let t;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(t);
+            t = setTimeout(() => renderCategoryList(searchInput.value.trim()), 60);
+        });
+    }
+
+    // Inicializa preview se o form vier com categoria pré-selecionada (UpdateView)
+    if (categorySelect && categorySelect.value) {
+        selectCategory(categorySelect.value);
+    } else {
+        renderCategoryList();
+    }
+
+    // ── Currency formatter (delega para CurrencyFormatter de main.js se existir) ──
+    const amountInput = document.getElementById('id_amount');
+    if (amountInput) {
+        amountInput.addEventListener('blur', () => {
+            if (window.CurrencyFormatter && amountInput.value) {
+                const num = window.CurrencyFormatter.parseBrazilianNumber(amountInput.value);
+                if (num > 0) amountInput.value = num.toFixed(2).replace('.', ',');
             }
         });
     }
 });
 
-function initializeEnhancedTransactionForm() {
-    // Add enhanced CSS classes for better JavaScript targeting
-    const form = document.getElementById('transaction-form');
-    if (form) {
-        form.classList.add('enhanced-transaction-form');
-        
-        // Add data attributes for better JavaScript integration
-        const transactionRows = form.querySelectorAll('.form-group');
-        transactionRows.forEach((row, index) => {
-            row.setAttribute('data-form-group', index);
-        });
-    }
-    
-    // Initialize keyboard navigation
-    setupKeyboardNavigation();
-    
-    // Initialize tooltips and help text
-    initializeTooltips();
-    
-    // Setup form auto-save (draft functionality)
-    setupAutoSave();
-}
-
-function setupRealTimeValidation(form) {
-    const inputs = form.querySelectorAll('input, select, textarea');
-    inputs.forEach(input => {
-        input.addEventListener('blur', function() {
-            validateSingleField(this);
-        });
-        
-        input.addEventListener('input', function() {
-            // Clear previous errors on input
-            clearFieldError(this);
-        });
-    });
-}
-
-function validateSingleField(field) {
-    if (!window.FormValidator) return;
-    
-    const fieldName = field.name;
-    const value = field.value;
-    
-    // Individual field validation
-    let isValid = true;
-    let errorMessage = '';
-    
-    switch (fieldName) {
-        case 'amount':
-            if (window.CurrencyFormatter) {
-                const amount = window.CurrencyFormatter.parseBrazilianNumber(value);
-                if (amount <= 0) {
-                    isValid = false;
-                    errorMessage = 'Por favor, insira um valor maior que zero.';
-                }
-            }
-            break;
-        case 'description':
-            if (!value.trim()) {
-                isValid = false;
-                errorMessage = 'Por favor, insira uma descrição.';
-            }
-            break;
-        case 'account':
-        case 'category':
-            if (!value) {
-                isValid = false;
-                errorMessage = 'Por favor, selecione uma opção.';
-            }
-            break;
-        case 'transaction_date':
-            if (!value) {
-                isValid = false;
-                errorMessage = 'Por favor, selecione a data da transação.';
-            }
-            break;
-    }
-    
-    if (!isValid) {
-        showFieldError(field, errorMessage);
-    }
-}
-
-function showFieldError(field, message) {
-    clearFieldError(field);
-    
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'form-error text-red-400 text-sm mt-2';
-    errorDiv.textContent = message;
-    errorDiv.setAttribute('data-error-for', field.name);
-    
-    field.classList.add('border-red-500', 'error');
-    field.parentNode.appendChild(errorDiv);
-}
-
-function clearFieldError(field) {
-    field.classList.remove('border-red-500', 'error');
-    const existingError = field.parentNode.querySelector(`[data-error-for="${field.name}"]`);
-    if (existingError) {
-        existingError.remove();
-    }
-}
-
-function setupKeyboardNavigation() {
-    const form = document.getElementById('transaction-form');
-    if (!form) return;
-    
-    const inputs = form.querySelectorAll('input:not([type="hidden"]), select, textarea');
-    
-    inputs.forEach((input, index) => {
-        input.addEventListener('keydown', function(e) {
-            // Tab navigation enhancement
-            if (e.key === 'Enter' && !e.shiftKey && this.tagName !== 'TEXTAREA') {
-                e.preventDefault();
-                const nextInput = inputs[index + 1];
-                if (nextInput) {
-                    nextInput.focus();
-                } else {
-                    // Focus submit button
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    if (submitBtn) submitBtn.focus();
-                }
-            }
-        });
-    });
-}
-
-function initializeTooltips() {
-    // Add enhanced tooltips for form fields
-    const fieldMappings = {
-        'id_transaction_type': 'Selecione se é uma receita (dinheiro que entra) ou despesa (dinheiro que sai)',
-        'id_amount': 'Digite o valor em reais (R$). Use vírgula para os centavos',
-        'id_account': 'Escolha a conta bancária onde a transação foi realizada',
-        'id_category': 'Selecione a categoria que melhor classifica esta transação',
-        'id_description': 'Descrição clara e concisa da transação (ex: Almoço no restaurante)',
-        'id_transaction_date': 'Data em que a transação realmente ocorreu',
-        'id_notes': 'Informações adicionais sobre a transação (opcional)',
-    };
-    
-    Object.keys(fieldMappings).forEach(fieldId => {
-        const field = document.getElementById(fieldId);
-        if (field) {
-            field.setAttribute('title', fieldMappings[fieldId]);
-            field.setAttribute('data-tooltip', fieldMappings[fieldId]);
-        }
-    });
-}
-
-function setupAutoSave() {
-    // Auto-save form data to localStorage for draft functionality
-    const form = document.getElementById('transaction-form');
-    if (!form) return;
-    
-    const saveKey = `transaction-draft-${Date.now()}`;
-    let saveTimer;
-    
-    const inputs = form.querySelectorAll('input:not([type="hidden"]), select, textarea');
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            clearTimeout(saveTimer);
-            saveTimer = setTimeout(() => {
-                saveFormData(form, saveKey);
-            }, 2000); // Save after 2 seconds of inactivity
-        });
-    });
-    
-    // Load saved data on page load
-    loadFormData(form, saveKey);
-    
-    // Clear saved data on successful submission
-    form.addEventListener('submit', function() {
-        clearSavedData(saveKey);
-    });
-}
-
-function saveFormData(form, key) {
-    const formData = new FormData(form);
-    const data = {};
-    
-    for (let [name, value] of formData.entries()) {
-        if (name !== 'csrfmiddlewaretoken') {
-            data[name] = value;
-        }
-    }
-    
-    try {
-        localStorage.setItem(key, JSON.stringify({
-            data: data,
-            timestamp: Date.now()
-        }));
-    } catch (e) {
-        console.warn('Could not save form data:', e);
-    }
-}
-
-function loadFormData(form, key) {
-    try {
-        const saved = localStorage.getItem(key);
-        if (saved) {
-            const { data, timestamp } = JSON.parse(saved);
-            
-            // Only restore if saved within last 24 hours
-            if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
-                Object.keys(data).forEach(name => {
-                    const field = form.querySelector(`[name="${name}"]`);
-                    if (field && !field.value) {
-                        field.value = data[name];
-                    }
-                });
-                
-                // Show restoration notification
-                if (window.toastManager) {
-                    window.toastManager.info('Dados do rascunho restaurados.');
-                }
-            }
-        }
-    } catch (e) {
-        console.warn('Could not load saved form data:', e);
-    }
-}
-
-function clearSavedData(key) {
-    try {
-        localStorage.removeItem(key);
-    } catch (e) {
-        console.warn('Could not clear saved data:', e);
-    }
-}
-
-// Legacy global functions (maintained for backward compatibility)
-function filterCategoriesByType() {
-    // Handled by enhanced TransactionManager
-}
-
-function toggleRecurrenceType() {
-    // Enhanced version handled in main.js
-}
-
-function formatCurrency(input) {
-    // Enhanced version handled by CurrencyFormatter
-}
-
-function unformatCurrency(input) {
-    // Enhanced version handled by CurrencyFormatter
-}
+// Stubs legados (mantidos para retrocompat com main.js)
+function filterCategoriesByType() { /* tratado pelo segmented control */ }
+function formatCurrency(input) { /* tratado pelo CurrencyFormatter */ }
+function unformatCurrency(input) { /* tratado pelo CurrencyFormatter */ }
 </script>
 {% endblock %}

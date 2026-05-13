@@ -1,0 +1,28 @@
+{% comment %}
+  FAB central elevado — "Nova transação".
+
+  Posicionamento: sobreposto ao slot central do bottom-nav.
+  - bottom: calc(var(--bottom-nav-h) - 18px + safe-area-inset-bottom)
+  - centralizado horizontalmente (left: 50%; transform: translateX(-50%))
+  - z-50 (acima do bottom-nav que é z-40)
+
+  Acessibilidade: min 56×56px (FAB padrão Material > 44×44px touch min).
+  Só renderiza para usuários autenticados; oculto em ≥ md (desktop tem outra UX).
+{% endcomment %}
+{% if user.is_authenticated %}
+<a href="{% url 'transactions:create' %}"
+   class="finanpy-fab fixed left-1/2 z-50 -translate-x-1/2
+          w-14 h-14 rounded-full
+          bg-gradient-to-br from-primary-600 to-primary-500
+          shadow-[0_8px_24px_-4px_rgba(14,165,233,0.55)]
+          ring-4 ring-dark-900
+          flex items-center justify-center
+          text-white active:scale-95 transition-transform duration-150
+          md:hidden"
+   style="bottom: calc(var(--bottom-nav-h) - 18px + env(safe-area-inset-bottom));"
+   aria-label="Nova transação">
+    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+    </svg>
+</a>
+{% endif %}

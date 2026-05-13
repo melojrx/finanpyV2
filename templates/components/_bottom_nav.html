@@ -1,0 +1,87 @@
+{% comment %}
+  Bottom-nav fixo (5 slots) — mobile-first.
+
+  Slots: Dashboard | Transações | [FAB central via _fab.html] | Orçamentos | Metas
+
+  O slot central é um espaço (placeholder vazio) reservado para o FAB
+  flutuante de "Nova transação", que é renderizado por _fab.html.
+
+  Detecta a tela ativa via `request.resolver_match.app_name` e marca
+  com aria-current="page".
+
+  Altura: var(--bottom-nav-h) = 64px + safe-area-inset-bottom.
+{% endcomment %}
+{% load static %}
+
+{% with active_app=request.resolver_match.app_name %}
+<nav class="finanpy-bottom-nav fixed bottom-0 inset-x-0 z-40 bg-dark-900/95 backdrop-blur-md border-t border-dark-800 md:hidden"
+     style="padding-bottom: env(safe-area-inset-bottom); height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));"
+     aria-label="Navegação principal">
+    <ul class="grid grid-cols-5 h-[var(--bottom-nav-h)]">
+        {# 1. Dashboard #}
+        <li>
+            <a href="{% url 'users:dashboard' %}"
+               {% if active_app == 'users' and request.resolver_match.url_name == 'dashboard' %}aria-current="page"{% endif %}
+               class="group h-full flex flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium transition-colors
+                      {% if active_app == 'users' and request.resolver_match.url_name == 'dashboard' %}text-primary-400{% else %}text-gray-400 hover:text-gray-200{% endif %}"
+               aria-label="Dashboard">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                </svg>
+                <span>Início</span>
+            </a>
+        </li>
+
+        {# 2. Transações #}
+        <li>
+            <a href="{% url 'transactions:list' %}"
+               {% if active_app == 'transactions' %}aria-current="page"{% endif %}
+               class="group h-full flex flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium transition-colors
+                      {% if active_app == 'transactions' %}text-primary-400{% else %}text-gray-400 hover:text-gray-200{% endif %}"
+               aria-label="Transações">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
+                </svg>
+                <span>Transações</span>
+            </a>
+        </li>
+
+        {# 3. FAB placeholder — o botão flutuante é posicionado por _fab.html #}
+        <li class="relative" aria-hidden="true">
+            <span class="block h-full"></span>
+        </li>
+
+        {# 4. Orçamentos #}
+        <li>
+            <a href="{% url 'budgets:planning_entry' %}"
+               {% if active_app == 'budgets' %}aria-current="page"{% endif %}
+               class="group h-full flex flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium transition-colors
+                      {% if active_app == 'budgets' %}text-primary-400{% else %}text-gray-400 hover:text-gray-200{% endif %}"
+               aria-label="Orçamentos">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                <span>Orçamentos</span>
+            </a>
+        </li>
+
+        {# 5. Metas #}
+        <li>
+            <a href="{% url 'goals:list' %}"
+               {% if active_app == 'goals' %}aria-current="page"{% endif %}
+               class="group h-full flex flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium transition-colors
+                      {% if active_app == 'goals' %}text-primary-400{% else %}text-gray-400 hover:text-gray-200{% endif %}"
+               aria-label="Metas">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                </svg>
+                <span>Metas</span>
+            </a>
+        </li>
+    </ul>
+</nav>
+{% endwith %}

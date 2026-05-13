@@ -1,0 +1,31 @@
+{% comment %}
+  Footer compacto para páginas públicas.
+{% endcomment %}
+<footer class="bg-dark-900/60 backdrop-blur-sm border-t border-dark-700 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid gap-6 md:grid-cols-3">
+        <div>
+            <div class="flex items-center space-x-2 mb-3">
+                <div class="w-8 h-8 bg-gradient-financial rounded-lg flex items-center justify-center"><span class="text-white font-bold">F</span></div>
+                <span class="text-lg font-bold text-white">FinanPy</span>
+            </div>
+            <p class="text-gray-400 text-sm">Gestão financeira pessoal feita no Brasil.</p>
+        </div>
+        <div class="text-sm">
+            <h3 class="text-white font-semibold mb-3">Produto</h3>
+            <ul class="space-y-2 text-gray-400">
+                <li><a href="#recursos" class="hover:text-white">Recursos</a></li>
+                <li><a href="#precos" class="hover:text-white">Preços</a></li>
+            </ul>
+        </div>
+        <div class="text-sm">
+            <h3 class="text-white font-semibold mb-3">Conta</h3>
+            <ul class="space-y-2 text-gray-400">
+                <li><a href="{% url 'users:login' %}" class="hover:text-white">Entrar</a></li>
+                <li><a href="{% url 'users:signup' %}" class="hover:text-white">Criar conta</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="border-t border-dark-700 py-4 text-center text-xs text-gray-500">
+        &copy; 2026 FinanPy. Todos os direitos reservados.
+    </div>
+</footer>

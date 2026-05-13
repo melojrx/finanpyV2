@@ -42,6 +42,11 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
 
+    # Frontend toolchain (Sprint 8 — Mobile-First / M0)
+    'tailwind',
+    'theme',
+    'django_browser_reload',
+
     'accounts',
     'budgets',
     'categories',
@@ -51,6 +56,10 @@ INSTALLED_APPS = [
     'users',
 ]
 
+# django-tailwind configuration
+TAILWIND_APP_NAME = 'theme'
+INTERNAL_IPS = ['127.0.0.1']  # required by django_browser_reload
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -59,6 +68,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Hot reload do Tailwind em DEBUG (no-op em produção)
+    'django_browser_reload.middleware.BrowserReloadMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'

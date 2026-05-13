@@ -3,6 +3,18 @@
 
 {% block title %}{{ goal.name }} - FinanPy{% endblock %}
 
+{% block extra_head %}
+<style>
+    .num-tabular { font-variant-numeric: tabular-nums; }
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="mb-6">
@@ -14,65 +26,63 @@
         </a>
     </div>
 
-    <!-- Goal summary card -->
-    <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-6 mb-6">
-        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-            <div class="flex items-center gap-4">
-                <div class="w-16 h-16 rounded-xl flex items-center justify-center text-3xl"
-                     style="background-color: {{ goal.color }}20;">
+    {# ── Goal summary card ──────────────────────────────────────── #}
+    <article class="bg-dark-800/70 border border-dark-700 rounded-xl p-5 sm:p-6 mb-6">
+        <header class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
+            <div class="flex items-center gap-4 min-w-0">
+                <span class="w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center text-2xl sm:text-3xl flex-shrink-0"
+                      style="background-color: {{ goal.color }}26;" aria-hidden="true">
                     {{ goal.icon }}
-                </div>
-                <div>
-                    <h1 class="text-2xl sm:text-3xl font-bold text-white">{{ goal.name }}</h1>
+                </span>
+                <div class="min-w-0">
+                    <h1 class="text-xl sm:text-2xl font-bold text-white truncate">{{ goal.name }}</h1>
                     <p class="text-sm {{ goal.status_color_class }} mt-1">{{ goal.get_status_display }}</p>
                 </div>
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="{% url 'goals:contribute' goal.pk %}"
-                   class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                   class="inline-flex items-center gap-2 px-4 h-11 rounded-xl bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                     </svg>
-                    Registrar Aporte
+                    Registrar aporte
                 </a>
                 <a href="{% url 'goals:edit' goal.pk %}"
-                   class="inline-flex items-center bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 font-medium px-4 py-2 rounded-lg transition-colors">
-                    Editar
-                </a>
+                   class="inline-flex items-center px-4 h-11 rounded-xl bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 text-sm font-medium transition"
+                   aria-label="Editar meta {{ goal.name }}">Editar</a>
                 <a href="{% url 'goals:delete' goal.pk %}"
-                   class="inline-flex items-center bg-red-600/20 hover:bg-red-600/30 text-red-400 font-medium px-4 py-2 rounded-lg transition-colors">
-                    Excluir
-                </a>
+                   class="inline-flex items-center px-4 h-11 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-400 text-sm font-medium transition"
+                   aria-label="Excluir meta {{ goal.name }}">Excluir</a>
             </div>
-        </div>
+        </header>
 
         {% if goal.description %}
-        <p class="text-gray-300 mb-6">{{ goal.description }}</p>
+        <p class="text-gray-300 mb-5">{{ goal.description }}</p>
         {% endif %}
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <div class="bg-dark-900/50 rounded-lg p-4">
-                <p class="text-sm text-gray-400 mb-1">Valor Atual</p>
-                <p class="text-2xl font-bold text-white">{{ goal.current_amount|currency }}</p>
+        <h2 class="sr-only">Resumo financeiro da meta</h2>
+        <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-5">
+            <div class="bg-dark-900/50 rounded-lg p-3 sm:p-4">
+                <p class="text-[11px] sm:text-sm text-gray-400 mb-1">Atual</p>
+                <p class="text-base sm:text-2xl font-bold text-white num-tabular truncate">{{ goal.current_amount|currency }}</p>
             </div>
-            <div class="bg-dark-900/50 rounded-lg p-4">
-                <p class="text-sm text-gray-400 mb-1">Valor Alvo</p>
-                <p class="text-2xl font-bold text-white">{{ goal.target_amount|currency }}</p>
+            <div class="bg-dark-900/50 rounded-lg p-3 sm:p-4">
+                <p class="text-[11px] sm:text-sm text-gray-400 mb-1">Alvo</p>
+                <p class="text-base sm:text-2xl font-bold text-white num-tabular truncate">{{ goal.target_amount|currency }}</p>
             </div>
-            <div class="bg-dark-900/50 rounded-lg p-4">
-                <p class="text-sm text-gray-400 mb-1">Restante</p>
-                <p class="text-2xl font-bold" style="color: {{ goal.color }};">{{ goal.remaining_amount|currency }}</p>
+            <div class="bg-dark-900/50 rounded-lg p-3 sm:p-4">
+                <p class="text-[11px] sm:text-sm text-gray-400 mb-1">Restante</p>
+                <p class="text-base sm:text-2xl font-bold num-tabular truncate" style="color: {{ goal.color }};">{{ goal.remaining_amount|currency }}</p>
             </div>
         </div>
 
-        <!-- Progress bar -->
-        <div class="mb-2">
-            <div class="flex justify-between items-baseline mb-2">
-                <span class="font-semibold" style="color: {{ goal.color }};">
+        <div>
+            <div class="flex flex-wrap justify-between items-baseline mb-2 gap-2">
+                <span class="font-semibold num-tabular" style="color: {{ goal.color }};">
                     {{ goal.progress_pct|floatformat:1 }}% concluído
                 </span>
                 {% if goal.deadline %}
-                <span class="text-sm text-gray-400">
+                <span class="text-xs sm:text-sm text-gray-400">
                     Prazo: {{ goal.deadline|date:"d/m/Y" }}
                     {% if goal.days_remaining is not None %}
                         {% if goal.days_remaining > 0 %}
@@ -86,41 +96,72 @@
                 </span>
                 {% endif %}
             </div>
-            <div class="w-full bg-dark-700 rounded-full h-3 overflow-hidden">
+            <div class="w-full bg-dark-700 rounded-full h-3 overflow-hidden"
+                 role="progressbar"
+                 aria-valuenow="{{ goal.progress_pct|floatformat:0 }}"
+                 aria-valuemin="0" aria-valuemax="100"
+                 aria-label="Progresso de {{ goal.name }}">
                 <div class="h-3 rounded-full transition-all duration-700"
-                     style="width: {{ goal.progress_pct|floatformat:0 }}%; background-color: {{ goal.color }};"></div>
+                     style="width: {% if goal.progress_pct > 100 %}100{% else %}{{ goal.progress_pct|floatformat:0 }}{% endif %}%; background-color: {{ goal.color }};"></div>
             </div>
         </div>
-    </div>
+    </article>
 
-    <!-- Contributions history -->
-    <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-semibold text-white">Histórico de Aportes</h2>
+    {# ── Histórico de aportes ───────────────────────────────────── #}
+    <section class="bg-dark-800/70 border border-dark-700 rounded-xl p-5 sm:p-6" aria-labelledby="contribs-title">
+        <header class="flex items-center justify-between mb-4">
+            <h2 id="contribs-title" class="text-lg sm:text-xl font-semibold text-white">Histórico de aportes</h2>
             <a href="{% url 'goals:contribute' goal.pk %}"
-               class="text-sm text-primary-400 hover:text-primary-300">+ Novo aporte</a>
-        </div>
+               class="text-sm text-primary-400 hover:text-primary-300 font-medium"
+               aria-label="Registrar novo aporte">+ Novo aporte</a>
+        </header>
 
         {% if contributions %}
-        <div class="overflow-x-auto">
+        {# Mobile: cards #}
+        <ul class="lg:hidden space-y-2">
+            {% for c in contributions %}
+            <li class="bg-dark-700/40 border border-dark-700 rounded-lg p-3">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-green-400 num-tabular">{{ c.amount|currency }}</p>
+                        <p class="text-xs text-gray-400 mt-1">{{ c.date|date:"d/m/Y" }}</p>
+                        {% if c.notes %}
+                        <p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ c.notes }}</p>
+                        {% endif %}
+                    </div>
+                    <a href="{% url 'goals:contribution-delete' goal.pk c.pk %}"
+                       class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:bg-red-500/15 hover:text-red-400 transition flex-shrink-0"
+                       aria-label="Remover aporte de {{ c.amount|currency }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </a>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+
+        {# Desktop: tabela compacta #}
+        <div class="hidden lg:block">
             <table class="w-full">
                 <thead>
                     <tr class="text-left text-xs text-gray-400 uppercase tracking-wider border-b border-dark-700">
-                        <th class="pb-3 pr-4">Data</th>
-                        <th class="pb-3 pr-4">Valor</th>
-                        <th class="pb-3 pr-4">Observação</th>
-                        <th class="pb-3 text-right">Ações</th>
+                        <th scope="col" class="pb-3 pr-4">Data</th>
+                        <th scope="col" class="pb-3 pr-4">Valor</th>
+                        <th scope="col" class="pb-3 pr-4">Observação</th>
+                        <th scope="col" class="pb-3 text-right">Ações</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-dark-700">
-                    {% for contribution in contributions %}
+                    {% for c in contributions %}
                     <tr class="text-sm">
-                        <td class="py-3 pr-4 text-gray-300">{{ contribution.date|date:"d/m/Y" }}</td>
-                        <td class="py-3 pr-4 font-semibold text-green-400">{{ contribution.amount|currency }}</td>
-                        <td class="py-3 pr-4 text-gray-400">{{ contribution.notes|default:"—"|truncatechars:60 }}</td>
+                        <td class="py-3 pr-4 text-gray-300 num-tabular whitespace-nowrap">{{ c.date|date:"d/m/Y" }}</td>
+                        <td class="py-3 pr-4 font-semibold text-green-400 num-tabular whitespace-nowrap">{{ c.amount|currency }}</td>
+                        <td class="py-3 pr-4 text-gray-400">{{ c.notes|default:"—"|truncatechars:80 }}</td>
                         <td class="py-3 text-right">
-                            <a href="{% url 'goals:contribution-delete' goal.pk contribution.pk %}"
-                               class="text-red-400 hover:text-red-300 text-xs">
+                            <a href="{% url 'goals:contribution-delete' goal.pk c.pk %}"
+                               class="text-red-400 hover:text-red-300 text-xs"
+                               aria-label="Remover aporte de {{ c.amount|currency }} de {{ c.date|date:'d/m/Y' }}">
                                 Remover
                             </a>
                         </td>
@@ -130,14 +171,14 @@
             </table>
         </div>
         {% else %}
-        <div class="text-center py-12">
-            <p class="text-gray-400 mb-4">Nenhum aporte registrado ainda.</p>
+        <div class="text-center py-10">
+            <p class="text-gray-400 mb-4 text-sm">Nenhum aporte registrado ainda.</p>
             <a href="{% url 'goals:contribute' goal.pk %}"
-               class="inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+               class="inline-flex items-center gap-2 px-4 h-11 rounded-xl bg-primary-700 hover:bg-primary-600 text-white text-sm font-semibold transition">
                 Registrar primeiro aporte
             </a>
         </div>
         {% endif %}
-    </div>
+    </section>
 </div>
 {% endblock %}
