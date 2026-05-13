@@ -70,7 +70,7 @@
     <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-4">
       <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Renda</p>
       <p class="text-lg font-bold text-green-400 num-tabular truncate">{{ plan.renda_prevista_display }}</p>
-      <p class="text-xs text-gray-500 mt-1">
+      <p class="text-xs text-gray-400 mt-1">
         Realizada: <span class="text-green-300 num-tabular">{{ plan.renda_realizada_display }}</span>
       </p>
     </div>
@@ -78,7 +78,7 @@
     <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-4">
       <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Despesas</p>
       <p class="text-lg font-bold text-white num-tabular truncate">{{ plan.despesas_realizadas_display }}</p>
-      <p class="text-xs text-gray-500 mt-1">Teto: <span class="num-tabular">{{ plan.teto_despesas_display }}</span></p>
+      <p class="text-xs text-gray-400 mt-1">Teto: <span class="num-tabular">{{ plan.teto_despesas_display }}</span></p>
       <div class="mt-2 h-1.5 bg-dark-700 rounded-full overflow-hidden"
            role="progressbar"
            aria-valuenow="{{ plan.percentual_consumido|floatformat:0 }}"
@@ -99,13 +99,13 @@
         {% if plan.saldo_disponivel >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
         {{ plan.saldo_disponivel_display }}
       </p>
-      <p class="text-xs text-gray-500 mt-1">Sobra: <span class="num-tabular">{{ plan.sobra_planejada_display }}</span></p>
+      <p class="text-xs text-gray-400 mt-1">Sobra: <span class="num-tabular">{{ plan.sobra_planejada_display }}</span></p>
     </div>
 
     <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-4">
       <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Limite Diário</p>
       <p class="text-lg font-bold text-primary-300 num-tabular truncate">{{ plan.limite_diario_recomendado_display }}</p>
-      <p class="text-xs text-gray-500 mt-1">{{ plan.days_remaining }} dias restantes</p>
+      <p class="text-xs text-gray-400 mt-1">{{ plan.days_remaining }} dias restantes</p>
     </div>
 
   </div>
@@ -168,7 +168,7 @@
                 {% else %}text-gray-300{% endif %}">
                 {{ node.item.spent_amount_display }}
               </span>
-              <span class="text-xs text-gray-500 num-tabular"> / {{ node.item.planned_amount_display }}</span>
+              <span class="text-xs text-gray-400 num-tabular"> / {{ node.item.planned_amount_display }}</span>
             </div>
             {% endif %}
           </div>
@@ -181,7 +181,7 @@
             <div class="h-2 rounded-full {{ node.item.progress_bar_color }}"
                  style="width: {{ node.item.percentage_used|floatformat:0 }}%; max-width: 100%;"></div>
           </div>
-          <p class="text-xs text-gray-500">{{ node.item.percentage_used|floatformat:0 }}% utilizado</p>
+          <p class="text-xs text-gray-400">{{ node.item.percentage_used|floatformat:0 }}% utilizado</p>
           {% endif %}
 
           {% if node.children %}
@@ -200,7 +200,7 @@
                       {% else %}text-gray-300{% endif %}">
                       {{ child.item.spent_amount_display }}
                     </span>
-                    <span class="text-xs text-gray-500"> / {{ child.item.planned_amount_display }}</span>
+                    <span class="text-xs text-gray-400"> / {{ child.item.planned_amount_display }}</span>
                   </div>
                 </div>
                 <div class="h-1.5 rounded-full bg-dark-700 overflow-hidden">

@@ -21,6 +21,7 @@ class AccountForm(forms.ModelForm):
                 'class': 'form-input',
                 'placeholder': 'Digite o nome da conta (ex.: "Conta Corrente Itaú", "Fundo de Emergência")',
                 'maxlength': 100,
+                'enterkeyhint': 'next',
             }),
             'account_type': forms.Select(attrs={
                 'class': 'form-input',
@@ -31,6 +32,8 @@ class AccountForm(forms.ModelForm):
                 'step': '0.01',
                 'min': '-999999999.99',
                 'max': '999999999.99',
+                'inputmode': 'decimal',
+                'enterkeyhint': 'done',
             }),
             'currency': forms.Select(attrs={
                 'class': 'form-input',

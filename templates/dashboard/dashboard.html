@@ -101,7 +101,7 @@ Corta ~1.520ms de render-blocking medidos no baseline
             <p class="text-sm text-gray-400 mt-1">
                 Olá, {{ user_full_name|default:user.username }}.
                 {% if last_login %}
-                    <span class="text-gray-500">Último acesso em {{ last_login|date:"d/m/Y \à\s H:i" }}.</span>
+                    <span class="text-gray-400">Último acesso em {{ last_login|date:"d/m/Y \à\s H:i" }}.</span>
                 {% else %}
                     Bem-vindo ao FinanPy!
                 {% endif %}
@@ -130,10 +130,10 @@ Corta ~1.520ms de render-blocking medidos no baseline
                 <div class="min-w-0">
                     <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Saldo total</p>
                     <p class="text-xl sm:text-2xl font-bold text-white num-tabular mt-1 truncate">{{ total_balance }}</p>
-                    <p class="text-[11px] text-gray-500 mt-1">Todas as contas ativas</p>
+                    <p class="text-[11px] text-gray-400 mt-1">Todas as contas ativas</p>
                 </div>
                 <span class="p-2.5 bg-gradient-financial rounded-full flex-shrink-0" aria-hidden="true">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
                     </svg>
                 </span>
@@ -154,7 +154,7 @@ Corta ~1.520ms de render-blocking medidos no baseline
                     </p>
                 </div>
                 <span class="p-2.5 bg-gradient-success rounded-full flex-shrink-0" aria-hidden="true">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
                     </svg>
                 </span>
@@ -175,7 +175,7 @@ Corta ~1.520ms de render-blocking medidos no baseline
                     </p>
                 </div>
                 <span class="p-2.5 bg-gradient-danger rounded-full flex-shrink-0" aria-hidden="true">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
                     </svg>
                 </span>
@@ -197,7 +197,7 @@ Corta ~1.520ms de render-blocking medidos no baseline
                     </p>
                 </div>
                 <span class="p-2.5 bg-gradient-warning rounded-full flex-shrink-0" aria-hidden="true">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
                     </svg>
                 </span>
@@ -320,7 +320,7 @@ Corta ~1.520ms de render-blocking medidos no baseline
                 </ul>
                 {% else %}
                     <div class="text-center py-5">
-                        <p class="text-gray-500 text-sm">Nenhum orçamento ativo.</p>
+                        <p class="text-gray-400 text-sm">Nenhum orçamento ativo.</p>
                         <a href="{% url 'budgets:planning_entry' %}"
                            class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">
                             + Criar planejamento
@@ -350,7 +350,7 @@ Corta ~1.520ms de render-blocking medidos no baseline
                             </span>
                             <div class="flex-1 min-w-0">
                                 <p class="text-gray-200 font-medium text-sm truncate">{{ tx.description }}</p>
-                                <p class="text-[11px] text-gray-500 truncate">
+                                <p class="text-[11px] text-gray-400 truncate">
                                     {% if tx.is_today %}Hoje
                                     {% elif tx.days_ago == 1 %}Ontem
                                     {% else %}{{ tx.transaction_date|date:"d/m/Y" }}{% endif %}
@@ -366,7 +366,7 @@ Corta ~1.520ms de render-blocking medidos no baseline
                 </ul>
                 {% else %}
                     <div class="text-center py-5">
-                        <p class="text-gray-500 text-sm">Nenhuma transação registrada ainda.</p>
+                        <p class="text-gray-400 text-sm">Nenhuma transação registrada ainda.</p>
                         <a href="{% url 'transactions:create' %}"
                            class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">
                             + Registrar transação
@@ -409,7 +409,7 @@ Corta ~1.520ms de render-blocking medidos no baseline
                         <div class="flex justify-between text-[11px]">
                             <span style="color: {{ goal.color }};">{{ goal.progress_pct|floatformat:0 }}% concluído</span>
                             {% if goal.deadline %}
-                            <span class="text-gray-500">Prazo: {{ goal.deadline|date:"d/m/Y" }}</span>
+                            <span class="text-gray-400">Prazo: {{ goal.deadline|date:"d/m/Y" }}</span>
                             {% endif %}
                         </div>
                     </li>
@@ -417,7 +417,7 @@ Corta ~1.520ms de render-blocking medidos no baseline
                 </ul>
                 {% else %}
                     <div class="text-center py-5">
-                        <p class="text-gray-500 text-sm">Nenhuma meta ativa.</p>
+                        <p class="text-gray-400 text-sm">Nenhuma meta ativa.</p>
                         <a href="{% url 'goals:create' %}"
                            class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">
                             + Criar meta

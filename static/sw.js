@@ -16,6 +16,8 @@
  * via header `Service-Worker-Allowed: /` configurado em core/views.py.
  */
 
+// SW_BUILD_VERSION: 2026-05-13T00:00:00Z (updated by CI/deploy script)
+
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.1.0/workbox-sw.js');
 
 if (workbox) {
@@ -26,11 +28,13 @@ if (workbox) {
   // ---------------------------------------------------------------------------
   // App shell: precache mínimo (offline page + ícones essenciais)
   // ---------------------------------------------------------------------------
+  var SW_VERSION = 'v2-20260513';
+
   precaching.precacheAndRoute([
-    { url: '/offline/', revision: 'v1' },
-    { url: '/static/manifest.webmanifest', revision: 'v1' },
-    { url: '/static/images/icons/icon-192.png', revision: 'v1' },
-    { url: '/static/images/icons/icon-512.png', revision: 'v1' },
+    { url: '/offline/', revision: SW_VERSION },
+    { url: '/static/manifest.webmanifest', revision: SW_VERSION },
+    { url: '/static/images/icons/icon-192.png', revision: SW_VERSION },
+    { url: '/static/images/icons/icon-512.png', revision: SW_VERSION },
   ]);
 
   // ---------------------------------------------------------------------------
@@ -92,20 +96,6 @@ if (workbox) {
     })
   );
 
-  // ---------------------------------------------------------------------------
-  // 4) Google Fonts — CacheFirst (1 ano), até migrarmos para self-hosted
-  // ---------------------------------------------------------------------------
-  routing.registerRoute(
-    ({ url }) =>
-      url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
-    new strategies.CacheFirst({
-      cacheName: 'finanpy-fonts-v1',
-      plugins: [
-        new cacheableResponse.CacheableResponsePlugin({ statuses: [0, 200] }),
-        new expiration.ExpirationPlugin({ maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 }),
-      ],
-    })
-  );
 
   // ---------------------------------------------------------------------------
   // 5) APIs GET (read-only) — NetworkFirst com cache leve

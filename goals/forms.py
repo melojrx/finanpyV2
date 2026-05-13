@@ -49,6 +49,7 @@ class GoalForm(forms.ModelForm):
             'inputmode': 'decimal',
             'placeholder': '0,00',
             'autocomplete': 'off',
+            'enterkeyhint': 'next',
         }),
     )
 
@@ -61,11 +62,13 @@ class GoalForm(forms.ModelForm):
                 'class': 'form-input',
                 'placeholder': 'Ex.: Reserva de Emergência',
                 'maxlength': 100,
+                'enterkeyhint': 'next',
             }),
             'description': forms.Textarea(attrs={
                 'class': 'form-input',
                 'rows': 3,
                 'placeholder': 'Detalhes opcionais sobre a meta',
+                'enterkeyhint': 'next',
             }),
             'deadline': forms.DateInput(attrs={
                 'class': 'form-input',
@@ -94,6 +97,7 @@ class GoalContributionForm(forms.ModelForm):
             'inputmode': 'decimal',
             'placeholder': '0,00',
             'autocomplete': 'off',
+            'enterkeyhint': 'done',
         }),
     )
 

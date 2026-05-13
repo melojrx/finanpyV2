@@ -22,17 +22,15 @@
       navigator.serviceWorker
         .register('/sw.js', { scope: '/' })
         .then(function (reg) {
-          // Atualização automática quando há nova versão
           if (reg.waiting) {
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            showUpdateBanner(reg.waiting);
           }
           reg.addEventListener('updatefound', function () {
             var nw = reg.installing;
             if (!nw) return;
             nw.addEventListener('statechange', function () {
               if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                // Há atualização disponível — ativa imediatamente
-                nw.postMessage({ type: 'SKIP_WAITING' });
+                showUpdateBanner(nw);
               }
             });
           });
@@ -41,15 +39,45 @@
           console.warn('[FinanPy] SW registration falhou:', err);
         });
 
-      // Mensagens do SW (background sync, etc.)
       navigator.serviceWorker.addEventListener('message', function (event) {
         if (!event.data) return;
         if (event.data.type === 'SYNC_DRAINED') {
-          // Hook futuro (M3): toast de "transações sincronizadas"
-          console.info('[FinanPy] Fila sincronizada:', event.data.queue);
+          showSyncToast();
         }
       });
+
+      var refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
     });
+  }
+
+  function showUpdateBanner(worker) {
+    var banner = document.createElement('div');
+    banner.className = 'fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 bg-primary-700 text-white rounded-xl p-4 shadow-lg flex items-center justify-between gap-3';
+    banner.setAttribute('role', 'alert');
+    banner.innerHTML =
+      '<span class="text-sm font-medium">Nova versão disponível</span>' +
+      '<button type="button" class="px-3 py-1.5 bg-white text-primary-700 rounded-lg text-sm font-semibold hover:bg-gray-100 transition">Atualizar</button>';
+    banner.querySelector('button').addEventListener('click', function () {
+      worker.postMessage({ type: 'SKIP_WAITING' });
+      banner.remove();
+    });
+    document.body.appendChild(banner);
+  }
+
+  function showSyncToast() {
+    var container = document.getElementById('finanpy-toasts');
+    if (!container) return;
+    var toast = document.createElement('div');
+    toast.className = 'finanpy-toast flex items-center gap-3 px-4 py-3 rounded-xl bg-success-700/90 text-white text-sm shadow-lg';
+    toast.setAttribute('role', 'status');
+    toast.textContent = 'Transações sincronizadas com sucesso';
+    container.appendChild(toast);
+    setTimeout(function () { toast.remove(); }, 4000);
   }
 
   // ---------------------------------------------------------------------------
@@ -75,6 +103,9 @@
     if (closeBtn) {
       window.requestAnimationFrame(function () { closeBtn.focus(); });
     }
+    trapFocus(drawer);
+    var mainContent = document.querySelector('main');
+    if (mainContent) mainContent.setAttribute('inert', '');
   }
 
   function closeDrawer() {
@@ -88,6 +119,8 @@
       backdrop.classList.remove('opacity-100');
     }
     document.documentElement.style.overflow = '';
+    var mainContent = document.querySelector('main');
+    if (mainContent) mainContent.removeAttribute('inert');
     if (openBtn) openBtn.focus();
   }
 
@@ -96,10 +129,35 @@
   if (backdrop) backdrop.addEventListener('click', closeDrawer);
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && drawer && drawer.getAttribute('aria-hidden') === 'false') {
-      closeDrawer();
+    if (e.key === 'Escape') {
+      if (drawer && drawer.getAttribute('aria-hidden') === 'false') {
+        closeDrawer();
+      }
+      var openSheets = document.querySelectorAll('.finanpy-sheet:not(.hidden)');
+      openSheets.forEach(function (s) { closeSheet(s); });
     }
   });
+
+  // ---------------------------------------------------------------------------
+  // 2.1) Focus trap utility
+  // ---------------------------------------------------------------------------
+  function trapFocus(container) {
+    var focusable = container.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusable.length) return;
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+
+    container.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // 2.5) User menu dropdown (desktop)
@@ -167,6 +225,9 @@
       if (bd) bd.classList.replace('opacity-0', 'opacity-100');
     });
     document.documentElement.style.overflow = 'hidden';
+    trapFocus(sheet);
+    var mainContent = document.querySelector('main');
+    if (mainContent) mainContent.setAttribute('inert', '');
   }
 
   function closeSheet(sheet) {
@@ -177,6 +238,8 @@
     if (bd) bd.classList.replace('opacity-100', 'opacity-0');
     setTimeout(function () { sheet.classList.add('hidden'); }, 250);
     document.documentElement.style.overflow = '';
+    var mainContent = document.querySelector('main');
+    if (mainContent) mainContent.removeAttribute('inert');
   }
 
   document.addEventListener('click', function (e) {

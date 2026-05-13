@@ -93,6 +93,7 @@ class ProfileForm(forms.ModelForm):
             'class': 'form-input',
             'placeholder': 'Digite seu primeiro nome',
             'maxlength': 30,
+            'enterkeyhint': 'next',
         }),
     )
     last_name = forms.CharField(
@@ -103,6 +104,7 @@ class ProfileForm(forms.ModelForm):
             'class': 'form-input',
             'placeholder': 'Digite seu sobrenome',
             'maxlength': 150,
+            'enterkeyhint': 'next',
         }),
     )
     avatar_clear = forms.BooleanField(
@@ -125,6 +127,7 @@ class ProfileForm(forms.ModelForm):
             'inputmode': 'numeric',
             'maxlength': 16,
             'data-mask': 'phone-br',
+            'enterkeyhint': 'next',
         }),
     )
 
@@ -140,12 +143,14 @@ class ProfileForm(forms.ModelForm):
                 'class': 'form-input',
                 'type': 'date',
                 'max': timezone.now().date().strftime('%Y-%m-%d'),
+                'enterkeyhint': 'next',
             }),
             'bio': forms.Textarea(attrs={
                 'class': 'form-input',
                 'placeholder': 'Conte um pouco sobre você...',
                 'rows': 4,
                 'maxlength': 500,
+                'enterkeyhint': 'done',
             }),
         }
         labels = {

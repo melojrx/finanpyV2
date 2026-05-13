@@ -121,7 +121,7 @@
         <div class="mb-8">
             <div class="flex items-center text-gray-400 text-sm mb-4">
                 <a href="{% url 'categories:category-list' %}" class="hover:text-white transition-colors">Categorias</a>
-                <svg class="w-4 h-4 mx-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 mx-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                 </svg>
                 <span class="text-white">{{ page_title }}</span>
@@ -199,7 +199,7 @@
                             {% if descendants %}
                                 <div class="mt-2 p-3 bg-yellow-900/20 border border-yellow-800 rounded-lg">
                                     <div class="flex items-start">
-                                        <svg class="w-5 h-5 text-yellow-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-5 h-5 text-yellow-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
                                         </svg>
                                         <div class="text-yellow-100 text-sm">
@@ -275,7 +275,7 @@
                         <!-- Form Actions -->
                         <div class="flex flex-col sm:flex-row gap-3 pt-6 border-t border-dark-700">
                             <button type="submit" class="btn-primary-enhanced flex-1 flex items-center justify-center">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     {% if form.instance.pk %}
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                     {% else %}
@@ -286,7 +286,7 @@
                             </button>
                             
                             <a href="{{ cancel_url }}" class="btn-secondary-enhanced flex-1 flex items-center justify-center">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                 </svg>
                                 Cancelar
@@ -355,7 +355,7 @@
                         <!-- Help Information -->
                         <div class="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
                             <div class="flex items-start">
-                                <svg class="w-5 h-5 text-blue-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-5 h-5 text-blue-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                 </svg>
                                 <div class="text-blue-100 text-sm">

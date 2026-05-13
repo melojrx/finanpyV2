@@ -179,7 +179,7 @@
                 <div>
                     <nav class="flex items-center space-x-2 text-sm text-gray-400 mb-2">
                         <a href="{% url 'transactions:list' %}" class="hover:text-white transition-colors">Transações</a>
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                         </svg>
                         <span class="text-white">{{ transaction.description|truncatechars:30 }}</span>
@@ -200,21 +200,21 @@
                 <div class="flex flex-col sm:flex-row gap-4">
                     <a href="{% url 'transactions:update' transaction.pk %}" 
                        class="action-button bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white shadow-xl hover:shadow-yellow-600/30">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                         </svg>
                         Editar Transação
                     </a>
                     <button onclick="confirmDelete()" 
                             class="action-button bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-xl hover:shadow-red-600/30">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                         </svg>
                         Excluir Transação
                     </button>
                     <a href="{% url 'transactions:list' %}" 
                        class="action-button bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white shadow-xl hover:shadow-gray-600/30">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                         </svg>
                         Voltar à Lista
@@ -240,7 +240,7 @@
                     <span class="inline-flex items-center px-3 py-1 {% if transaction.transaction_type == 'INCOME' %}bg-success-900/30 border border-success-800/50 text-success-400{% else %}bg-danger-900/30 border border-danger-800/50 text-danger-400{% endif %} rounded-full text-sm font-medium">
                         {{ transaction.get_transaction_type_display }}
                     </span>
-                    <span class="text-gray-500">•</span>
+                    <span class="text-gray-400">•</span>
                     <span class="font-medium">{{ transaction.transaction_date|date:"d/m/Y" }}</span>
                 </div>
             </div>
@@ -251,7 +251,7 @@
             <div class="lg:col-span-2">
                 <div class="detail-card rounded-xl p-6 mb-6">
                     <h2 class="text-xl font-semibold text-white mb-6 flex items-center">
-                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         Informações da Transação
@@ -267,7 +267,7 @@
                                     <span class="text-lg font-semibold {% if transaction.transaction_type == 'INCOME' %}text-success-400{% else %}text-danger-400{% endif %}">
                                         {{ transaction.get_transaction_type_display }}
                                     </span>
-                                    <svg class="w-5 h-5 ml-3 {% if transaction.transaction_type == 'INCOME' %}text-success-400{% else %}text-danger-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-5 h-5 ml-3 {% if transaction.transaction_type == 'INCOME' %}text-success-400{% else %}text-danger-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         {% if transaction.transaction_type == 'INCOME' %}
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
                                         {% else %}
@@ -287,7 +287,7 @@
                                     </span>
                                     <div class="ml-3 w-4 h-4 rounded-full {% if transaction.transaction_type == 'INCOME' %}bg-success-500{% else %}bg-danger-500{% endif %} animate-pulse shadow-lg"></div>
                                 </div>
-                                <div class="text-sm text-gray-500 mt-2">
+                                <div class="text-sm text-gray-400 mt-2">
                                     {% if transaction.transaction_type == 'INCOME' %}
                                         Receita registrada em {{ transaction.transaction_date|date:"d/m/Y" }}
                                     {% else %}
@@ -306,7 +306,7 @@
                             <div class="detail-value">
                                 <div class="flex flex-col sm:flex-row sm:items-center">
                                     <div class="flex items-center mb-1 sm:mb-0">
-                                        <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                         </svg>
                                         <span class="font-medium">{{ transaction.transaction_date|date:"d/m/Y" }}</span>
@@ -342,7 +342,7 @@
                                         <div class="font-bold text-white text-lg mb-1">{{ transaction.category.name }}</div>
                                         {% if transaction.category.parent %}
                                         <div class="text-sm text-gray-300 mb-1 flex items-center">
-                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                                             </svg>
                                             {{ transaction.category.parent.name }}
@@ -361,7 +361,7 @@
                             <div class="detail-value">
                                 <div class="account-badge group">
                                     <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-primary-700/40 to-primary-900/60 border-2 border-primary-600/50 flex items-center justify-center mr-4 flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                                        <svg class="w-6 h-6 text-primary-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-6 h-6 text-primary-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             {% if transaction.account.account_type == 'checking' %}
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
                                             {% elif transaction.account.account_type == 'savings' %}
@@ -378,13 +378,13 @@
                                     <div class="flex-1">
                                         <div class="font-bold text-white text-lg mb-1">{{ transaction.account.name }}</div>
                                         <div class="text-sm text-gray-300 mb-2 flex items-center">
-                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                                             </svg>
                                             {{ transaction.account.get_account_type_display }}
                                         </div>
                                         <div class="inline-flex items-center px-3 py-1 bg-primary-900/30 border border-primary-700/50 rounded-full text-sm font-medium text-primary-300">
-                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                                             </svg>
                                             Saldo: {{ transaction.account.balance_display }}
@@ -400,7 +400,7 @@
                             <div class="detail-value">
                                 <div class="flex items-center">
                                     <div class="w-10 h-10 rounded-lg bg-blue-900/30 border border-blue-700/50 flex items-center justify-center mr-3">
-                                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                                         </svg>
                                     </div>
@@ -408,7 +408,7 @@
                                         <span class="status-badge bg-blue-900/20 text-blue-400 border border-blue-800">
                                             {{ transaction.get_recurrence_type_display }}
                                         </span>
-                                        <div class="text-xs text-gray-500 mt-1">
+                                        <div class="text-xs text-gray-400 mt-1">
                                             Transação recorrente ativa
                                         </div>
                                     </div>
@@ -425,7 +425,7 @@
                             <div class="bg-gradient-to-br from-dark-900/60 to-dark-800/80 rounded-xl p-6 border-2 border-dark-600/50 backdrop-blur-sm hover:border-dark-500/60 transition-all duration-300">
                                 <div class="flex items-start">
                                     <div class="w-10 h-10 bg-blue-900/30 rounded-xl flex items-center justify-center mr-4 flex-shrink-0">
-                                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                         </svg>
                                     </div>
@@ -447,7 +447,7 @@
                 <div class="detail-card rounded-2xl p-6">
                     <h3 class="text-xl font-bold text-white mb-6 flex items-center">
                         <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center mr-3">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                             </svg>
                         </div>
@@ -466,7 +466,7 @@
                         <div class="bg-gradient-to-r from-dark-900/50 to-dark-800/60 rounded-xl p-4 border border-dark-700/50 hover:border-dark-600/60 transition-all duration-300">
                             <div class="flex items-center justify-between mb-2">
                                 <div class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Criada em</div>
-                                <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                 </svg>
                             </div>
@@ -478,7 +478,7 @@
                         <div class="bg-gradient-to-r from-dark-900/50 to-dark-800/60 rounded-xl p-4 border border-dark-700/50 hover:border-dark-600/60 transition-all duration-300">
                             <div class="flex items-center justify-between mb-2">
                                 <div class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Última atualização</div>
-                                <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                 </svg>
                             </div>
@@ -490,7 +490,7 @@
                         <div class="bg-gradient-to-r from-primary-900/30 to-primary-800/40 rounded-xl p-4 border border-primary-700/50 hover:border-primary-600/60 transition-all duration-300">
                             <div class="flex items-center justify-between mb-2">
                                 <div class="text-xs text-primary-300 uppercase tracking-wider font-semibold">Saldo da Conta</div>
-                                <svg class="w-4 h-4 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-4 h-4 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
                                 </svg>
                             </div>
@@ -504,7 +504,7 @@
                 <div class="detail-card rounded-2xl p-6">
                     <h3 class="text-xl font-bold text-white mb-6 flex items-center">
                         <div class="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-800 rounded-xl flex items-center justify-center mr-3">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
                             </svg>
                         </div>
@@ -515,13 +515,13 @@
                         <a href="{% url 'transactions:list' %}?account={{ transaction.account.pk }}" 
                            class="flex items-center p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 rounded-lg transition-all text-sm group">
                             <div class="w-8 h-8 rounded-lg bg-blue-900/30 flex items-center justify-center mr-3 group-hover:bg-blue-800/40 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                                 </svg>
                             </div>
                             <div>
                                 <div class="font-medium">Ver transações desta conta</div>
-                                <div class="text-xs text-gray-500">{{ transaction.account.name }}</div>
+                                <div class="text-xs text-gray-400">{{ transaction.account.name }}</div>
                             </div>
                         </a>
                         
@@ -532,14 +532,14 @@
                             </div>
                             <div>
                                 <div class="font-medium">Ver transações desta categoria</div>
-                                <div class="text-xs text-gray-500">{{ transaction.category.name }}</div>
+                                <div class="text-xs text-gray-400">{{ transaction.category.name }}</div>
                             </div>
                         </a>
                         
                         <a href="{% url 'transactions:list' %}?transaction_type={{ transaction.transaction_type }}" 
                            class="flex items-center p-3 text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 rounded-lg transition-all text-sm group">
                             <div class="w-8 h-8 rounded-lg bg-blue-900/30 flex items-center justify-center mr-3 group-hover:bg-blue-800/40 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     {% if transaction.transaction_type == 'INCOME' %}
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
                                     {% else %}
@@ -549,7 +549,7 @@
                             </div>
                             <div>
                                 <div class="font-medium">Ver todas as {{ transaction.get_transaction_type_display|lower }}s</div>
-                                <div class="text-xs text-gray-500">Filtrar por tipo</div>
+                                <div class="text-xs text-gray-400">Filtrar por tipo</div>
                             </div>
                         </a>
                         
@@ -558,7 +558,7 @@
                         <a href="{% url 'transactions:create' %}?copy={{ transaction.pk }}" 
                            class="flex items-center p-4 text-green-400 hover:text-green-300 hover:bg-gradient-to-r from-green-900/20 to-green-800/30 rounded-xl transition-all text-sm group border border-green-800/20 hover:border-green-700/40">
                             <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-800/40 to-green-900/60 flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                 </svg>
                             </div>
@@ -631,7 +631,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="bg-dark-800 rounded-2xl border border-dark-700 max-w-md w-full p-6 transform scale-95 opacity-0 transition-all duration-300">
                 <div class="flex items-center mb-4">
                     <div class="w-12 h-12 bg-red-600/20 rounded-xl flex items-center justify-center mr-4">
-                        <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                         </svg>
                     </div>
