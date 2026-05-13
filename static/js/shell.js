@@ -22,17 +22,15 @@
       navigator.serviceWorker
         .register('/sw.js', { scope: '/' })
         .then(function (reg) {
-          // Atualização automática quando há nova versão
           if (reg.waiting) {
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            showUpdateBanner(reg.waiting);
           }
           reg.addEventListener('updatefound', function () {
             var nw = reg.installing;
             if (!nw) return;
             nw.addEventListener('statechange', function () {
               if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                // Há atualização disponível — ativa imediatamente
-                nw.postMessage({ type: 'SKIP_WAITING' });
+                showUpdateBanner(nw);
               }
             });
           });
@@ -41,15 +39,45 @@
           console.warn('[FinanPy] SW registration falhou:', err);
         });
 
-      // Mensagens do SW (background sync, etc.)
       navigator.serviceWorker.addEventListener('message', function (event) {
         if (!event.data) return;
         if (event.data.type === 'SYNC_DRAINED') {
-          // Hook futuro (M3): toast de "transações sincronizadas"
-          console.info('[FinanPy] Fila sincronizada:', event.data.queue);
+          showSyncToast();
         }
       });
+
+      var refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
     });
+  }
+
+  function showUpdateBanner(worker) {
+    var banner = document.createElement('div');
+    banner.className = 'fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-80 z-50 bg-primary-700 text-white rounded-xl p-4 shadow-lg flex items-center justify-between gap-3';
+    banner.setAttribute('role', 'alert');
+    banner.innerHTML =
+      '<span class="text-sm font-medium">Nova versão disponível</span>' +
+      '<button type="button" class="px-3 py-1.5 bg-white text-primary-700 rounded-lg text-sm font-semibold hover:bg-gray-100 transition">Atualizar</button>';
+    banner.querySelector('button').addEventListener('click', function () {
+      worker.postMessage({ type: 'SKIP_WAITING' });
+      banner.remove();
+    });
+    document.body.appendChild(banner);
+  }
+
+  function showSyncToast() {
+    var container = document.getElementById('finanpy-toasts');
+    if (!container) return;
+    var toast = document.createElement('div');
+    toast.className = 'finanpy-toast flex items-center gap-3 px-4 py-3 rounded-xl bg-success-700/90 text-white text-sm shadow-lg';
+    toast.setAttribute('role', 'status');
+    toast.textContent = 'Transações sincronizadas com sucesso';
+    container.appendChild(toast);
+    setTimeout(function () { toast.remove(); }, 4000);
   }
 
   // ---------------------------------------------------------------------------
