@@ -5,9 +5,13 @@
 {% block title %}Dashboard - FinanPy{% endblock %}
 
 {% block extra_head %}
-{# Chart.js NÃO é mais carregado aqui — vira lazy import dentro do <script> de baixo
-   só quando os canvases entram na viewport. Corta ~1.520ms de render-blocking
-   medidos no baseline (docs/lighthouse-baseline/dashboard.md). #}
+{% comment %}
+Chart.js NAO e mais carregado aqui no <head> com <script src=...>.
+Vira lazy import dinamico dentro do <script type="module"> de baixo,
+acionado por IntersectionObserver quando os canvases entram na viewport.
+Corta ~1.520ms de render-blocking medidos no baseline
+(docs/lighthouse-baseline/dashboard.md).
+{% endcomment %}
 <style>
     /* Snap-scroll horizontal de stat-cards (mobile). Desktop usa grid. */
     .stat-row {
@@ -267,11 +271,7 @@
                     </ul>
                 </div>
                 {% else %}
-                    {% include 'components/_empty_state.html' with
-                        title='Sem gastos este mês'
-                        description='Quando você registrar despesas, vai ver aqui o detalhamento por categoria.'
-                        cta_url='/transactions/create/'
-                        cta_label='Registrar despesa' %}
+                    {% include 'components/_empty_state.html' with title='Sem gastos este mês' description='Quando você registrar despesas, vai ver aqui o detalhamento por categoria.' cta_url='/transactions/create/' cta_label='Registrar despesa' %}
                 {% endif %}
             </section>
         </div>

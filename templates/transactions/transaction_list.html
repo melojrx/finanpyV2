@@ -341,11 +341,7 @@
     {% else %}
         {# Empty state usando o componente do shell #}
         {% url 'transactions:create' as create_url %}
-        {% include 'components/_empty_state.html' with
-            title='Nenhuma transação por aqui'
-            description='Comece registrando sua primeira receita ou despesa para ter visão completa das suas finanças.'
-            cta_url=create_url
-            cta_label='Nova transação' %}
+        {% include 'components/_empty_state.html' with title='Nenhuma transação por aqui' description='Comece registrando sua primeira receita ou despesa para ter visão completa das suas finanças.' cta_url=create_url cta_label='Nova transação' %}
     {% endif %}
 
     {# ─── Paginação ────────────────────────────────────────────── #}

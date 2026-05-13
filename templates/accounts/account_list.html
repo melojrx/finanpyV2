@@ -318,17 +318,9 @@
     {% else %}
         {% url 'accounts:account-create' as create_url %}
         {% if has_filters %}
-            {% include 'components/_empty_state.html' with
-                title='Nenhuma conta corresponde aos filtros'
-                description='Ajuste os critérios ou limpe os filtros para ver todas as suas contas.'
-                cta_url='/accounts/'
-                cta_label='Limpar filtros' %}
+            {% include 'components/_empty_state.html' with title='Nenhuma conta corresponde aos filtros' description='Ajuste os critérios ou limpe os filtros para ver todas as suas contas.' cta_url='/accounts/' cta_label='Limpar filtros' %}
         {% else %}
-            {% include 'components/_empty_state.html' with
-                title='Crie sua primeira conta'
-                description='Comece registrando suas contas correntes, poupanças, cartões e investimentos.'
-                cta_url=create_url
-                cta_label='Nova conta' %}
+            {% include 'components/_empty_state.html' with title='Crie sua primeira conta' description='Comece registrando suas contas correntes, poupanças, cartões e investimentos.' cta_url=create_url cta_label='Nova conta' %}
         {% endif %}
     {% endif %}
 

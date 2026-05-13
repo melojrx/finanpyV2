@@ -387,17 +387,9 @@
     {% else %}
         {% url 'categories:category-create' as create_url %}
         {% if has_filters %}
-            {% include 'components/_empty_state.html' with
-                title='Nenhuma categoria encontrada'
-                description='Ajuste os critérios ou limpe os filtros para ver suas categorias.'
-                cta_url='/categories/'
-                cta_label='Limpar filtros' %}
+            {% include 'components/_empty_state.html' with title='Nenhuma categoria encontrada' description='Ajuste os critérios ou limpe os filtros para ver suas categorias.' cta_url='/categories/' cta_label='Limpar filtros' %}
         {% else %}
-            {% include 'components/_empty_state.html' with
-                title='Crie sua primeira categoria'
-                description='Categorize suas receitas e despesas para ter relatórios precisos. Use hierarquia para detalhar (ex.: Mercado > Açougue).'
-                cta_url=create_url
-                cta_label='Nova categoria' %}
+            {% include 'components/_empty_state.html' with title='Crie sua primeira categoria' description='Categorize suas receitas e despesas para ter relatórios precisos. Use hierarquia para detalhar (ex.: Mercado > Açougue).' cta_url=create_url cta_label='Nova categoria' %}
         {% endif %}
     {% endif %}
 

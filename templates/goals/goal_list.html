@@ -180,11 +180,7 @@
 
     {% else %}
         {% url 'goals:create' as create_url %}
-        {% include 'components/_empty_state.html' with
-            title='Crie sua primeira meta'
-            description='Defina objetivos financeiros, registre aportes e acompanhe seu progresso ao longo do tempo.'
-            cta_url=create_url
-            cta_label='Nova meta' %}
+        {% include 'components/_empty_state.html' with title='Crie sua primeira meta' description='Defina objetivos financeiros, registre aportes e acompanhe seu progresso ao longo do tempo.' cta_url=create_url cta_label='Nova meta' %}
     {% endif %}
 </section>
 {% endblock %}
