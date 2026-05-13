@@ -166,7 +166,11 @@ class CategoryListView(LoginRequiredMixin, ListView):
             'active_categories': user_categories.filter(is_active=True).count(),
             'inactive_categories': user_categories.filter(is_active=False).count(),
         }
-        
+
+        context['has_filters'] = any(
+            self.request.GET.get(k) for k in ('category_type', 'status', 'search')
+        )
+
         return context
 
 

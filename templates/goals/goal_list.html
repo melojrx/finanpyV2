@@ -3,123 +3,188 @@
 
 {% block title %}Metas - FinanPy{% endblock %}
 
+{% block extra_head %}
+<style>
+    .stat-card {
+        background: rgba(31, 41, 55, .7);
+        border: 1px solid rgba(55, 65, 81, .4);
+        border-radius: .9rem;
+        padding: 1rem 1.25rem;
+        backdrop-filter: blur(8px);
+    }
+    .num-tabular { font-variant-numeric: tabular-nums; }
+
+    .goal-card {
+        background: rgba(31, 41, 55, .7);
+        border: 1px solid rgba(55, 65, 81, .35);
+        border-radius: 1rem;
+        transition: border-color .15s ease;
+    }
+    .goal-card:hover { border-color: rgba(14, 165, 233, .35); }
+
+    .icon-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-height: 44px;
+        border-radius: .5rem;
+        font-size: .875rem; font-weight: 500;
+        transition: background-color .12s ease, color .12s ease;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+<section class="px-4 sm:px-6 lg:px-8 pt-4 pb-8 max-w-7xl mx-auto">
+
+    {# ─── Header ──────────────────────────────────────────────────── #}
+    <header class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
         <div>
-            <h1 class="text-3xl font-bold text-white">Metas Financeiras</h1>
-            <p class="text-gray-400 mt-1">Acompanhe o progresso dos seus objetivos.</p>
+            <h1 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+                <span aria-hidden="true">🎯</span>
+                Metas financeiras
+            </h1>
+            <p class="text-sm text-gray-400 mt-1">
+                Acompanhe o progresso dos seus objetivos.
+            </p>
         </div>
-        <a href="{% url 'goals:create' %}"
-           class="inline-flex items-center justify-center bg-primary-600 hover:bg-primary-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-            </svg>
-            Nova Meta
-        </a>
-    </div>
+        <div class="hidden md:flex items-center gap-2">
+            <a href="{% url 'goals:create' %}"
+               class="inline-flex items-center gap-2 px-4 h-11 rounded-xl bg-primary-700 hover:bg-primary-600 text-white text-sm font-semibold shadow-lg shadow-primary-900/30 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Nova meta
+            </a>
+        </div>
+    </header>
 
-    {% if goals %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {% for goal in goals %}
-        <div class="bg-dark-800/70 border border-dark-700 rounded-xl p-6 hover:border-primary-500/50 transition-all">
-            <div class="flex items-start justify-between mb-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
-                         style="background-color: {{ goal.color }}20;">
-                        {{ goal.icon }}
-                    </div>
-                    <div>
-                        <a href="{% url 'goals:detail' goal.pk %}"
-                           class="text-white font-semibold hover:text-primary-400 transition-colors">
-                            {{ goal.name }}
-                        </a>
-                        <p class="text-xs {{ goal.status_color_class }} mt-1">{{ goal.get_status_display }}</p>
-                    </div>
-                </div>
-                {% if goal.is_completed %}
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-400 border border-green-800/50">
-                    Concluída
-                </span>
-                {% endif %}
+    {# ─── KPIs ───────────────────────────────────────────────────── #}
+    {% if goal_stats.total %}
+    <h2 class="sr-only">Resumo das metas</h2>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
+        <div class="stat-card">
+            <p class="text-xs text-gray-400">Total</p>
+            <p class="text-lg sm:text-xl font-bold text-white num-tabular mt-1">{{ goal_stats.total }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs text-gray-400">Ativas</p>
+            <p class="text-lg sm:text-xl font-bold text-blue-400 num-tabular mt-1">{{ goal_stats.active }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs text-gray-400">Acumulado</p>
+            <p class="text-lg sm:text-xl font-bold text-white num-tabular mt-1 truncate">{{ goal_stats.total_current|currency }}</p>
+            <p class="text-[11px] text-gray-500 mt-1">de {{ goal_stats.total_target|currency }}</p>
+        </div>
+        <div class="stat-card">
+            <p class="text-xs text-gray-400">Progresso geral</p>
+            <p class="text-lg sm:text-xl font-bold text-green-400 num-tabular mt-1">{{ goal_stats.overall_progress_pct }}%</p>
+            <div class="w-full bg-dark-700 rounded-full h-1.5 overflow-hidden mt-2">
+                <div class="h-1.5 bg-gradient-to-r from-primary-500 to-primary-400 rounded-full transition-all duration-500"
+                     style="width: {% if goal_stats.overall_progress_pct > 100 %}100{% else %}{{ goal_stats.overall_progress_pct }}{% endif %}%"></div>
             </div>
+        </div>
+    </div>
+    {% endif %}
 
-            <div class="mb-3">
-                <div class="flex items-baseline justify-between mb-2">
-                    <span class="text-xl font-bold text-white">{{ goal.current_amount|currency }}</span>
-                    <span class="text-sm text-gray-400">de {{ goal.target_amount|currency }}</span>
-                </div>
-                <div class="w-full bg-dark-700 rounded-full h-2.5 overflow-hidden">
-                    <div class="h-2.5 rounded-full transition-all duration-500"
-                         style="width: {{ goal.progress_pct|floatformat:0 }}%; background-color: {{ goal.color }};"></div>
-                </div>
-                <div class="flex justify-between text-xs mt-2">
-                    <span class="font-medium" style="color: {{ goal.color }};">
-                        {{ goal.progress_pct|floatformat:1 }}% concluído
-                    </span>
-                    {% if goal.deadline %}
-                    <span class="text-gray-400">
-                        Até {{ goal.deadline|date:"d/m/Y" }}
+    {# ─── Lista (cards) ──────────────────────────────────────────── #}
+    {% if goals %}
+    <h2 class="sr-only">Metas</h2>
+    <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for goal in goals %}
+        <li>
+            <article class="goal-card p-5 h-full flex flex-col">
+                <header class="flex items-start justify-between mb-3 gap-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="w-11 h-11 rounded-lg flex items-center justify-center text-2xl flex-shrink-0"
+                              style="background-color: {{ goal.color }}26;" aria-hidden="true">
+                            {{ goal.icon }}
+                        </span>
+                        <div class="min-w-0">
+                            <a href="{% url 'goals:detail' goal.pk %}"
+                               class="text-white font-semibold hover:text-primary-400 transition-colors truncate block">
+                                {{ goal.name }}
+                            </a>
+                            <p class="text-[11px] {{ goal.status_color_class }} mt-0.5">{{ goal.get_status_display }}</p>
+                        </div>
+                    </div>
+                    {% if goal.is_completed %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-900/30 text-green-400 border border-green-800/50 flex-shrink-0">
+                        Concluída
                     </span>
                     {% endif %}
-                </div>
-            </div>
+                </header>
 
-            <div class="flex gap-2 pt-3 border-t border-dark-700">
-                <a href="{% url 'goals:detail' goal.pk %}"
-                   class="flex-1 text-center text-sm bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 py-2 rounded-lg transition-colors">
-                    Detalhes
-                </a>
-                <a href="{% url 'goals:contribute' goal.pk %}"
-                   class="flex-1 text-center text-sm bg-green-600/20 hover:bg-green-600/30 text-green-400 py-2 rounded-lg transition-colors">
-                    + Aporte
-                </a>
-                <a href="{% url 'goals:edit' goal.pk %}"
-                   class="text-sm bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 py-2 px-3 rounded-lg transition-colors"
-                   title="Editar">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                    </svg>
-                </a>
-            </div>
-        </div>
+                <div class="mb-4 flex-1">
+                    <div class="flex items-baseline justify-between mb-2 gap-2">
+                        <span class="text-lg font-bold text-white num-tabular truncate">{{ goal.current_amount|currency }}</span>
+                        <span class="text-xs text-gray-400 num-tabular flex-shrink-0">de {{ goal.target_amount|currency }}</span>
+                    </div>
+                    <div class="w-full bg-dark-700 rounded-full h-2.5 overflow-hidden"
+                         role="progressbar"
+                         aria-valuenow="{{ goal.progress_pct|floatformat:0 }}"
+                         aria-valuemin="0" aria-valuemax="100"
+                         aria-label="Progresso de {{ goal.name }}">
+                        <div class="h-2.5 rounded-full transition-all duration-500"
+                             style="width: {% if goal.progress_pct > 100 %}100{% else %}{{ goal.progress_pct|floatformat:0 }}{% endif %}%; background-color: {{ goal.color }};"></div>
+                    </div>
+                    <div class="flex justify-between text-[11px] mt-2">
+                        <span class="font-medium" style="color: {{ goal.color }};">
+                            {{ goal.progress_pct|floatformat:1 }}% concluído
+                        </span>
+                        {% if goal.deadline %}
+                        <span class="text-gray-400">
+                            Até {{ goal.deadline|date:"d/m/Y" }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="flex gap-2 pt-3 border-t border-dark-700">
+                    <a href="{% url 'goals:detail' goal.pk %}"
+                       class="icon-btn flex-1 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400">
+                        Detalhes
+                    </a>
+                    <a href="{% url 'goals:contribute' goal.pk %}"
+                       class="icon-btn flex-1 bg-green-600/15 hover:bg-green-600/25 text-green-400">
+                        + Aporte
+                    </a>
+                    <a href="{% url 'goals:edit' goal.pk %}"
+                       class="icon-btn px-3 bg-yellow-600/15 hover:bg-yellow-600/25 text-yellow-400"
+                       aria-label="Editar meta {{ goal.name }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                    </a>
+                </div>
+            </article>
+        </li>
         {% endfor %}
-    </div>
+    </ul>
 
     {% if is_paginated %}
-    <div class="mt-8 flex justify-center gap-2">
+    <nav class="mt-6 flex items-center justify-between gap-3" aria-label="Paginação">
         {% if page_obj.has_previous %}
-        <a href="?page={{ page_obj.previous_page_number }}"
-           class="px-4 py-2 text-sm text-gray-300 bg-dark-800 hover:bg-dark-700 rounded-lg border border-dark-700">
+        <a href="?page={{ page_obj.previous_page_number }}" rel="prev"
+           class="inline-flex items-center gap-1 px-3 h-11 rounded-xl border border-dark-600 hover:bg-dark-800 text-gray-300 text-sm font-medium transition">
             Anterior
         </a>
-        {% endif %}
-        <span class="px-4 py-2 text-sm text-gray-300 bg-dark-800 rounded-lg border border-dark-700">
-            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
-        </span>
+        {% else %}<span aria-hidden="true"></span>{% endif %}
+        <span class="text-sm text-gray-400">Página <strong class="text-gray-200">{{ page_obj.number }}</strong> de <strong class="text-gray-200">{{ page_obj.paginator.num_pages }}</strong></span>
         {% if page_obj.has_next %}
-        <a href="?page={{ page_obj.next_page_number }}"
-           class="px-4 py-2 text-sm text-gray-300 bg-dark-800 hover:bg-dark-700 rounded-lg border border-dark-700">
+        <a href="?page={{ page_obj.next_page_number }}" rel="next"
+           class="inline-flex items-center gap-1 px-3 h-11 rounded-xl border border-dark-600 hover:bg-dark-800 text-gray-300 text-sm font-medium transition">
             Próxima
         </a>
-        {% endif %}
-    </div>
+        {% else %}<span aria-hidden="true"></span>{% endif %}
+    </nav>
     {% endif %}
 
     {% else %}
-    <div class="bg-dark-800/70 border border-dark-700 rounded-xl text-center py-16 px-4">
-        <div class="w-20 h-20 bg-dark-700/60 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span class="text-4xl">🎯</span>
-        </div>
-        <h3 class="text-xl font-semibold text-gray-200 mb-2">Você ainda não criou metas</h3>
-        <p class="text-gray-400 mb-6 max-w-md mx-auto">
-            Defina objetivos financeiros, registre aportes e acompanhe seu progresso ao longo do tempo.
-        </p>
-        <a href="{% url 'goals:create' %}"
-           class="inline-flex items-center bg-primary-600 hover:bg-primary-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors">
-            Criar primeira meta
-        </a>
-    </div>
+        {% url 'goals:create' as create_url %}
+        {% include 'components/_empty_state.html' with
+            title='Crie sua primeira meta'
+            description='Defina objetivos financeiros, registre aportes e acompanhe seu progresso ao longo do tempo.'
+            cta_url=create_url
+            cta_label='Nova meta' %}
     {% endif %}
-</div>
+</section>
 {% endblock %}
