@@ -4,8 +4,11 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AccountViewSet,
     CategoryViewSet,
+    DashboardSnapshotView,
     MonthlyPlanItemViewSet,
     MonthlyPlanViewSet,
+    ReceiptDraftView,
+    SyncSinceView,
     TransactionViewSet,
     MonthlySummaryView,
     YearlySummaryView,
@@ -21,7 +24,18 @@ router.register(
 )
 
 urlpatterns = [
+    # Paths customizados que conflitam com o router precisam vir ANTES
+    # de `include(router.urls)`. Caso contrário, o router casa
+    # /transactions/from-receipt/ como /transactions/<pk:from-receipt>/
+    # e devolve 405.
+    path(
+        'transactions/from-receipt/',
+        ReceiptDraftView.as_view(),
+        name='api-transactions-from-receipt',
+    ),
     path('', include(router.urls)),
     path('summary/monthly/', MonthlySummaryView.as_view(), name='api-summary-monthly'),
     path('summary/yearly/', YearlySummaryView.as_view(), name='api-summary-yearly'),
+    path('dashboard/snapshot/', DashboardSnapshotView.as_view(), name='api-dashboard-snapshot'),
+    path('sync/since/', SyncSinceView.as_view(), name='api-sync-since'),
 ]

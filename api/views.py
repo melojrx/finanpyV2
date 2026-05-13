@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.db.models import Sum, Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -17,6 +18,7 @@ from .serializers import (
     MonthlyPlanItemSerializer,
     MonthlyPlanSerializer,
     MonthlyPlanSummarySerializer,
+    QuickTransactionSerializer,
     TransactionSerializer,
 )
 
@@ -80,6 +82,285 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['post'], url_path='quick',
+            serializer_class=QuickTransactionSerializer)
+    def quick(self, request):
+        """Cria transação com payload mínimo (PWA / Hermes / Background Sync).
+
+        Aceita: amount, transaction_type, account, category, [description,
+        transaction_date, client_id]. Defaults: data=hoje,
+        description=categoria.name. Idempotência por client_id (best-effort —
+        descarta retransmissão se já existir transação com client_id idêntico
+        nas últimas 24h gravado em notes).
+        """
+        from datetime import timedelta
+        from django.utils import timezone
+
+        client_id = (request.data.get('client_id') or '').strip()
+
+        # Idempotência simples: client_id é gravado como prefixo em notes.
+        # Migração futura criará campo dedicado + unique constraint.
+        if client_id:
+            tag = f'[client_id:{client_id}]'
+            since = timezone.now() - timedelta(hours=24)
+            existing = (
+                Transaction.objects.filter(
+                    user=request.user,
+                    notes__contains=tag,
+                    created_at__gte=since,
+                )
+                .order_by('-created_at')
+                .first()
+            )
+            if existing:
+                return Response(
+                    QuickTransactionSerializer(existing, context={'request': request}).data,
+                    status=status.HTTP_200_OK,
+                )
+
+        serializer = QuickTransactionSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+
+        notes = ''
+        if client_id:
+            notes = f'[client_id:{client_id}]'
+
+        instance = serializer.save(user=request.user, notes=notes)
+        out = QuickTransactionSerializer(instance, context={'request': request}).data
+        return Response(out, status=status.HTTP_201_CREATED)
+
+
+class DashboardSnapshotView(APIView):
+    """Snapshot consolidado para PWA/Hermes — uma chamada cobre o dashboard.
+
+    Inclui: saldo total, totais do mês corrente (income/expense/balance),
+    contagem de transações do mês e top 5 transações recentes. Pensado para
+    cache `stale-while-revalidate` no Service Worker (M1 SW já mira
+    `/api/v1/...`). Auth: Token (default DRF).
+    """
+
+    def get(self, request):
+        from datetime import date
+
+        today = date.today()
+        summary = Transaction.get_monthly_summary(request.user, today.year, today.month)
+
+        total_balance = (
+            Account.objects.filter(user=request.user, is_active=True)
+            .aggregate(s=Sum('balance'))['s']
+            or Decimal('0.00')
+        )
+
+        recent = (
+            Transaction.objects.filter(user=request.user)
+            .select_related('account', 'category')
+            .order_by('-transaction_date', '-created_at')[:5]
+        )
+
+        return Response({
+            'as_of': today.isoformat(),
+            'totals': {
+                'total_balance': str(total_balance),
+                'income_month': str(summary['income']),
+                'expenses_month': str(summary['expenses']),
+                'balance_month': str(summary['balance']),
+                'transaction_count_month': summary['transaction_count'],
+            },
+            'recent_transactions': TransactionSerializer(
+                recent, many=True, context={'request': request}
+            ).data,
+        })
+
+
+class SyncSinceView(APIView):
+    """Endpoint de delta para o Service Worker — retorna o que mudou desde `ts`.
+
+    Usado pelo SW para reconciliar caches locais quando o usuário volta online.
+    Retorna registros criados/atualizados em accounts, categories e transactions.
+
+    Query params:
+      - ``ts`` (obrigatório): ISO 8601 (ex.: ``2026-05-12T08:00:00Z``).
+        Usa-se ``parse_datetime`` do Django (aceita formato com/sem TZ).
+
+    Resposta:
+      ``{server_time, since, accounts, categories, transactions}``
+
+    Notas de design:
+      - Categorias só têm ``created_at`` (não há ``updated_at``), então o
+        delta cobre criações apenas. Aceitável: categorias quase nunca
+        editam após criadas.
+      - Não há soft-delete no schema atual — exclusões não aparecem no
+        delta. Quando introduzirmos soft-delete (M7), retornaremos
+        ``deleted: {accounts: [ids], ...}`` aqui.
+    """
+
+    def get(self, request):
+        from django.utils.dateparse import parse_datetime
+        from django.utils import timezone as _tz
+
+        ts_raw = request.query_params.get('ts', '').strip()
+        if not ts_raw:
+            return Response(
+                {'detail': 'Parâmetro ?ts é obrigatório (ISO 8601).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ts = parse_datetime(ts_raw)
+        if ts is None:
+            return Response(
+                {'detail': 'Formato de timestamp inválido (use ISO 8601).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if _tz.is_naive(ts):
+            ts = _tz.make_aware(ts, _tz.get_current_timezone())
+
+        accounts_qs = (
+            Account.objects.filter(user=request.user, updated_at__gt=ts)
+            .order_by('updated_at')
+        )
+        categories_qs = (
+            Category.objects.filter(user=request.user, created_at__gt=ts)
+            .order_by('created_at')
+        )
+        transactions_qs = (
+            Transaction.objects.filter(user=request.user, updated_at__gt=ts)
+            .select_related('account', 'category')
+            .order_by('updated_at')
+        )
+
+        return Response({
+            'server_time': _tz.now().isoformat(),
+            'since': ts.isoformat(),
+            'accounts': AccountSerializer(
+                accounts_qs, many=True, context={'request': request}
+            ).data,
+            'categories': CategorySerializer(
+                categories_qs, many=True, context={'request': request}
+            ).data,
+            'transactions': TransactionSerializer(
+                transactions_qs, many=True, context={'request': request}
+            ).data,
+        })
+
+
+class ReceiptDraftView(APIView):
+    """Recebe imagem de comprovante e devolve um *draft* de transação.
+
+    Aceita tanto JSON (cliente normal) quanto multipart/form-data — este
+    último é o que o ``share_target`` do manifest envia quando o usuário
+    compartilha uma imagem do app de Galeria/Câmera diretamente para o
+    PWA.
+
+    **Estado atual:** OCR via Google Vision **ainda não está integrado
+    neste serviço** (a integração vive no agente Hermes). Esta view age
+    como contrato estável: aceita o upload, valida o tipo MIME, persiste
+    metadados básicos e devolve um draft *vazio* que o cliente preenche
+    e confirma via ``POST /api/v1/transactions/quick/``.
+
+    Quando integrarmos OCR aqui, basta substituir ``_extract_draft_from_image``
+    pela chamada ao Vision sem mudar o contrato.
+
+    Aceita campos do share_target: ``title``, ``text``, ``url`` (texto
+    livre que pode ajudar o OCR a hintar categoria).
+
+    Aceita arquivo em qualquer um dos campos: ``image``, ``receipt``,
+    ``file``.
+    """
+
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+    ACCEPTED_MIMES = ('image/png', 'image/jpeg', 'image/webp', 'application/pdf')
+    MAX_FILE_SIZE = 8 * 1024 * 1024  # 8 MB
+
+    def post(self, request):
+        upload = (
+            request.FILES.get('image')
+            or request.FILES.get('receipt')
+            or request.FILES.get('file')
+        )
+        if upload is None:
+            return Response(
+                {'detail': 'Envie um arquivo nos campos image, receipt ou file.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if upload.size > self.MAX_FILE_SIZE:
+            return Response(
+                {'detail': f'Arquivo excede {self.MAX_FILE_SIZE // (1024 * 1024)} MB.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        content_type = (upload.content_type or '').lower()
+        if content_type not in self.ACCEPTED_MIMES:
+            return Response(
+                {
+                    'detail': 'Tipo de arquivo não suportado.',
+                    'accepted': list(self.ACCEPTED_MIMES),
+                    'received': content_type or 'desconhecido',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        title = (request.data.get('title') or '').strip()
+        text_hint = (request.data.get('text') or '').strip()
+
+        # Sugestão de conta = primeira ativa do usuário
+        default_account = (
+            Account.objects.filter(user=request.user, is_active=True)
+            .order_by('id')
+            .first()
+        )
+
+        draft = self._extract_draft_from_image(
+            upload=upload,
+            title_hint=title,
+            text_hint=text_hint,
+            user=request.user,
+            default_account_id=default_account.id if default_account else None,
+        )
+
+        return Response(
+            {
+                'status': 'draft',
+                'message': (
+                    'Draft criado a partir do comprovante. Confirme os dados e '
+                    'envie via POST /api/v1/transactions/quick/.'
+                ),
+                'draft': draft,
+                'meta': {
+                    'filename': upload.name,
+                    'content_type': content_type,
+                    'size': upload.size,
+                    'ocr_engine': 'pending',  # placeholder até integrar Vision
+                },
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @staticmethod
+    def _extract_draft_from_image(*, upload, title_hint, text_hint, user, default_account_id):
+        """Extrai um draft de transação a partir da imagem.
+
+        **TODO(M7+):** integrar Google Cloud Vision aqui (ou delegar para o
+        Hermes via fila). Hoje, retorna um draft vazio com hints textuais
+        para o usuário completar manualmente — a UX é melhor que erro 501
+        e mantém o ``share_target`` funcional desde o dia 1.
+        """
+        from datetime import date as _date
+
+        description = title_hint or text_hint or 'Comprovante (preencha)'
+        return {
+            'transaction_type': 'EXPENSE',
+            'amount': None,
+            'description': description[:200],
+            'transaction_date': _date.today().isoformat(),
+            'account': default_account_id,
+            'category': None,
+            'confidence': {
+                'amount': 0.0,
+                'date': 0.0,
+                'merchant': 0.0,
+            },
+        }
 
 
 class MonthlySummaryView(APIView):

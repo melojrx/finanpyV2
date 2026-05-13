@@ -64,7 +64,7 @@
     }
   ],
   "share_target": {
-    "action": "/transactions/from-receipt/",
+    "action": "/api/v1/transactions/from-receipt/",
     "method": "POST",
     "enctype": "multipart/form-data",
     "params": {
@@ -82,7 +82,7 @@
   "protocol_handlers": [
     {
       "protocol": "web+finanpy",
-      "url": "/?deeplink=%s"
+      "url": "/handler/?q=%s"
     }
   ],
   "launch_handler": {

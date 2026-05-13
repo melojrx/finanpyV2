@@ -148,7 +148,9 @@ if (workbox) {
 
   routing.registerRoute(
     ({ url, request }) =>
-      request.method === 'POST' && url.pathname.startsWith('/api/v1/transactions/'),
+      request.method === 'POST' &&
+      (url.pathname === '/api/v1/transactions/quick/' ||
+       url.pathname === '/api/v1/transactions/'),
     new strategies.NetworkOnly({ plugins: [txQueue] }),
     'POST'
   );
