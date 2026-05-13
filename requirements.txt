@@ -15,3 +15,8 @@ sqlparse==0.5.3
 # Pré-requisito: Node.js >= 18 e npm instalados na máquina de desenvolvimento.
 # Setup: python manage.py tailwind init theme && python manage.py tailwind install
 django-tailwind[reload]==3.8.0
+
+# Testing (M7 — Polimento)
+pytest==8.3.4
+pytest-playwright==0.6.2
+axe-playwright-python==0.1.5
