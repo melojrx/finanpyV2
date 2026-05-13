@@ -75,6 +75,9 @@
     if (closeBtn) {
       window.requestAnimationFrame(function () { closeBtn.focus(); });
     }
+    trapFocus(drawer);
+    var mainContent = document.querySelector('main');
+    if (mainContent) mainContent.setAttribute('inert', '');
   }
 
   function closeDrawer() {
@@ -88,6 +91,8 @@
       backdrop.classList.remove('opacity-100');
     }
     document.documentElement.style.overflow = '';
+    var mainContent = document.querySelector('main');
+    if (mainContent) mainContent.removeAttribute('inert');
     if (openBtn) openBtn.focus();
   }
 
@@ -96,10 +101,35 @@
   if (backdrop) backdrop.addEventListener('click', closeDrawer);
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && drawer && drawer.getAttribute('aria-hidden') === 'false') {
-      closeDrawer();
+    if (e.key === 'Escape') {
+      if (drawer && drawer.getAttribute('aria-hidden') === 'false') {
+        closeDrawer();
+      }
+      var openSheets = document.querySelectorAll('.finanpy-sheet:not(.hidden)');
+      openSheets.forEach(function (s) { closeSheet(s); });
     }
   });
+
+  // ---------------------------------------------------------------------------
+  // 2.1) Focus trap utility
+  // ---------------------------------------------------------------------------
+  function trapFocus(container) {
+    var focusable = container.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusable.length) return;
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+
+    container.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // 2.5) User menu dropdown (desktop)
@@ -167,6 +197,9 @@
       if (bd) bd.classList.replace('opacity-0', 'opacity-100');
     });
     document.documentElement.style.overflow = 'hidden';
+    trapFocus(sheet);
+    var mainContent = document.querySelector('main');
+    if (mainContent) mainContent.setAttribute('inert', '');
   }
 
   function closeSheet(sheet) {
@@ -177,6 +210,8 @@
     if (bd) bd.classList.replace('opacity-100', 'opacity-0');
     setTimeout(function () { sheet.classList.add('hidden'); }, 250);
     document.documentElement.style.overflow = '';
+    var mainContent = document.querySelector('main');
+    if (mainContent) mainContent.removeAttribute('inert');
   }
 
   document.addEventListener('click', function (e) {
