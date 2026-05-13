@@ -234,7 +234,7 @@
             {% if form.amount.errors %}
                 <p class="form-error mt-2 text-sm text-red-400">{{ form.amount.errors.0 }}</p>
             {% endif %}
-            <p class="text-xs text-gray-500 mt-1">Use vírgula para os centavos. Ex.: 49,90</p>
+            <p class="text-xs text-gray-400 mt-1">Use vírgula para os centavos. Ex.: 49,90</p>
         </div>
 
         {# ─── Conta + Categoria (grid em ≥md, stack em mobile) ────────── #}
@@ -261,7 +261,7 @@
                     <span class="swatch w-9 h-9 rounded-lg flex items-center justify-center text-base"
                           id="category-trigger-icon" aria-hidden="true"
                           style="background: rgba(75,85,99,.5);">
-                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
                         </svg>
                     </span>
@@ -356,7 +356,7 @@
             <h2 id="category-sheet-title" class="text-base font-semibold text-white">Escolha uma categoria</h2>
             <button type="button" class="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:bg-dark-800"
                     data-sheet-close aria-label="Fechar">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
 
@@ -474,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (cats.length === 0) {
             listEl.innerHTML = `
-                <div class="text-center py-8 text-gray-500 text-sm">
+                <div class="text-center py-8 text-gray-400 text-sm">
                     Nenhuma categoria encontrada para "${(query || '').replace(/[<>&"]/g, '')}".
                 </div>`;
             return;
@@ -489,7 +489,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             role="option" aria-selected="${sel}">
                 <span class="swatch" style="${swatchStyle}">${escapeHtml(c.icon || '📁')}</span>
                 <span class="flex-1">${escapeHtml(c.full_path || c.name)}</span>
-                ${sel ? '<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>' : ''}
+                ${sel ? '<svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>' : ''}
             </button>`;
         }).join('');
         listEl.innerHTML = items;
@@ -536,7 +536,7 @@ document.addEventListener('DOMContentLoaded', function () {
         triggerLabel.textContent = 'Selecione uma categoria';
         triggerLabel.classList.add('placeholder');
         if (triggerIcon) {
-            triggerIcon.innerHTML = '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>';
+            triggerIcon.innerHTML = '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>';
             triggerIcon.style.background = 'rgba(75,85,99,.5)';
         }
         if (previewEl) previewEl.classList.remove('show');

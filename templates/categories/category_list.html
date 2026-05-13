@@ -281,7 +281,7 @@
                                 {% else %}
                                     <span class="text-red-400">Despesa</span>
                                 {% endif %}
-                                {% if not cat.is_active %} · <span class="text-gray-500">Inativa</span>{% endif %}
+                                {% if not cat.is_active %} · <span class="text-gray-400">Inativa</span>{% endif %}
                                 {% if cat.parent %} · {{ cat.parent.name }}{% endif %}
                             </p>
                         </div>
@@ -326,7 +326,7 @@
                                     <a href="{% url 'categories:category-detail' cat.pk %}"
                                        class="text-white font-medium hover:text-primary-400 transition">{{ cat.name }}</a>
                                     {% if cat.parent %}
-                                    <p class="text-[11px] text-gray-500">{{ cat.full_path }}</p>
+                                    <p class="text-[11px] text-gray-400">{{ cat.full_path }}</p>
                                     {% endif %}
                                 </div>
                             </div>

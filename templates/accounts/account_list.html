@@ -126,7 +126,7 @@
         <div class="stat-card">
             <div class="flex items-center justify-between mb-1.5">
                 <h3 class="text-sm text-gray-300 font-semibold">{{ summary.name }}</h3>
-                <span class="text-[11px] text-gray-500">{{ summary.account_count }} conta{{ summary.account_count|pluralize }}</span>
+                <span class="text-[11px] text-gray-400">{{ summary.account_count }} conta{{ summary.account_count|pluralize }}</span>
             </div>
             <p class="text-xl font-bold num-tabular {% if summary.total_balance >= 0 %}text-white{% else %}text-red-400{% endif %}">
                 {% if currency_code == 'USD' %}$
@@ -221,7 +221,7 @@
                             <p class="text-white font-semibold truncate">{{ account.name }}</p>
                             <p class="text-xs text-gray-400 truncate mt-0.5">
                                 {{ account.get_account_type_display }} · {{ account.get_currency_display }}
-                                {% if not account.is_active %} · <span class="text-gray-500">Inativa</span>{% endif %}
+                                {% if not account.is_active %} · <span class="text-gray-400">Inativa</span>{% endif %}
                             </p>
                         </div>
                         <div class="text-right ml-2">
@@ -263,7 +263,7 @@
                                 <div>
                                     <a href="{% url 'accounts:account-detail' account.pk %}"
                                        class="text-white font-medium hover:text-primary-400 transition">{{ account.name }}</a>
-                                    <p class="text-[11px] text-gray-500">desde {{ account.created_at|date:"d/m/Y" }}</p>
+                                    <p class="text-[11px] text-gray-400">desde {{ account.created_at|date:"d/m/Y" }}</p>
                                 </div>
                             </div>
                         </td>

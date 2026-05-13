@@ -9,7 +9,7 @@
   <div class="mb-6">
     <div class="flex items-center gap-3 mb-1">
       <span class="text-xs font-semibold text-primary-400 uppercase tracking-wider">Passo 3 de 3</span>
-      <span class="text-xs text-gray-500">Revise e ative seu planejamento</span>
+      <span class="text-xs text-gray-400">Revise e ative seu planejamento</span>
     </div>
     <div class="flex gap-1.5">
       <div class="h-1 flex-1 rounded-full bg-primary-500"></div>
@@ -74,7 +74,7 @@
       </div>
 
       <!-- Header -->
-      <div class="hidden sm:grid grid-cols-12 gap-2 px-5 py-2 bg-dark-900/30 border-b border-dark-700 text-xs text-gray-500 uppercase tracking-wider">
+      <div class="hidden sm:grid grid-cols-12 gap-2 px-5 py-2 bg-dark-900/30 border-b border-dark-700 text-xs text-gray-400 uppercase tracking-wider">
         <span class="col-span-5">Categoria</span>
         <span class="col-span-3 text-right">Planejado</span>
         <span class="col-span-2 text-center">Alertar</span>
@@ -91,7 +91,7 @@
               {% if item.category.icon %}{{ item.category.icon }} {% endif %}{{ item.category.name }}
             </p>
             {% if item.category.parent %}
-            <p class="text-xs text-gray-500 mt-0.5">{{ item.category.parent.name }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ item.category.parent.name }}</p>
             {% endif %}
           </div>
 
