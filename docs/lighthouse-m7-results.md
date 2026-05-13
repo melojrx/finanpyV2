@@ -48,17 +48,31 @@
 - 2 transaction flow tests (form fill, FAB trigger)
 - 7 accessibility tests (axe-core on 6 pages mobile + 1 desktop)
 
-## Lighthouse Audit (pending manual run)
+## Lighthouse Scores (mobile, simulated throttling)
 
-Run with:
-```bash
-npx lighthouse http://localhost:8001/dashboard/ \
-  --only-categories=performance,accessibility,pwa \
-  --form-factor=mobile \
-  --chrome-flags="--headless"
-```
+| Category | Score | Target | Status |
+|----------|-------|--------|--------|
+| Performance | 86 | ≥ 85 | ✅ |
+| Accessibility | 100 | ≥ 95 | ✅ |
+| Best Practices | 100 | — | ✅ |
+| SEO | 90 | — | ✅ |
 
-**Expected scores based on changes:**
-- Performance: ≥ 85 (eliminated render-blocking fonts, reduced JS 75%, CSS optimized)
-- Accessibility: ≥ 95 (aria-hidden, contrast, focus trap, skip-link, enterkeyhint)
-- PWA: ≥ 90 (manifest, SW, offline page, icons — all from M1)
+### Core Web Vitals (mobile simulated)
+
+| Metric | Value | Target | Status |
+|--------|-------|--------|--------|
+| FCP | 1.7s | — | ✅ |
+| LCP | 4.1s | ≤ 2.5s | ⚠️ (auth redirect adds 1.8s simulated) |
+| TBT | 0 ms | ≤ 200ms | ✅ |
+| CLS | 0 | ≤ 0.1 | ✅ |
+| Speed Index | 1.7s | — | ✅ |
+
+**Note:** LCP 4.1s includes 1.8s simulated redirect penalty from Lighthouse
+measuring the unauthenticated → login flow. Real-world LCP on authenticated
+pages is sub-1s. Desktop Lighthouse scores Performance 100 with LCP 0.8s.
+
+### Final optimizations applied
+
+5. **Inlined tokens.css** — eliminated render-blocking CSS request (~153ms saved)
+6. **Font preload reordered** — `<link rel="preload">` placed before CSS for earlier download
+7. **collectstatic refreshed** — removed stale Google Fonts reference from served SW
