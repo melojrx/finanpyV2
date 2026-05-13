@@ -134,17 +134,28 @@ class TransactionViewSet(viewsets.ModelViewSet):
 class DashboardSnapshotView(APIView):
     """Snapshot consolidado para PWA/Hermes — uma chamada cobre o dashboard.
 
-    Inclui: saldo total, totais do mês corrente (income/expense/balance),
-    contagem de transações do mês e top 5 transações recentes. Pensado para
-    cache `stale-while-revalidate` no Service Worker (M1 SW já mira
-    `/api/v1/...`). Auth: Token (default DRF).
+    Padrão (uso Hermes / chamada barata): saldo total, totais do mês,
+    contagem de transações e top 5 transações recentes.
+
+    Query param ``include=`` (CSV) adiciona pacotes opcionais:
+
+      - ``budgets`` → top 5 orçamentos ativos (com percentage_used)
+      - ``goals`` → top 3 metas ativas (com progress_pct)
+      - ``chart_6m`` → 6 meses de receitas/despesas para o gráfico de
+        linha do dashboard mobile
+
+    Exemplo: ``/api/v1/dashboard/snapshot/?include=budgets,goals,chart_6m``
+
+    Pensado para cache ``stale-while-revalidate`` no Service Worker.
     """
 
     def get(self, request):
         from datetime import date
 
         today = date.today()
-        summary = Transaction.get_monthly_summary(request.user, today.year, today.month)
+        summary = Transaction.get_monthly_summary(
+            request.user, today.year, today.month
+        )
 
         total_balance = (
             Account.objects.filter(user=request.user, is_active=True)
@@ -158,19 +169,144 @@ class DashboardSnapshotView(APIView):
             .order_by('-transaction_date', '-created_at')[:5]
         )
 
-        return Response({
+        income_month = summary['income']
+        savings_pct = (
+            int((summary['balance'] / income_month) * 100)
+            if income_month and income_month > 0 else 0
+        )
+
+        payload = {
             'as_of': today.isoformat(),
             'totals': {
                 'total_balance': str(total_balance),
                 'income_month': str(summary['income']),
                 'expenses_month': str(summary['expenses']),
                 'balance_month': str(summary['balance']),
+                'savings_pct': savings_pct,
                 'transaction_count_month': summary['transaction_count'],
             },
             'recent_transactions': TransactionSerializer(
                 recent, many=True, context={'request': request}
             ).data,
-        })
+        }
+
+        include_csv = (request.query_params.get('include') or '').lower()
+        include = {p.strip() for p in include_csv.split(',') if p.strip()}
+
+        if 'budgets' in include:
+            payload['budgets'] = self._top_budgets(request.user, today)
+        if 'goals' in include:
+            payload['goals'] = self._top_goals(request.user)
+        if 'chart_6m' in include:
+            payload['chart_6m'] = self._chart_6m(request.user, today)
+
+        return Response(payload)
+
+    @staticmethod
+    def _top_budgets(user, today):
+        from budgets.models import Budget
+
+        budgets = (
+            Budget.objects.filter(
+                user=user,
+                is_active=True,
+                start_date__lte=today,
+                end_date__gte=today,
+            )
+            .select_related('category')[:5]
+        )
+        out = []
+        for b in budgets:
+            pct = float(b.percentage_used or 0)
+            out.append({
+                'id': b.id,
+                'name': b.name,
+                'planned_amount': str(b.planned_amount),
+                'spent_amount': str(b.spent_amount),
+                'percentage_used': round(pct, 1),
+                'category': b.category.name if b.category_id else None,
+                'status': (
+                    'over' if pct >= 100
+                    else 'critical' if pct >= 80
+                    else 'warning' if pct >= 50
+                    else 'ok'
+                ),
+            })
+        return out
+
+    @staticmethod
+    def _top_goals(user):
+        from goals.models import Goal
+
+        goals = (
+            Goal.objects.filter(user=user, status=Goal.STATUS_ACTIVE)
+            .order_by('-current_amount')[:3]
+        )
+        return [
+            {
+                'id': g.id,
+                'name': g.name,
+                'icon': g.icon or '🎯',
+                'color': g.color or '#0ea5e9',
+                'current_amount': str(g.current_amount),
+                'target_amount': str(g.target_amount),
+                'progress_pct': float(g.progress_pct or 0),
+                'deadline': g.deadline.isoformat() if g.deadline else None,
+            }
+            for g in goals
+        ]
+
+    @staticmethod
+    def _chart_6m(user, today):
+        """Receitas/despesas dos últimos 6 meses (inclusive o atual).
+
+        Mesma agregação do ``DashboardView.get_context_data`` mas em formato
+        que o cliente PWA possa renderizar sem rebuild.
+        """
+        from datetime import date as _date
+        from django.db.models import Case, DecimalField, Value, When
+        from django.db.models.functions import TruncMonth
+
+        total_months_start = today.year * 12 + today.month - 6
+        chart_start = _date(
+            total_months_start // 12,
+            (total_months_start % 12) + 1,
+            1,
+        )
+
+        rows = (
+            Transaction.objects
+            .filter(user=user, transaction_date__gte=chart_start)
+            .annotate(month=TruncMonth('transaction_date'))
+            .values('month')
+            .annotate(
+                income=Sum(Case(
+                    When(transaction_type='INCOME', then='amount'),
+                    default=Value(Decimal('0')),
+                    output_field=DecimalField(),
+                )),
+                expenses=Sum(Case(
+                    When(transaction_type='EXPENSE', then='amount'),
+                    default=Value(Decimal('0')),
+                    output_field=DecimalField(),
+                )),
+            )
+            .order_by('month')
+        )
+        by_ym = {(r['month'].year, r['month'].month): r for r in rows}
+
+        month_names = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                       'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+        labels, income, expenses = [], [], []
+        for i in range(5, -1, -1):
+            tm = today.year * 12 + today.month - 1 - i
+            y, m = tm // 12, (tm % 12) + 1
+            row = by_ym.get((y, m))
+            labels.append(f'{month_names[m - 1]}/{str(y)[-2:]}')
+            income.append(float(row['income']) if row else 0.0)
+            expenses.append(float(row['expenses']) if row else 0.0)
+
+        return {'labels': labels, 'income': income, 'expenses': expenses}
 
 
 class SyncSinceView(APIView):

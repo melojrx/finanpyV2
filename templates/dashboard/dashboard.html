@@ -5,408 +5,565 @@
 {% block title %}Dashboard - FinanPy{% endblock %}
 
 {% block extra_head %}
-{# Chart.js — usado pelos graficos do dashboard #}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-{# date-fns removido na Sprint 8 / M0 — era CommonJS carregado em browser
-   ('Uncaught ReferenceError: exports is not defined') e nao tinha uso real
-   em nenhum lugar do projeto. Se voltar a precisar, usar build ESM:
-   <script type="module">
-     import { format } from "https://cdn.jsdelivr.net/npm/date-fns@4/+esm";
-   </script> #}
+{# Chart.js NÃO é mais carregado aqui — vira lazy import dentro do <script> de baixo
+   só quando os canvases entram na viewport. Corta ~1.520ms de render-blocking
+   medidos no baseline (docs/lighthouse-baseline/dashboard.md). #}
+<style>
+    /* Snap-scroll horizontal de stat-cards (mobile). Desktop usa grid. */
+    .stat-row {
+        scroll-snap-type: x mandatory;
+        scroll-padding-left: 1rem;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        overscroll-behavior-x: contain;
+    }
+    .stat-row::-webkit-scrollbar { display: none; }
+    .stat-card-mobile {
+        scroll-snap-align: start;
+        flex: 0 0 78%;
+        max-width: 320px;
+    }
+    @media (min-width: 1024px) {
+        .stat-card-mobile { flex: 1; max-width: none; }
+    }
+
+    /* Tabular numerals para valores monetários */
+    .num-tabular { font-variant-numeric: tabular-nums; }
+
+    /* Tabs do gráfico financeiro mobile */
+    .chart-tab {
+        display: inline-flex; align-items: center; justify-content: center;
+        gap: .375rem;
+        padding: .5rem .875rem;
+        min-height: 36px;
+        border-radius: .5rem;
+        background: transparent;
+        color: #9CA3AF;
+        font-size: .8125rem; font-weight: 600;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+    }
+    .chart-tab:hover { color: #E5E7EB; background: rgba(55,65,81,.4); }
+    .chart-tab[aria-pressed="true"] {
+        background: rgba(14,165,233,.15);
+        color: #BAE6FD;
+        border-color: rgba(14,165,233,.35);
+    }
+
+    /* Skeleton para gráficos enquanto Chart.js carrega */
+    .chart-skeleton {
+        background: linear-gradient(90deg,
+            rgba(55,65,81,.3) 0%,
+            rgba(55,65,81,.5) 50%,
+            rgba(55,65,81,.3) 100%);
+        background-size: 200% 100%;
+        animation: shimmer 1.4s infinite;
+        border-radius: .75rem;
+    }
+    @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .chart-skeleton { animation: none; }
+    }
+
+    /* Lista compacta de transações recentes */
+    .tx-row {
+        display: flex; align-items: center; gap: .75rem;
+        padding: .75rem .875rem;
+        border-radius: .75rem;
+        background: rgba(55, 65, 81, .25);
+        transition: background-color .12s ease;
+    }
+    .tx-row:hover { background: rgba(55, 65, 81, .45); }
+    .tx-row .icon {
+        width: 2.25rem; height: 2.25rem; flex-shrink: 0;
+        border-radius: .5rem;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1rem;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900">
-    <!-- Dashboard Header -->
-    <div class="bg-dark-800/80 backdrop-blur-sm border-b border-dark-700">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold text-white flex items-center">
-                        <svg class="w-8 h-8 mr-3 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+<section class="px-4 sm:px-6 lg:px-8 pt-4 pb-8 max-w-7xl mx-auto">
+
+    {# ─── Header ──────────────────────────────────────────────────────── #}
+    <header class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-white">Dashboard</h1>
+            <p class="text-sm text-gray-400 mt-1">
+                Olá, {{ user_full_name|default:user.username }}.
+                {% if last_login %}
+                    <span class="text-gray-500">Último acesso em {{ last_login|date:"d/m/Y \à\s H:i" }}.</span>
+                {% else %}
+                    Bem-vindo ao FinanPy!
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="hidden sm:flex items-center gap-2">
+            <a href="{% url 'transactions:create' %}"
+               class="inline-flex items-center gap-2 px-4 h-11 rounded-xl bg-primary-700 hover:bg-primary-600 text-white text-sm font-semibold shadow-lg shadow-primary-900/30 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Nova transação
+            </a>
+        </div>
+    </header>
+
+    {# ─── KPIs (snap-scroll mobile, grid desktop) ─────────────────────── #}
+    <h2 class="sr-only">Resumo financeiro</h2>
+    <div class="stat-row flex lg:grid lg:grid-cols-4 gap-3 sm:gap-4 mb-6 overflow-x-auto lg:overflow-visible -mx-4 px-4 lg:mx-0 lg:px-0 pb-2 lg:pb-0"
+         role="region" aria-label="Indicadores financeiros principais">
+
+        {# Saldo total #}
+        <article class="stat-card-mobile card group">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Saldo total</p>
+                    <p class="text-xl sm:text-2xl font-bold text-white num-tabular mt-1 truncate">{{ total_balance }}</p>
+                    <p class="text-[11px] text-gray-500 mt-1">Todas as contas ativas</p>
+                </div>
+                <span class="p-2.5 bg-gradient-financial rounded-full flex-shrink-0" aria-hidden="true">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                    </svg>
+                </span>
+            </div>
+        </article>
+
+        {# Receitas do mês #}
+        <article class="stat-card-mobile card group">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Receitas do mês</p>
+                    <p class="text-xl sm:text-2xl font-bold text-white num-tabular mt-1 truncate">{{ monthly_income }}</p>
+                    <p class="text-[11px] text-green-400 mt-1 inline-flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
                         </svg>
-                        Dashboard
-                    </h1>
-                    <p class="text-gray-400 mt-1">
-                        Olá, {{ user_full_name|default:user.username }}! 
-                        <span class="text-sm">
-                            {% if last_login %}
-                                Último acesso: {{ last_login|date:"d/m/Y à\s H:i" }}
-                            {% else %}
-                                Bem-vindo ao FinanPy!
-                            {% endif %}
-                        </span>
+                        Entradas
                     </p>
                 </div>
-                <div class="flex space-x-3">
-                    <a href="{% url 'transactions:create' %}" class="btn-primary-enhanced flex items-center space-x-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                        </svg>
-                        <span>Nova Transação</span>
-                    </a>
-                    <button class="btn-secondary flex items-center space-x-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                        </svg>
-                        <span>Exportar</span>
-                    </button>
-                </div>
+                <span class="p-2.5 bg-gradient-success rounded-full flex-shrink-0" aria-hidden="true">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                </span>
             </div>
-        </div>
+        </article>
+
+        {# Gastos do mês #}
+        <article class="stat-card-mobile card group">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Gastos do mês</p>
+                    <p class="text-xl sm:text-2xl font-bold text-white num-tabular mt-1 truncate">{{ monthly_expenses }}</p>
+                    <p class="text-[11px] text-red-400 mt-1 inline-flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+                        </svg>
+                        Saídas
+                    </p>
+                </div>
+                <span class="p-2.5 bg-gradient-danger rounded-full flex-shrink-0" aria-hidden="true">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+                    </svg>
+                </span>
+            </div>
+        </article>
+
+        {# Economia #}
+        <article class="stat-card-mobile card group">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Economia do mês</p>
+                    <p class="text-xl sm:text-2xl font-bold text-white num-tabular mt-1 truncate">{{ monthly_savings }}</p>
+                    <p class="text-[11px] mt-1 inline-flex items-center gap-1
+                              {% if savings_pct >= 0 %}text-yellow-400{% else %}text-red-400{% endif %}">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                        {{ savings_pct }}% da receita
+                    </p>
+                </div>
+                <span class="p-2.5 bg-gradient-warning rounded-full flex-shrink-0" aria-hidden="true">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                </span>
+            </div>
+        </article>
     </div>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Financial Overview Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <!-- Total Balance Card -->
-            <div class="card group hover:shadow-xl">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-400 text-sm font-medium">Saldo Total</p>
-                        <p class="text-2xl font-bold text-white group-hover:text-primary-300 transition-colors duration-200">
-                            {{ total_balance }}
-                        </p>
-                        <p class="text-gray-500 text-sm mt-2">Todas as contas ativas</p>
-                    </div>
-                    <div class="p-3 bg-gradient-financial rounded-full">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-                        </svg>
-                    </div>
-                </div>
-            </div>
+    {# ─── Conteúdo principal: 1col mobile, 3col desktop ──────────────── #}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8">
 
-            <!-- Monthly Income Card -->
-            <div class="card group hover:shadow-xl">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-400 text-sm font-medium">Receitas do Mês</p>
-                        <p class="text-2xl font-bold text-white group-hover:text-green-300 transition-colors duration-200">
-                            {{ monthly_income }}
-                        </p>
-                        <div class="flex items-center mt-2">
-                            <svg class="w-4 h-4 text-green-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                            </svg>
-                            <span class="text-green-400 text-sm font-medium">Entradas</span>
-                        </div>
-                    </div>
-                    <div class="p-3 bg-gradient-success rounded-full">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                        </svg>
-                    </div>
-                </div>
-            </div>
+        {# ── Coluna esquerda (charts) ── #}
+        <div class="lg:col-span-2 space-y-5 lg:space-y-8">
 
-            <!-- Monthly Expenses Card -->
-            <div class="card group hover:shadow-xl">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-400 text-sm font-medium">Gastos do Mês</p>
-                        <p class="text-2xl font-bold text-white group-hover:text-red-300 transition-colors duration-200">
-                            {{ monthly_expenses }}
-                        </p>
-                        <div class="flex items-center mt-2">
-                            <svg class="w-4 h-4 text-red-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
-                            </svg>
-                            <span class="text-red-400 text-sm font-medium">Saídas</span>
-                        </div>
+            {# Gráfico Receitas vs Despesas (6 meses) #}
+            <section class="card" aria-labelledby="financial-chart-title">
+                <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                    <h2 id="financial-chart-title" class="text-lg sm:text-xl font-semibold text-white">
+                        Resumo financeiro
+                    </h2>
+                    <div role="group" aria-label="Filtrar visualização" class="flex flex-wrap gap-1.5">
+                        <button type="button" class="chart-tab" data-chart-mode="all" aria-pressed="true">Tudo</button>
+                        <button type="button" class="chart-tab" data-chart-mode="income" aria-pressed="false">Receitas</button>
+                        <button type="button" class="chart-tab" data-chart-mode="expenses" aria-pressed="false">Despesas</button>
                     </div>
-                    <div class="p-3 bg-gradient-danger rounded-full">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
-                        </svg>
-                    </div>
-                </div>
-            </div>
+                </header>
 
-            <!-- Savings Card -->
-            <div class="card group hover:shadow-xl">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-400 text-sm font-medium">Economia Este Mês</p>
-                        <p class="text-2xl font-bold text-white group-hover:text-yellow-300 transition-colors duration-200">
-                            {{ monthly_savings }}
-                        </p>
-                        <div class="flex items-center mt-2">
-                            <svg class="w-4 h-4 text-yellow-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                            </svg>
-                            <span class="text-yellow-400 text-sm font-medium">{{ savings_pct }}%</span>
-                            <span class="text-gray-500 text-sm ml-1">da receita</span>
-                        </div>
-                    </div>
-                    <div class="p-3 bg-gradient-warning rounded-full">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                        </svg>
-                    </div>
+                {# Skeleton + canvas. Skeleton some quando Chart.js termina de inicializar. #}
+                <div class="relative h-64 sm:h-72 lg:h-80">
+                    <div id="financialChartSkeleton" class="chart-skeleton absolute inset-0" aria-hidden="true"></div>
+                    <canvas id="financialChart"
+                            data-chart-labels='{{ chart_labels|safe }}'
+                            data-chart-income='{{ chart_income|safe }}'
+                            data-chart-expenses='{{ chart_expenses|safe }}'
+                            aria-label="Gráfico de receitas e despesas dos últimos 6 meses"
+                            role="img"></canvas>
                 </div>
-            </div>
+            </section>
+
+            {# Gráfico de gastos por categoria (rosca) #}
+            <section class="card" aria-labelledby="category-chart-title">
+                <header class="flex items-center justify-between mb-4">
+                    <h2 id="category-chart-title" class="text-lg sm:text-xl font-semibold text-white">
+                        Gastos por categoria
+                    </h2>
+                    <span class="text-xs text-gray-400">Este mês</span>
+                </header>
+
+                {% if category_spending %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-center">
+                    <div class="relative h-56 md:h-64">
+                        <div id="categoryChartSkeleton" class="chart-skeleton absolute inset-0" aria-hidden="true"></div>
+                        <canvas id="categoryChart"
+                                data-chart-labels='{{ category_chart_labels|safe }}'
+                                data-chart-data='{{ category_chart_data|safe }}'
+                                data-chart-colors='{{ category_chart_colors|safe }}'
+                                aria-label="Gráfico de pizza com gastos por categoria"
+                                role="img"></canvas>
+                    </div>
+                    <ul class="space-y-2">
+                        {% for cat in category_spending %}
+                        <li class="flex items-center justify-between p-3 bg-dark-700/50 rounded-lg">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <span class="w-3 h-3 rounded-full flex-shrink-0"
+                                      style="background-color: {{ cat.category__color|default:'#6b7280' }}"
+                                      aria-hidden="true"></span>
+                                <span class="text-sm text-gray-200 truncate">{{ cat.category__name }}</span>
+                            </div>
+                            <span class="text-sm text-white font-medium num-tabular flex-shrink-0">{{ cat.total_display }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% else %}
+                    {% include 'components/_empty_state.html' with
+                        title='Sem gastos este mês'
+                        description='Quando você registrar despesas, vai ver aqui o detalhamento por categoria.'
+                        cta_url='/transactions/create/'
+                        cta_label='Registrar despesa' %}
+                {% endif %}
+            </section>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Left Column: Charts and Analytics -->
-            <div class="lg:col-span-2 space-y-8">
-                <!-- Financial Overview Chart -->
-                <div class="card">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-xl font-semibold text-white">Resumo Financeiro</h3>
-                        <div class="flex items-center space-x-2">
-                            <select class="bg-dark-700 text-gray-300 text-sm rounded-lg px-3 py-1 border border-dark-600 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                                <option>Últimos 6 meses</option>
-                                <option>Últimos 3 meses</option>
-                                <option>Este ano</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="h-80">
-                        <canvas id="financialChart"></canvas>
-                    </div>
-                </div>
+        {# ── Coluna direita (orçamentos / transações / metas) ── #}
+        <aside class="space-y-5 lg:space-y-8" aria-label="Resumos rápidos">
 
-                <!-- Category Spending Chart -->
-                <div class="card">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-xl font-semibold text-white">Gastos por Categoria</h3>
-                        <span class="text-sm text-gray-400">Este mês</span>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                        <div class="h-64">
-                            <canvas id="categoryChart"></canvas>
-                        </div>
-                        <div class="space-y-4">
-                            {% for cat in category_spending %}
-                            <div class="flex items-center justify-between p-3 bg-dark-700/50 rounded-lg">
-                                <div class="flex items-center space-x-3">
-                                    <div class="w-3 h-3 rounded-full" style="background-color: {{ cat.category__color|default:'#6b7280' }}"></div>
-                                    <span class="text-gray-300">{{ cat.category__name }}</span>
-                                </div>
-                                <span class="text-white font-medium">{{ cat.total_display }}</span>
-                            </div>
-                            {% empty %}
-                            <p class="text-gray-500 text-sm text-center py-4">Sem gastos registrados este mês.</p>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {# Orçamentos #}
+            <section class="card" aria-labelledby="budgets-title">
+                <header class="flex items-center justify-between mb-4">
+                    <h2 id="budgets-title" class="text-base sm:text-lg font-semibold text-white">Orçamentos</h2>
+                    <a href="{% url 'budgets:planning_entry' %}"
+                       class="text-primary-400 hover:text-primary-300 text-sm font-medium"
+                       aria-label="Ver todos os orçamentos">Ver todos</a>
+                </header>
 
-            <!-- Right Column: Recent Activity and Quick Actions -->
-            <div class="space-y-8">
-                <!-- Budget Progress -->
-                <div class="card">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-lg font-semibold text-white">Orçamentos</h3>
-                        <a href="{% url 'budgets:planning_entry' %}" class="text-primary-400 hover:text-primary-300 text-sm">Ver todos</a>
-                    </div>
-                    <div class="space-y-4">
-                        {% for budget in active_budgets %}
-                        <div class="p-4 bg-dark-700/50 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-gray-300 font-medium">{{ budget.name }}</span>
-                                <span class="text-sm text-gray-400">{{ budget.spent_amount_display }} / {{ budget.planned_amount_display }}</span>
-                            </div>
-                            <div class="w-full bg-dark-600 rounded-full h-2">
-                                <div class="{{ budget.progress_bar_color }} h-2 rounded-full transition-all duration-500"
-                                     style="width: {% if budget.percentage_used > 100 %}100{% else %}{{ budget.percentage_used|floatformat:0 }}{% endif %}%">
-                                </div>
-                            </div>
-                            <p class="text-xs mt-1
-                                {% if budget.percentage_used >= 100 %}text-red-400
-                                {% elif budget.percentage_used >= 80 %}text-orange-400
-                                {% elif budget.percentage_used >= 50 %}text-yellow-400
-                                {% else %}text-green-400{% endif %}">
-                                {{ budget.percentage_used|floatformat:0 }}% utilizado
-                            </p>
+                {% if active_budgets %}
+                <ul class="space-y-3">
+                    {% for budget in active_budgets %}
+                    <li class="p-3 bg-dark-700/50 rounded-lg">
+                        <div class="flex items-center justify-between mb-1.5 gap-2">
+                            <span class="text-gray-200 font-medium text-sm truncate">{{ budget.name }}</span>
+                            <span class="text-xs text-gray-400 num-tabular flex-shrink-0">
+                                {{ budget.spent_amount_display }} / {{ budget.planned_amount_display }}
+                            </span>
                         </div>
-                        {% empty %}
-                        <div class="text-center py-6">
-                            <p class="text-gray-500 text-sm">Nenhum orçamento ativo para este período.</p>
-                            <a href="{% url 'budgets:planning_entry' %}" class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">+ Criar planejamento</a>
+                        <div class="w-full bg-dark-600 rounded-full h-2 overflow-hidden"
+                             role="progressbar"
+                             aria-valuenow="{{ budget.percentage_used|floatformat:0 }}"
+                             aria-valuemin="0"
+                             aria-valuemax="100"
+                             aria-label="Progresso de {{ budget.name }}">
+                            <div class="{{ budget.progress_bar_color }} h-2 rounded-full transition-all duration-500"
+                                 style="width: {% if budget.percentage_used > 100 %}100{% else %}{{ budget.percentage_used|floatformat:0 }}{% endif %}%">
+                            </div>
                         </div>
-                        {% endfor %}
+                        <p class="text-[11px] mt-1.5
+                                  {% if budget.percentage_used >= 100 %}text-red-400
+                                  {% elif budget.percentage_used >= 80 %}text-orange-400
+                                  {% elif budget.percentage_used >= 50 %}text-yellow-400
+                                  {% else %}text-green-400{% endif %}">
+                            {{ budget.percentage_used|floatformat:0 }}% utilizado
+                        </p>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                    <div class="text-center py-5">
+                        <p class="text-gray-500 text-sm">Nenhum orçamento ativo.</p>
+                        <a href="{% url 'budgets:planning_entry' %}"
+                           class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">
+                            + Criar planejamento
+                        </a>
                     </div>
-                </div>
+                {% endif %}
+            </section>
 
-                <!-- Recent Transactions -->
-                <div class="card">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-lg font-semibold text-white">Transações Recentes</h3>
-                        <a href="{% url 'transactions:list' %}" class="text-primary-400 hover:text-primary-300 text-sm">Ver todas</a>
-                    </div>
-                    <div class="space-y-3">
-                        {% for transaction in recent_transactions %}
-                        <div class="flex items-center justify-between p-3 bg-dark-700/30 rounded-lg hover:bg-dark-700/50 transition-colors duration-200">
-                            <div class="flex items-center space-x-3">
-                                <div class="p-2 rounded-lg {% if transaction.transaction_type == 'INCOME' %}bg-green-900/30{% else %}bg-red-900/30{% endif %}">
-                                    <span class="text-lg leading-none" style="color: {{ transaction.category.color }}">{{ transaction.category.icon }}</span>
-                                </div>
-                                <div>
-                                    <p class="text-gray-300 font-medium">{{ transaction.description }}</p>
-                                    <p class="text-xs text-gray-500">
-                                        {% if transaction.is_today %}Hoje
-                                        {% elif transaction.days_ago == 1 %}Ontem
-                                        {% else %}{{ transaction.transaction_date|date:"d/m/Y" }}{% endif %}
-                                        · {{ transaction.category.name }}
-                                    </p>
-                                </div>
-                            </div>
-                            <span class="{{ transaction.type_display_color }} font-medium">{{ transaction.amount_with_sign_display }}</span>
-                        </div>
-                        {% empty %}
-                        <div class="text-center py-6">
-                            <p class="text-gray-500 text-sm">Nenhuma transação registrada ainda.</p>
-                            <a href="{% url 'transactions:create' %}" class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">+ Registrar transação</a>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
+            {# Transações recentes #}
+            <section class="card" aria-labelledby="recent-tx-title">
+                <header class="flex items-center justify-between mb-4">
+                    <h2 id="recent-tx-title" class="text-base sm:text-lg font-semibold text-white">Transações recentes</h2>
+                    <a href="{% url 'transactions:list' %}"
+                       class="text-primary-400 hover:text-primary-300 text-sm font-medium"
+                       aria-label="Ver todas as transações">Ver todas</a>
+                </header>
 
-                <!-- Financial Goals -->
-                <div class="card">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-lg font-semibold text-white">Metas Financeiras</h3>
-                        <a href="{% url 'goals:list' %}" class="text-primary-400 hover:text-primary-300 text-sm">Ver todas</a>
+                {% if recent_transactions %}
+                <ul class="space-y-2">
+                    {% for tx in recent_transactions %}
+                    <li>
+                        <a href="{% url 'transactions:detail' tx.pk %}" class="tx-row"
+                           aria-label="Detalhes de {{ tx.description }}, {{ tx.amount_with_sign_display }}">
+                            <span class="icon"
+                                  style="background: {{ tx.category.color|default:'#374151' }}26; color: {{ tx.category.color|default:'#9CA3AF' }};">
+                                {{ tx.category.icon|default:'📁' }}
+                            </span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-gray-200 font-medium text-sm truncate">{{ tx.description }}</p>
+                                <p class="text-[11px] text-gray-500 truncate">
+                                    {% if tx.is_today %}Hoje
+                                    {% elif tx.days_ago == 1 %}Ontem
+                                    {% else %}{{ tx.transaction_date|date:"d/m/Y" }}{% endif %}
+                                    · {{ tx.category.name }}
+                                </p>
+                            </div>
+                            <span class="text-sm font-semibold num-tabular {{ tx.type_display_color }} flex-shrink-0">
+                                {{ tx.amount_with_sign_display }}
+                            </span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                    <div class="text-center py-5">
+                        <p class="text-gray-500 text-sm">Nenhuma transação registrada ainda.</p>
+                        <a href="{% url 'transactions:create' %}"
+                           class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">
+                            + Registrar transação
+                        </a>
                     </div>
-                    <div class="space-y-4">
-                        {% for goal in active_goals %}
-                        <div class="p-4 bg-dark-700/50 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-gray-300 font-medium flex items-center gap-2">
-                                    <span>{{ goal.icon }}</span>
-                                    {{ goal.name }}
-                                </span>
-                                <span class="text-sm text-gray-400">{{ goal.current_amount|currency }} / {{ goal.target_amount|currency }}</span>
-                            </div>
-                            <div class="w-full bg-dark-600 rounded-full h-2 mb-2">
-                                <div class="h-2 rounded-full transition-all duration-500"
-                                     style="width: {{ goal.progress_pct|floatformat:0 }}%; background-color: {{ goal.color }};"></div>
-                            </div>
-                            <div class="flex justify-between text-xs">
-                                <span style="color: {{ goal.color }};">{{ goal.progress_pct|floatformat:0 }}% concluído</span>
-                                {% if goal.deadline %}
-                                <span class="text-gray-500">Prazo: {{ goal.deadline|date:"d/m/Y" }}</span>
-                                {% endif %}
-                            </div>
+                {% endif %}
+            </section>
+
+            {# Metas #}
+            <section class="card" aria-labelledby="goals-title">
+                <header class="flex items-center justify-between mb-4">
+                    <h2 id="goals-title" class="text-base sm:text-lg font-semibold text-white">Metas financeiras</h2>
+                    <a href="{% url 'goals:list' %}"
+                       class="text-primary-400 hover:text-primary-300 text-sm font-medium"
+                       aria-label="Ver todas as metas">Ver todas</a>
+                </header>
+
+                {% if active_goals %}
+                <ul class="space-y-3">
+                    {% for goal in active_goals %}
+                    <li class="p-3 bg-dark-700/50 rounded-lg">
+                        <div class="flex items-center justify-between mb-1.5 gap-2">
+                            <span class="text-gray-200 font-medium text-sm flex items-center gap-2 truncate">
+                                <span aria-hidden="true">{{ goal.icon }}</span>
+                                <span class="truncate">{{ goal.name }}</span>
+                            </span>
+                            <span class="text-xs text-gray-400 num-tabular flex-shrink-0">
+                                {{ goal.current_amount|currency }} / {{ goal.target_amount|currency }}
+                            </span>
                         </div>
-                        {% empty %}
-                        <div class="text-center py-6">
-                            <p class="text-gray-500 text-sm">Nenhuma meta ativa.</p>
-                            <a href="{% url 'goals:create' %}" class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">+ Criar meta</a>
+                        <div class="w-full bg-dark-600 rounded-full h-2 overflow-hidden mb-1.5"
+                             role="progressbar"
+                             aria-valuenow="{{ goal.progress_pct|floatformat:0 }}"
+                             aria-valuemin="0"
+                             aria-valuemax="100"
+                             aria-label="Progresso de {{ goal.name }}">
+                            <div class="h-2 rounded-full transition-all duration-500"
+                                 style="width: {{ goal.progress_pct|floatformat:0 }}%; background-color: {{ goal.color }};"></div>
                         </div>
-                        {% endfor %}
+                        <div class="flex justify-between text-[11px]">
+                            <span style="color: {{ goal.color }};">{{ goal.progress_pct|floatformat:0 }}% concluído</span>
+                            {% if goal.deadline %}
+                            <span class="text-gray-500">Prazo: {{ goal.deadline|date:"d/m/Y" }}</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                    <div class="text-center py-5">
+                        <p class="text-gray-500 text-sm">Nenhuma meta ativa.</p>
+                        <a href="{% url 'goals:create' %}"
+                           class="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block">
+                            + Criar meta
+                        </a>
                     </div>
-                </div>
-            </div>
-        </div>
+                {% endif %}
+            </section>
+        </aside>
     </div>
-</div>
+</section>
 
-<!-- Charts JavaScript -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Dados injetados pelo backend
-    const chartLabels    = {{ chart_labels|safe }};
-    const chartIncome    = {{ chart_income|safe }};
-    const chartExpenses  = {{ chart_expenses|safe }};
-    const catLabels      = {{ category_chart_labels|safe }};
-    const catData        = {{ category_chart_data|safe }};
-    const catColors      = {{ category_chart_colors|safe }};
+{# ─── JS: lazy-load Chart.js + render dos 2 gráficos ──────────────── #}
+<script type="module">
+    // Chart.js só baixa quando o canvas entra na viewport. Isso remove
+    // ~1.520ms de render-blocking do baseline (M0 já tirou Tailwind CDN;
+    // M4 fecha a equação eliminando Chart.js do critical path).
+    let chartLib = null;
+    async function loadChart() {
+        if (chartLib) return chartLib;
+        chartLib = await import('https://cdn.jsdelivr.net/npm/chart.js@4/+esm');
+        return chartLib;
+    }
 
-    // Gráfico de linha — Resumo Financeiro (últimos 6 meses)
-    const financialCtx = document.getElementById('financialChart').getContext('2d');
-    new Chart(financialCtx, {
-        type: 'line',
-        data: {
-            labels: chartLabels,
-            datasets: [
-                {
-                    label: 'Receitas',
-                    data: chartIncome,
-                    borderColor: '#22c55e',
-                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                },
-                {
-                    label: 'Despesas',
-                    data: chartExpenses,
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: '#d1d5db' } }
-            },
-            scales: {
-                x: {
-                    ticks: { color: '#9ca3af' },
-                    grid: { color: 'rgba(107, 114, 128, 0.3)' }
-                },
-                y: {
-                    ticks: {
-                        color: '#9ca3af',
-                        callback: value => 'R$ ' + value.toLocaleString('pt-BR')
+    function readJSON(el, attr) {
+        try { return JSON.parse(el.dataset[attr] || 'null'); } catch { return null; }
+    }
+
+    // ── Gráfico de linha (Receitas/Despesas, 6 meses) ────────────
+    async function initFinancialChart() {
+        const canvas = document.getElementById('financialChart');
+        const skel = document.getElementById('financialChartSkeleton');
+        if (!canvas) return;
+
+        const labels   = readJSON(canvas, 'chartLabels')   || [];
+        const income   = readJSON(canvas, 'chartIncome')   || [];
+        const expenses = readJSON(canvas, 'chartExpenses') || [];
+        if (!labels.length) { skel?.remove(); return; }
+
+        const { Chart, registerables } = await loadChart();
+        Chart.register(...registerables);
+
+        const incomeDS = {
+            label: 'Receitas', data: income,
+            borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.12)',
+            tension: .35, fill: true, pointRadius: 3,
+        };
+        const expensesDS = {
+            label: 'Despesas', data: expenses,
+            borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.12)',
+            tension: .35, fill: true, pointRadius: 3,
+        };
+
+        const chart = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: { labels, datasets: [incomeDS, expensesDS] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#d1d5db' } },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => `${ctx.dataset.label}: R$ ${Number(ctx.parsed.y).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                        },
                     },
-                    grid: { color: 'rgba(107, 114, 128, 0.3)' }
-                }
+                },
+                scales: {
+                    x: { ticks: { color: '#9ca3af' }, grid: { color: 'rgba(107,114,128,.3)' } },
+                    y: {
+                        ticks: {
+                            color: '#9ca3af',
+                            callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR'),
+                        },
+                        grid: { color: 'rgba(107,114,128,.3)' },
+                    },
+                },
+                interaction: { intersect: false, mode: 'index' },
             },
-            interaction: { intersect: false }
-        }
-    });
+        });
 
-    // Gráfico de rosca — Gastos por categoria (mês atual)
-    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
-    new Chart(categoryCtx, {
-        type: 'doughnut',
-        data: {
-            labels: catLabels,
-            datasets: [{
-                data: catData,
-                backgroundColor: catColors,
-                borderWidth: 0,
-                hoverOffset: 10
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => ctx.label + ': R$ ' + ctx.parsed.toLocaleString('pt-BR', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        })
-                    }
-                }
+        skel?.remove();
+
+        // ── Tabs (Tudo / Receitas / Despesas) ─────────
+        const tabs = document.querySelectorAll('.chart-tab[data-chart-mode]');
+        tabs.forEach(btn => btn.addEventListener('click', () => {
+            const mode = btn.dataset.chartMode;
+            tabs.forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+            chart.data.datasets = mode === 'income'   ? [incomeDS]
+                                : mode === 'expenses' ? [expensesDS]
+                                : [incomeDS, expensesDS];
+            chart.update();
+        }));
+    }
+
+    // ── Gráfico de rosca (categorias) ─────────────────────────────
+    async function initCategoryChart() {
+        const canvas = document.getElementById('categoryChart');
+        const skel   = document.getElementById('categoryChartSkeleton');
+        if (!canvas) return;
+
+        const labels = readJSON(canvas, 'chartLabels') || [];
+        const data   = readJSON(canvas, 'chartData')   || [];
+        const colors = readJSON(canvas, 'chartColors') || [];
+        if (!labels.length) { skel?.remove(); return; }
+
+        const { Chart, registerables } = await loadChart();
+        Chart.register(...registerables);
+
+        new Chart(canvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 8 }],
             },
-            cutout: '60%'
-        }
-    });
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => `${ctx.label}: R$ ${Number(ctx.parsed).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                        },
+                    },
+                },
+                cutout: '60%',
+            },
+        });
 
-    // Animação suave ao entrar na viewport
-    const observer = new IntersectionObserver(
-        entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('animate-fade-in-up'); }),
-        { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    );
-    document.querySelectorAll('.card').forEach(card => {
-        observer.observe(card);
-        card.addEventListener('mouseenter', () => card.style.transform = 'translateY(-2px)');
-        card.addEventListener('mouseleave', () => card.style.transform = 'translateY(0)');
-    });
-});
+        skel?.remove();
+    }
+
+    // IntersectionObserver: só dispara o load quando o canvas entra na viewport
+    const targets = ['financialChart', 'categoryChart'].map(id => document.getElementById(id)).filter(Boolean);
+    if (targets.length) {
+        const seen = new WeakSet();
+        const io = new IntersectionObserver(entries => {
+            for (const entry of entries) {
+                if (!entry.isIntersecting || seen.has(entry.target)) continue;
+                seen.add(entry.target);
+                if (entry.target.id === 'financialChart') initFinancialChart();
+                if (entry.target.id === 'categoryChart')  initCategoryChart();
+                io.unobserve(entry.target);
+            }
+        }, { rootMargin: '100px' });
+        targets.forEach(t => io.observe(t));
+    }
 </script>
 {% endblock %}

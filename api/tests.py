@@ -215,6 +215,89 @@ class DashboardSnapshotTests(APITestBase):
         resp = anon.get(self.url)
         self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
 
+    def test_savings_pct_is_calculated(self):
+        Transaction.objects.create(
+            user=self.user, account=self.account, category=self.cat_income,
+            transaction_type='INCOME', amount=Decimal('1000.00'),
+            description='Salário', transaction_date=date.today(),
+        )
+        Transaction.objects.create(
+            user=self.user, account=self.account, category=self.cat_expense,
+            transaction_type='EXPENSE', amount=Decimal('250.00'),
+            description='Mercado', transaction_date=date.today(),
+        )
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        # 750 saved / 1000 income = 75%
+        self.assertEqual(resp.data['totals']['savings_pct'], 75)
+
+    def test_include_budgets_returns_top_active_budgets(self):
+        from budgets.models import Budget
+
+        today = date.today()
+        Budget.objects.create(
+            user=self.user, category=self.cat_expense,
+            name='Mercado mensal', planned_amount=Decimal('500.00'),
+            start_date=today.replace(day=1),
+            end_date=today.replace(day=28),
+        )
+        resp = self.client.get(self.url, {'include': 'budgets'})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn('budgets', resp.data)
+        self.assertEqual(len(resp.data['budgets']), 1)
+        b = resp.data['budgets'][0]
+        self.assertEqual(b['name'], 'Mercado mensal')
+        self.assertIn('percentage_used', b)
+        self.assertIn('status', b)
+
+    def test_include_goals_returns_active_goals(self):
+        from goals.models import Goal
+
+        Goal.objects.create(
+            user=self.user, name='Viagem',
+            target_amount=Decimal('5000.00'),
+            current_amount=Decimal('1500.00'),
+            icon='✈️', color='#10B981',
+        )
+        resp = self.client.get(self.url, {'include': 'goals'})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn('goals', resp.data)
+        self.assertEqual(len(resp.data['goals']), 1)
+        g = resp.data['goals'][0]
+        self.assertEqual(g['name'], 'Viagem')
+        # 1500/5000 = 30%
+        self.assertEqual(g['progress_pct'], 30.0)
+
+    def test_include_chart_6m_returns_six_months(self):
+        Transaction.objects.create(
+            user=self.user, account=self.account, category=self.cat_income,
+            transaction_type='INCOME', amount=Decimal('300.00'),
+            description='Receita', transaction_date=date.today(),
+        )
+        resp = self.client.get(self.url, {'include': 'chart_6m'})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        chart = resp.data['chart_6m']
+        self.assertEqual(len(chart['labels']), 6)
+        self.assertEqual(len(chart['income']), 6)
+        self.assertEqual(len(chart['expenses']), 6)
+        # O último bucket (mês corrente) deve refletir a receita de 300
+        self.assertEqual(chart['income'][-1], 300.0)
+
+    def test_include_csv_combines_packages(self):
+        resp = self.client.get(self.url, {'include': 'budgets,goals,chart_6m'})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn('budgets', resp.data)
+        self.assertIn('goals', resp.data)
+        self.assertIn('chart_6m', resp.data)
+
+    def test_no_include_keeps_payload_lean(self):
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        # Sem include, os pacotes opcionais não aparecem
+        self.assertNotIn('budgets', resp.data)
+        self.assertNotIn('goals', resp.data)
+        self.assertNotIn('chart_6m', resp.data)
+
 
 class TransactionSerializerEnrichedFieldsTests(APITestBase):
     """Garante que o serializer padrão expõe os campos novos para UI mobile."""
