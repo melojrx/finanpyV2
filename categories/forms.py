@@ -29,6 +29,7 @@ class CategoryForm(forms.ModelForm):
                 'class': 'form-input',
                 'placeholder': 'Digite o nome da categoria',
                 'maxlength': '50',
+                'enterkeyhint': 'done',
             }),
             'category_type': forms.Select(attrs={
                 'class': 'form-select',
