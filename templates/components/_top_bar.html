@@ -1,0 +1,194 @@
+{% comment %}
+  Top-bar responsiva — mobile-first, expande em ≥md.
+
+  Variáveis opcionais (settáveis via {% include with ... %}):
+    - title:        Título da tela (default: vazio → mostra logo)
+    - back_url:     Se preenchido, mostra botão "voltar" no slot esquerdo
+    - show_logo:    Força exibir logo mesmo com title (default: False)
+
+  Estrutura mobile (<md):
+    [hambúrguer] | [logo OU título] | [sino?] [avatar]
+  Estrutura desktop (≥md):
+    [logo] | [Dashboard | Transações | Orçamentos | Metas] | [sino?] [avatar dropdown]
+
+  Altura mobile: var(--top-bar-h) = 56px
+  Altura desktop: 64px (h-16) para acomodar nav inline
+{% endcomment %}
+{% load static %}
+
+{% with active_app=request.resolver_match.app_name active_url=request.resolver_match.url_name %}
+<header class="finanpy-top-bar fixed top-0 inset-x-0 z-40 bg-dark-900/85 backdrop-blur-md border-b border-dark-800"
+        style="padding-top: env(safe-area-inset-top);">
+    <div class="h-[var(--top-bar-h)] md:h-16 px-3 md:px-6 max-w-7xl mx-auto flex items-center gap-2 md:gap-6">
+
+        {# Slot esquerdo — mobile: hambúrguer/voltar | desktop: logo grande #}
+        {% if back_url %}
+            <a href="{{ back_url }}"
+               class="md:hidden inline-flex items-center justify-center w-11 h-11 rounded-xl text-gray-300 hover:bg-dark-800 active:bg-dark-700 transition"
+               aria-label="Voltar">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+        {% else %}
+            <button type="button" id="drawer-open"
+                    class="md:hidden inline-flex items-center justify-center w-11 h-11 rounded-xl text-gray-300 hover:bg-dark-800 active:bg-dark-700 transition"
+                    aria-label="Abrir menu" aria-controls="finanpy-drawer" aria-expanded="false">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
+        {% endif %}
+
+        {# Logo desktop — aparece só em ≥md, à esquerda #}
+        <a href="{% url 'users:dashboard' %}"
+           class="hidden md:flex items-center gap-2 flex-shrink-0"
+           aria-label="FinanPy — ir para dashboard">
+            <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-700 to-primary-500 flex items-center justify-center">
+                <span class="text-white font-bold text-base">F</span>
+            </span>
+            <span class="text-lg font-bold text-white">FinanPy</span>
+        </a>
+
+        {# Centro — mobile: título/logo | desktop: nav inline #}
+        <div class="md:hidden flex-1 min-w-0 flex items-center justify-center">
+            {% if title and not show_logo %}
+                <h1 class="text-base font-semibold text-white truncate">{{ title }}</h1>
+            {% else %}
+                <a href="{% url 'users:dashboard' %}" class="flex items-center gap-2" aria-label="FinanPy — ir para dashboard">
+                    <span class="w-7 h-7 rounded-lg bg-gradient-to-br from-primary-700 to-primary-500 flex items-center justify-center">
+                        <span class="text-white font-bold text-sm">F</span>
+                    </span>
+                    <span class="text-base font-bold text-white">FinanPy</span>
+                </a>
+            {% endif %}
+        </div>
+
+        {# Nav desktop — links primários inline #}
+        <nav class="hidden md:flex items-center gap-1 flex-1" aria-label="Navegação principal">
+            <a href="{% url 'users:dashboard' %}"
+               {% if active_app == 'users' and active_url == 'dashboard' %}aria-current="page"{% endif %}
+               class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                      {% if active_app == 'users' and active_url == 'dashboard' %}text-white bg-dark-800{% else %}text-gray-300 hover:text-white hover:bg-dark-800/60{% endif %}">
+                Dashboard
+            </a>
+            <a href="{% url 'transactions:list' %}"
+               {% if active_app == 'transactions' %}aria-current="page"{% endif %}
+               class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                      {% if active_app == 'transactions' %}text-white bg-dark-800{% else %}text-gray-300 hover:text-white hover:bg-dark-800/60{% endif %}">
+                Transações
+            </a>
+            <a href="{% url 'budgets:planning_entry' %}"
+               {% if active_app == 'budgets' %}aria-current="page"{% endif %}
+               class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                      {% if active_app == 'budgets' %}text-white bg-dark-800{% else %}text-gray-300 hover:text-white hover:bg-dark-800/60{% endif %}">
+                Orçamentos
+            </a>
+            <a href="{% url 'goals:list' %}"
+               {% if active_app == 'goals' %}aria-current="page"{% endif %}
+               class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                      {% if active_app == 'goals' %}text-white bg-dark-800{% else %}text-gray-300 hover:text-white hover:bg-dark-800/60{% endif %}">
+                Metas
+            </a>
+            <a href="{% url 'accounts:account-list' %}"
+               {% if active_app == 'accounts' %}aria-current="page"{% endif %}
+               class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                      {% if active_app == 'accounts' %}text-white bg-dark-800{% else %}text-gray-300 hover:text-white hover:bg-dark-800/60{% endif %}">
+                Contas
+            </a>
+            <a href="{% url 'categories:category-list' %}"
+               {% if active_app == 'categories' %}aria-current="page"{% endif %}
+               class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                      {% if active_app == 'categories' %}text-white bg-dark-800{% else %}text-gray-300 hover:text-white hover:bg-dark-800/60{% endif %}">
+                Categorias
+            </a>
+        </nav>
+
+        {# Slot direito — alertas + avatar (dropdown em desktop) #}
+        <div class="flex items-center gap-1 flex-shrink-0">
+            {% if user.is_authenticated and unread_budget_alerts_count %}
+                <a href="{% url 'budgets:alerts' %}"
+                   class="relative inline-flex items-center justify-center w-11 h-11 rounded-xl text-gray-300 hover:bg-dark-800 active:bg-dark-700 transition"
+                   aria-label="{{ unread_budget_alerts_count }} alerta(s) de orçamento">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                    </svg>
+                    <span class="absolute top-1 right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold leading-none text-white bg-red-600 rounded-full">
+                        {{ unread_budget_alerts_count }}
+                    </span>
+                </a>
+            {% endif %}
+
+            {% if user.is_authenticated %}
+                {# Avatar mobile: link direto pro perfil #}
+                <a href="{% url 'users:profile' %}"
+                   class="md:hidden inline-flex items-center justify-center w-11 h-11 rounded-xl hover:bg-dark-800 active:bg-dark-700 transition"
+                   aria-label="Meu perfil">
+                    <span class="w-8 h-8 rounded-full bg-gradient-to-br from-primary-700 to-primary-500 flex items-center justify-center text-xs font-bold text-white overflow-hidden">
+                        {% if user.profile.avatar_url %}
+                            <img src="{{ user.profile.avatar_url }}" alt="" class="w-full h-full object-cover">
+                        {% else %}
+                            {{ user.first_name|first|default:user.email|first|upper }}
+                        {% endif %}
+                    </span>
+                </a>
+
+                {# Avatar desktop: dropdown com Perfil/Senha/Sair #}
+                <div class="hidden md:block relative" id="user-menu-wrapper">
+                    <button type="button" id="user-menu-button"
+                            class="flex items-center gap-2 px-2 py-1.5 rounded-xl text-gray-300 hover:bg-dark-800 transition"
+                            aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu-panel">
+                        <span class="w-8 h-8 rounded-full bg-gradient-to-br from-primary-700 to-primary-500 flex items-center justify-center text-xs font-bold text-white overflow-hidden">
+                            {% if user.profile.avatar_url %}
+                                <img src="{{ user.profile.avatar_url }}" alt="" class="w-full h-full object-cover">
+                            {% else %}
+                                {{ user.first_name|first|default:user.email|first|upper }}
+                            {% endif %}
+                        </span>
+                        <span class="text-sm max-w-[140px] truncate">{{ user.get_short_name|default:user.email }}</span>
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div id="user-menu-panel"
+                         class="hidden absolute right-0 mt-2 w-56 rounded-xl bg-dark-900 border border-dark-700 shadow-xl py-1 z-50"
+                         role="menu" aria-labelledby="user-menu-button">
+                        <a href="{% url 'users:profile' %}" role="menuitem"
+                           class="flex items-center gap-2 px-4 py-2 text-sm text-gray-200 hover:bg-dark-800 transition">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                            </svg>
+                            Meu perfil
+                        </a>
+                        <a href="{% url 'users:password_change' %}" role="menuitem"
+                           class="flex items-center gap-2 px-4 py-2 text-sm text-gray-200 hover:bg-dark-800 transition">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                            Alterar senha
+                        </a>
+                        <hr class="my-1 border-dark-800">
+                        <form method="post" action="{% url 'users:logout' %}">
+                            {% csrf_token %}
+                            <button type="submit" role="menuitem"
+                                    class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                                </svg>
+                                Sair
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% else %}
+                <a href="{% url 'users:login' %}"
+                   class="inline-flex items-center justify-center px-3 h-11 rounded-xl text-sm font-medium text-gray-200 hover:bg-dark-800 transition">
+                    Entrar
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</header>
+{% endwith %}

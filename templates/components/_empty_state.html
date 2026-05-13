@@ -1,0 +1,27 @@
+{% comment %}
+  Empty state reutilizável.
+  Args:
+    icon_path:    SVG path d="" (default: ícone de caixa vazia)
+    title:        Título principal
+    description: Texto de apoio
+    cta_url:     URL do botão (opcional)
+    cta_label:   Label do botão (opcional)
+{% endcomment %}
+<div class="finanpy-empty-state text-center py-12 px-6 max-w-sm mx-auto">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-dark-800/80 flex items-center justify-center">
+        <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                  d="{{ icon_path|default:'M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-3l-2 3h-6l-2-3H4' }}"/>
+        </svg>
+    </div>
+    <h3 class="text-lg font-semibold text-white mb-2">{{ title|default:"Nada por aqui ainda" }}</h3>
+    {% if description %}
+        <p class="text-sm text-gray-400 leading-relaxed mb-5">{{ description }}</p>
+    {% endif %}
+    {% if cta_url and cta_label %}
+        <a href="{{ cta_url }}"
+           class="inline-flex items-center gap-2 rounded-xl bg-primary-700 hover:bg-primary-600 active:bg-primary-800 text-white text-sm font-semibold py-2.5 px-5 min-h-[44px] transition-colors">
+            {{ cta_label }}
+        </a>
+    {% endif %}
+</div>

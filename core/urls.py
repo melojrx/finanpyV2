@@ -21,10 +21,17 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.authtoken.views import obtain_auth_token
 
+from core.pwa_views import OfflineView, manifest, service_worker
+
 urlpatterns = [
     # Admin interface
     path('admin/', admin.site.urls),
-    
+
+    # PWA endpoints (servidos na raiz para escopo correto)
+    path('sw.js', service_worker, name='service-worker'),
+    path('manifest.webmanifest', manifest, name='pwa-manifest'),
+    path('offline/', OfflineView.as_view(), name='offline'),
+
     # Home page
     path('', TemplateView.as_view(template_name='index.html'), name='home'),
     

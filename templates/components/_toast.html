@@ -1,0 +1,36 @@
+{% comment %}
+  Container de toasts. Renderiza Django messages como toasts mobile-first.
+
+  Posição: bottom-center em mobile (acima do bottom-nav + FAB), top-right ≥md.
+  Auto-dismiss em 5s; respeita prefers-reduced-motion (sem slide).
+{% endcomment %}
+{% if messages %}
+<div id="finanpy-toasts"
+     class="fixed inset-x-0 z-50 px-4 pointer-events-none
+            bottom-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom)+88px)]
+            md:inset-x-auto md:right-4 md:top-20 md:bottom-auto md:px-0 md:max-w-sm"
+     aria-live="polite" aria-atomic="false">
+    <div class="space-y-2">
+    {% for message in messages %}
+        <div class="finanpy-toast pointer-events-auto rounded-xl border-l-4 bg-dark-800 shadow-xl
+                    p-4 flex items-start gap-3 motion-safe:animate-slide-up
+                    {% if message.tags == 'error' or message.tags == 'danger' %}border-red-500 text-red-100
+                    {% elif message.tags == 'warning' %}border-yellow-500 text-yellow-100
+                    {% elif message.tags == 'success' %}border-green-500 text-green-100
+                    {% elif message.tags == 'info' %}border-blue-500 text-blue-100
+                    {% else %}border-gray-500 text-gray-100{% endif %}"
+             role="status">
+            <div class="flex-1 text-sm leading-relaxed">{{ message }}</div>
+            <button type="button"
+                    onclick="this.parentElement.remove()"
+                    class="flex-shrink-0 -mr-1 -mt-1 inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-dark-700 transition"
+                    aria-label="Fechar">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    {% endfor %}
+    </div>
+</div>
+{% endif %}
