@@ -92,20 +92,6 @@ if (workbox) {
     })
   );
 
-  // ---------------------------------------------------------------------------
-  // 4) Google Fonts — CacheFirst (1 ano), até migrarmos para self-hosted
-  // ---------------------------------------------------------------------------
-  routing.registerRoute(
-    ({ url }) =>
-      url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
-    new strategies.CacheFirst({
-      cacheName: 'finanpy-fonts-v1',
-      plugins: [
-        new cacheableResponse.CacheableResponsePlugin({ statuses: [0, 200] }),
-        new expiration.ExpirationPlugin({ maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 }),
-      ],
-    })
-  );
 
   // ---------------------------------------------------------------------------
   // 5) APIs GET (read-only) — NetworkFirst com cache leve

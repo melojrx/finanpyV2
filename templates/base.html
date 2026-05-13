@@ -32,10 +32,8 @@
     {# Custom CSS legado — mantido até M2/M7 #}
     <link rel="stylesheet" type="text/css" href="{% static 'css/custom.css' %}">
 
-    {# Google Fonts — auto-host adiado para M7 #}
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    {# Inter font — self-hosted variable (M7 perf) #}
+    <link rel="preload" href="{% static 'fonts/inter-var-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
 
     {# Dark mode — sempre dark (app financeiro) #}
     <script>
