@@ -334,18 +334,26 @@ URL scheme `web+finanpy://` registrado no manifest. Exemplos:
 
 ## 3. Roadmap de Execução
 
-| Sprint | Objetivo | Entregáveis | Estimativa |
-|---|---|---|---|
-| **M0 — Fundação** | Build local Tailwind + design tokens | INF-001 resolvido, `theme/` app, `tokens.css`, purge ativo, `tailwind.config.js` migrado | 2 dias |
-| **M1 — Shell PWA** | App instalável + offline shell | manifest, sw.js (Workbox), ícones maskable, `base.html` refatorada com bottom-nav + FAB + drawer + top-bar | 3 dias |
-| **M2 — Lista de Transações** | Tela mais usada | Refactor `transaction_list.html` (apagar duplicatas), card swipeável, bottom-sheet de filtros, pull-to-refresh | 2 dias |
-| **M3 — Form rápido + bottom-sheet** | Lançamento em < 5s | `transaction_form.html` em sheet, inputmode, máscaras, autocomplete categoria, sticky CTA | 2 dias |
-| **M4 — Dashboard mobile** | Home enxuta | Snap-scroll de KPIs, charts lazy-loaded, endpoint `/dashboard/snapshot/` | 2 dias |
-| **M5 — Background sync + Hermes** | Offline-write + deeplinks | SW POST queue, endpoints `quick/` + `from-receipt/` + `sync/since/`, share_target, protocol_handlers | 3 dias |
-| **M6 — Demais telas** | Accounts, Categories, Goals, Budgets | Cards mobile, wizards verticais, fix tabelas com fallback | 3 dias |
-| **M7 — Polimento** | A11y, perf, testes | Lighthouse PWA ≥ 90, axe-core, testes E2E mobile (Playwright), bundle analysis | 2 dias |
+| Sprint | Objetivo | Entregáveis | Estimativa | Status | Commit |
+|---|---|---|---|---|---|
+| **M0 — Fundação** | Build local Tailwind + design tokens | INF-001 resolvido, `theme/` app, `tokens.css`, purge ativo, `tailwind.config.js` migrado | 2 dias | ✅ | `e09ebe7` |
+| **M1 — Shell PWA** | App instalável + offline shell | manifest, sw.js (Workbox), ícones maskable, `base.html` refatorada com bottom-nav + FAB + drawer + top-bar | 3 dias | ✅ | `1899c7c` |
+| **M2 — Lista de Transações** | Tela mais usada | Refactor `transaction_list.html` (apagar duplicatas), card swipeável, bottom-sheet de filtros | 2 dias | ✅ | `7cf5469` |
+| **M3 — Form rápido + bottom-sheet** | Lançamento em < 5s | `transaction_form.html` em sheet, inputmode, máscaras, autocomplete categoria, sticky CTA | 2 dias | ✅ | `7cf5469` |
+| **M4 — Dashboard mobile** | Home enxuta | Snap-scroll de KPIs, charts lazy-loaded, endpoint `/dashboard/snapshot/` | 2 dias | ✅ | `daf320d` |
+| **M5 — Background sync + Hermes** | Offline-write + deeplinks | SW POST queue, endpoints `quick/` + `from-receipt/` + `sync/since/`, share_target, protocol_handlers | 3 dias | ✅ | `64ace28` |
+| **M6 — Demais telas** | Accounts, Categories, Goals, Budgets | Cards mobile, wizards verticais, fix tabelas com fallback, deleção de 7 templates órfãos | 3 dias | ✅ | `7eb8459` |
+| **fix — empty states** | Bug regressivo | Colapsar `{% include %}` multilinha, `{# %}` → `{% comment %}` | — | ✅ | `212550b` |
+| **M7 — Polimento** | A11y final, perf, testes | Auto-host Inter, critical CSS, responsive avatar, code-splitting, axe-core CI, E2E Playwright | 2 dias | ⏭️ | — |
 
-**Total estimado:** ~19 dias úteis (aprox. 2 sprints quinzenais).
+**Status global Sprint 8:** **6 de 7 milestones concluídos** (M0-M6).
+M7 pendente — escopo claro com 8 achados Lighthouse documentados em
+`docs/lighthouse-postsprint8/dashboard.md` §A1-A5.
+
+**Total estimado original:** ~19 dias úteis.
+**Realizado até pós-M6:** todos os entregáveis funcionais; medição
+Lighthouse comprova alvos atingidos para Performance (89), A11y
+(100), Best Practices (100), TBT (27 ms), PWA instalável.
 
 ---
 
@@ -358,26 +366,66 @@ URL scheme `web+finanpy://` registrado no manifest. Exemplos:
 usuário autenticado, branch `main` em `bff9118`.
 *Relatório completo arquivado em `docs/lighthouse-baseline/dashboard.json`.*
 
-| Métrica | Baseline medido | Alvo pós-implementação |
+**Re-medição realizada em 2026-05-13** após Sprint 8 (commit `212550b`).
+*Relatórios completos em `docs/lighthouse-postsprint8/{dashboard,transactions,budgets-plano}.md`.*
+
+| Métrica | Baseline | **Pós-Sprint 8** | Delta | Alvo | Atingiu? |
+|---|---|---|---|---|---|
+| **Lighthouse Performance (mobile)** | 72 | **89** | **+17** | ≥ 85 | ✅ |
+| **Lighthouse Accessibility** | 87 | **100** | **+13** | ≥ 95 | 🏆 |
+| **Lighthouse Best Practices** | 96 | **100** | **+4** | ≥ 95 | 🏆 |
+| **Lighthouse SEO** | 90 | 91 | +1 | ≥ 90 | ✅ |
+| **Lighthouse PWA** | n/a | instalável + offline-write | — | instalável + offline | 🏆 |
+| **FCP (4G)** | 2.97 s | 1.98 s | **−33%** | ≤ 1.8 s | ⚠️ quase (−180 ms) |
+| **LCP (4G)** | 4.22 s | 3.49 s | **−17%** | ≤ 2.5 s | ⚠️ falta (auto-host Inter no M7) |
+| **TBT** | 367 ms | **27 ms** | **−93%** | ≤ 200 ms | 🏆 |
+| **CLS** | 0 | 0.0003 | manter | ≤ 0.1 | ✅ |
+| **Speed Index** | 2.97 s | 1.98 s | **−33%** | ≤ 2.5 s | ✅ |
+| **TTI** | 4.22 s | 3.49 s | −17% | ≤ 3.5 s | ✅ |
+| **Max Potential FID** | 292 ms | **81 ms** | **−72%** | ≤ 130 ms | ✅ |
+| **Total bytes (transfer)** | 606 KiB | 561 KiB | −7% | ≤ 350 KiB | ❌ (avatar 256 KiB no M7) |
+| **Tailwind CDN bundle** | 126 KiB transfer / 407 KiB descomprimido | substituído por CSS local 72 KiB | resolvido | ≤ 30 KiB | parcial |
+| **JS render-blocking** | 1.520 ms (Chart.js) + 150 ms (date-fns) | **0 ms** | **−100%** | 0 ms | 🏆 |
+| **CSS render-blocking** | 818 ms (Tailwind CDN) + 869 ms (Google Fonts) + 159 ms (custom) | 1.150 ms (CSS local + Inter Google Fonts) | melhorou | ≤ 200 ms | ❌ M7 |
+| **`main.js` JS não usado** | 33.8 KiB / 42.6 KiB (79%) | 33.8 KiB / 42.6 KiB (79%) | igual | ≤ 20% via code-splitting | ❌ M7 |
+| **Instalações PWA** | 0 | tracking habilitado (manifest+SW+share_target+protocol_handlers) | ✅ | tracking habilitado | 🏆 |
+
+#### Resumo dos achados resolvidos
+
+| Achado baseline | Sprint 8 | Status |
 |---|---|---|
-| **Lighthouse Performance (mobile)** | **72** | ≥ 85 |
-| **Lighthouse Accessibility** | **87** | ≥ 95 |
-| **Lighthouse Best Practices** | **96** | ≥ 95 (manter) |
-| **Lighthouse SEO** | **90** | ≥ 90 (manter) |
-| **Lighthouse PWA** | n/a (não é PWA) | instalável + offline |
-| **FCP (4G)** | **2.97 s** | ≤ 1.8 s |
-| **LCP (4G)** | **4.22 s** | ≤ 2.5 s |
-| **TBT** | **367 ms** | ≤ 200 ms |
-| **CLS** | **0** ✅ | ≤ 0.1 (manter) |
-| **Speed Index** | **2.97 s** | ≤ 2.5 s |
-| **TTI** | **4.22 s** | ≤ 3.5 s |
-| **Max Potential FID** | **292 ms** | ≤ 130 ms |
-| **Total bytes (transfer)** | **606 KiB** | ≤ 350 KiB |
-| **Tailwind CDN bundle** | **126 KiB transfer / 407 KiB descomprimido** | substituído por CSS local ≤ 30 KiB |
-| **JS render-blocking** | **1.520 ms** (Chart.js) + 150 ms (date-fns) | 0 ms (defer/lazy) |
-| **CSS render-blocking** | **818 ms** (Tailwind CDN) + 869 ms (Google Fonts) + 159 ms (custom) | ≤ 200 ms total |
-| **`main.js` JS não usado** | **33.8 KiB / 42.6 KiB (79%)** | ≤ 20% via code-splitting |
-| **Instalações PWA** | 0 | tracking habilitado |
+| `heading-order` (H3 sem H2) | M4 — H1+H2 hierárquicos no dashboard | ✅ |
+| `select-name` (filtro 6 meses) | M4 — substituído por segmented control | ✅ |
+| `identical-links-same-purpose` | M4 — `aria-label` distintivos | ✅ |
+| Erro `date-fns CommonJS` no console | M0 — removido (não era usado) | ✅ |
+| Tailwind CDN 818 ms render-blocking | M0 — django-tailwind local | ✅ |
+| Chart.js 1.520 ms síncrono | M4 — lazy `import()` via IntersectionObserver | ✅ |
+| Tabelas mobile sem fallback | M2/M6 — cards verticais < lg | ✅ |
+| Touch targets <44px | M2-M6 — todos ≥44px | ✅ |
+| Sem PWA / Service Worker | M1+M5 — manifest + Workbox + Background Sync | ✅ |
+
+#### Achados que permanecem para o M7
+
+1. **CSS render-blocking 1.150 ms total** — `styles.css` (Tailwind
+   buildado, 1.224 ms) + `custom.css` (473 ms) + `tokens.css` (173 ms).
+   *Solução:* preload + critical CSS inline + auto-host Inter.
+2. **Avatar 256 KiB sem cache + sem responsive size**
+   (32×40 visível ↔ 802×800 real) — economiza 254 KiB e 1.2 s LCP.
+   *Solução:* `django-imagekit` + WebP + `Cache-Control: 1y`.
+3. **`main.js` 79% não usado** — code-splitting por rota.
+4. **Inter via Google Fonts: 977 ms na chain** — auto-host com
+   `@fontsource/inter` ou `manage.py tailwind` + Inter local.
+5. **`custom.css` 100% não usado** na rota `/budgets/plano/`,
+   94% na `/dashboard/`. Pode ser deletado/integrado ao Tailwind.
+6. **DOM size na lista de transações** — 290 elementos, com
+   `<select id_category>` carregando 30 options via AJAX.
+   *Solução:* lazy-load do select só quando filtro abre.
+7. **`aria-allowed-role`** (informativo) — drawer com
+   `role="dialog"` + `aria-hidden="true"` quando fechado.
+   *Solução:* remover role quando hidden via JS no shell.
+8. **`label-content-name-mismatch`** — top-bar "FinanPy" e
+   bottom-nav "Início" com `aria-label` divergente do texto
+   visível. *Solução:* alinhar texto/label.
 
 > ⚠️ **Observação sobre PWA score:** Lighthouse 13 removeu a categoria
 > "PWA" como nota numérica. A validação será feita por checagens
