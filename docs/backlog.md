@@ -21,7 +21,7 @@ documentação do repositório.
 |---|---|---|---|---|---|
 | `FIN-1` | Épico | Orçamento, Dívidas, Metas e Liberdade Financeira | Parcial | Parcial | Agrupa funcionalidades já existentes e módulos futuros. |
 | `FIN-2` | Tarefa | FPY-FIN-001 - Orçamento global mensal | Parcial / implementado | Parcial | O app `budgets` tem orçamento mensal, telas e métricas; falta validar se cobre todo o escopo Jira. |
-| `FIN-3` | Tarefa | FPY-FIN-002 - API de budgets/orçamento mensal | Parcial | Parcial | A API REST existe para contas, categorias, transações e resumos; não há endpoints de `budgets`. |
+| `FIN-3` | Tarefa | FPY-FIN-002 - API de budgets/orçamento mensal | Concluído | Concluído | Sprint 7: `MonthlyPlanViewSet` + `MonthlyPlanItemViewSet` com CRUD, activate, copy_from_previous, summary. |
 | `FIN-4` | Tarefa | FPY-FIN-003 - Briefing financeiro diário via Neo/Telegram | Não implementado | Ausente | Requer integração externa e rotina de geração de briefing. |
 | `FIN-5` | Tarefa | FPY-FIN-004 - Alertas proativos de orçamento via Telegram | Parcial | Parcial | Existe `BudgetAlert` local; não há envio via Telegram. |
 | `FIN-6` | Tarefa | FPY-FIN-005 - Recorrências e contas fixas | Parcial | Parcial | `Transaction` tem campos de recorrência; não há geração automática de contas fixas. |
@@ -32,6 +32,7 @@ documentação do repositório.
 | `FIN-11` | Tarefa | FPY-FIN-010 - Fluxo de caixa futuro | Não implementado | Ausente | Requer projeções com recorrências, contas fixas e vencimentos. |
 | `FIN-12` | Tarefa | FPY-FIN-011 - Dashboard de liberdade financeira | Parcial | Ausente | Existe dashboard geral; não há visão específica de liberdade financeira. |
 | `FIN-13` | Tarefa | FPY-FIN-012 - Correção da suíte de testes/CI financeiro | Parcial | Parcial | Testes locais estão documentados; o workflow atual é de deploy e não executa CI de testes. |
+| `FIN-14` | Tarefa | FPY-FIN-013 - Status de transação (Pendente/Efetivada/Cancelada) | Não implementado | Spec pronto | Pré-requisito para FIN-6 e FIN-11. Spec: `docs/superpowers/specs/2026-05-16-transaction-status-design.md`. |
 
 ## Backlog Técnico Local
 
