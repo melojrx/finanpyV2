@@ -318,6 +318,38 @@
             </div>
         </div>
 
+        {# ─── Status ─────────────────────────────────────────── #}
+        <div class="space-y-1.5">
+            <label class="block text-sm font-semibold text-gray-200 mb-2">Status</label>
+            <div class="flex gap-2" role="radiogroup" aria-label="Status da transação" id="status-segmented">
+                <button type="button" data-value="PENDING"
+                        class="status-btn flex-1 py-2.5 px-4 rounded-lg text-sm font-medium border-2 transition-all border-yellow-700/50 text-yellow-300 bg-yellow-900/30"
+                        aria-pressed="true">
+                    ⏳ Pendente
+                </button>
+                <button type="button" data-value="CONFIRMED"
+                        class="status-btn flex-1 py-2.5 px-4 rounded-lg text-sm font-medium border-2 transition-all border-green-700/50 text-green-300 bg-green-900/30"
+                        aria-pressed="false">
+                    ✓ Efetivada
+                </button>
+            </div>
+            <div class="hidden">{{ form.status }}</div>
+            {% if form.status.errors %}
+            <p class="text-red-400 text-xs mt-1">{{ form.status.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        {# ─── Auto-confirm ───────────────────────────────────── #}
+        <div class="space-y-1.5" id="auto-confirm-wrapper">
+            <label class="flex items-center gap-3 cursor-pointer">
+                {{ form.auto_confirm }}
+                <span class="text-sm text-gray-300">Efetivar automaticamente na data</span>
+            </label>
+            {% if form.auto_confirm.errors %}
+            <p class="text-red-400 text-xs mt-1">{{ form.auto_confirm.errors.0 }}</p>
+            {% endif %}
+        </div>
+
         {# ─── Ações ─────────────────────────────────────────────────── #}
         <div class="pt-4 border-t border-dark-700 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
             <a href="{% url 'transactions:list' %}"
@@ -580,5 +612,39 @@ document.addEventListener('DOMContentLoaded', function () {
 function filterCategoriesByType() { /* tratado pelo segmented control */ }
 function formatCurrency(input) { /* tratado pelo CurrencyFormatter */ }
 function unformatCurrency(input) { /* tratado pelo CurrencyFormatter */ }
+
+// Status segmented control
+(function() {
+    const statusInput = document.getElementById('id_status');
+    const buttons = document.querySelectorAll('.status-btn');
+    const autoConfirmWrapper = document.getElementById('auto-confirm-wrapper');
+
+    function updateStatus(value) {
+        if (!statusInput) return;
+        statusInput.value = value;
+        buttons.forEach(btn => {
+            const isActive = btn.dataset.value === value;
+            btn.setAttribute('aria-pressed', isActive);
+            if (isActive) {
+                btn.classList.add('ring-2', 'ring-offset-1', 'ring-offset-gray-900');
+                btn.classList.add(value === 'PENDING' ? 'ring-yellow-400' : 'ring-green-400');
+                btn.classList.remove(value === 'PENDING' ? 'ring-green-400' : 'ring-yellow-400');
+            } else {
+                btn.classList.remove('ring-2', 'ring-offset-1', 'ring-offset-gray-900', 'ring-yellow-400', 'ring-green-400');
+            }
+        });
+        if (autoConfirmWrapper) {
+            autoConfirmWrapper.style.display = value === 'PENDING' ? '' : 'none';
+        }
+    }
+
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => updateStatus(btn.dataset.value));
+    });
+
+    if (statusInput) {
+        updateStatus(statusInput.value || 'PENDING');
+    }
+})();
 </script>
 {% endblock %}

@@ -84,19 +84,36 @@ class TransactionListView(LoginRequiredMixin, ListView):
         
         # Calculate summary statistics for filtered transactions
         transactions = self.get_queryset()
-        
+
+        # Summary for confirmed only
+        confirmed_txns = self.get_queryset().filter(status='CONFIRMED')
         income_total = sum(
-            t.amount for t in transactions if t.transaction_type == 'INCOME'
+            t.amount for t in confirmed_txns if t.transaction_type == 'INCOME'
         )
         expense_total = sum(
-            t.amount for t in transactions if t.transaction_type == 'EXPENSE'
+            t.amount for t in confirmed_txns if t.transaction_type == 'EXPENSE'
         )
-        
+
+        # Pending summary
+        pending_txns = Transaction.objects.filter(
+            user=self.request.user, status='PENDING'
+        )
+        pending_income = sum(
+            t.amount for t in pending_txns if t.transaction_type == 'INCOME'
+        )
+        pending_expense = sum(
+            t.amount for t in pending_txns if t.transaction_type == 'EXPENSE'
+        )
+
         context.update({
             'total_transactions': transactions.count(),
             'income_total': income_total,
             'expense_total': expense_total,
             'balance': income_total - expense_total,
+            'pending_income': pending_income,
+            'pending_expense': pending_expense,
+            'pending_balance': pending_income - pending_expense,
+            'projected_balance': (income_total + pending_income) - (expense_total + pending_expense),
             'has_filters': bool(self.request.GET),
             'accounts_json': self._get_accounts_json(),
         })
@@ -647,8 +664,10 @@ class TransactionStatsView(LoginRequiredMixin, TemplateView):
         """Calculate and return transaction statistics."""
         context = super().get_context_data(**kwargs)
         
-        # Get user's transactions
-        transactions = Transaction.objects.filter(user=self.request.user)
+        # Get user's confirmed transactions only
+        transactions = Transaction.objects.filter(
+            user=self.request.user, status='CONFIRMED'
+        )
         
         # Calculate monthly summaries for the last 12 months
         monthly_data = []

@@ -416,6 +416,49 @@
                             </div>
                         </div>
                         {% endif %}
+
+                        {# ─── Status ─────────────────────────────────────────── #}
+                        <div class="detail-row">
+                            <div class="detail-label">Status</div>
+                            <div class="detail-value">
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium border {{ transaction.status_badge_classes }}">
+                                        {% if transaction.status == 'PENDING' %}⏳{% elif transaction.status == 'CONFIRMED' %}✓{% else %}✕{% endif %}
+                                        {{ transaction.get_status_display }}
+                                    </span>
+                                    {% if transaction.confirmed_at %}
+                                    <span class="text-xs text-gray-500">em {{ transaction.confirmed_at|date:"d/m/Y H:i" }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if transaction.is_pending %}
+                                <div class="flex gap-2 mt-3">
+                                    <form method="post" action="{% url 'transactions:confirm' transaction.pk %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="px-4 py-2 rounded-lg bg-green-700/60 text-green-200 hover:bg-green-700 transition-colors font-medium text-sm">
+                                            ✓ Efetivar
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{% url 'transactions:cancel' transaction.pk %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="px-4 py-2 rounded-lg bg-red-700/60 text-red-200 hover:bg-red-700 transition-colors font-medium text-sm"
+                                                onclick="return confirm('Cancelar esta transação?')">
+                                            ✕ Cancelar
+                                        </button>
+                                    </form>
+                                </div>
+                                {% elif transaction.is_confirmed %}
+                                <div class="mt-3">
+                                    <form method="post" action="{% url 'transactions:cancel' transaction.pk %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="px-4 py-2 rounded-lg bg-gray-700/60 text-gray-300 hover:bg-gray-700 transition-colors font-medium text-sm"
+                                                onclick="return confirm('Cancelar esta transação efetivada? O saldo será revertido.')">
+                                            ✕ Cancelar transação
+                                        </button>
+                                    </form>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
 
                     {% if transaction.notes %}
