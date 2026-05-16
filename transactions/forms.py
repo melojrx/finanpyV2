@@ -25,8 +25,8 @@ class TransactionForm(forms.ModelForm):
     class Meta:
         model = Transaction
         fields = [
-            'transaction_type', 'account', 'category', 'amount', 
-            'description', 'transaction_date', 'notes'
+            'transaction_type', 'account', 'category', 'amount',
+            'description', 'transaction_date', 'status', 'auto_confirm', 'notes'
         ]
         localized_fields = ('amount',)
         widgets = {
@@ -77,8 +77,17 @@ class TransactionForm(forms.ModelForm):
             'transaction_date': forms.DateInput(attrs={
                 'class': 'form-input',
                 'type': 'date',
-                'max': date.today().isoformat(),
                 'aria-label': 'Data da transação',
+            }),
+            'status': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'id_status',
+                'aria-label': 'Status da transação',
+            }),
+            'auto_confirm': forms.CheckboxInput(attrs={
+                'class': 'form-checkbox h-5 w-5 text-sky-500 rounded border-gray-600 bg-gray-700',
+                'id': 'id_auto_confirm',
+                'aria-label': 'Efetivar automaticamente na data',
             }),
             'notes': forms.Textarea(attrs={
                 'class': 'form-textarea',
@@ -112,6 +121,13 @@ class TransactionForm(forms.ModelForm):
         # If editing an existing transaction, filter categories by type
         if self.instance and self.instance.pk:
             self._filter_categories_by_type()
+
+        # Limit status choices — user can only set PENDING or CONFIRMED
+        # CANCELLED is set via dedicated cancel action
+        self.fields['status'].choices = [
+            ('PENDING', 'Pendente'),
+            ('CONFIRMED', 'Efetivada'),
+        ]
     
     def _filter_categories_by_type(self):
         """Filter categories based on transaction type."""
@@ -162,13 +178,10 @@ class TransactionForm(forms.ModelForm):
     def clean_transaction_date(self):
         """Clean and validate transaction date."""
         transaction_date = self.cleaned_data.get('transaction_date')
-        
+
         if not transaction_date:
             raise ValidationError('Transaction date is required.')
-        
-        if transaction_date > date.today():
-            raise ValidationError('Transaction date cannot be in the future.')
-        
+
         return transaction_date
     
     def clean(self):
@@ -304,6 +317,21 @@ class TransactionFilterForm(forms.Form):
         })
     )
 
+    status = forms.ChoiceField(
+        choices=[
+            ('', 'Todos os status'),
+            ('PENDING', 'Pendentes'),
+            ('CONFIRMED', 'Efetivadas'),
+            ('CANCELLED', 'Canceladas'),
+        ],
+        required=False,
+        label='Status',
+        widget=forms.Select(attrs={
+            'class': 'form-select',
+            'aria-label': 'Filtrar por status',
+        })
+    )
+
     search = forms.CharField(
         required=False,
         label='Buscar',
@@ -371,7 +399,11 @@ class TransactionFilterForm(forms.Form):
         # Transaction type filter
         if self.cleaned_data.get('transaction_type'):
             filters['transaction_type'] = self.cleaned_data['transaction_type']
-        
+
+        # Status filter
+        if self.cleaned_data.get('status'):
+            filters['status'] = self.cleaned_data['status']
+
         return filters
     
     def get_search_term(self):
