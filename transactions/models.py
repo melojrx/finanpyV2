@@ -50,6 +50,12 @@ class Transaction(models.Model):
         ('SEMIANNUAL', 'Semestral'),
         ('ANNUAL', 'Anual'),
     ]
+
+    STATUS_CHOICES = [
+        ('PENDING', 'Pendente'),
+        ('CONFIRMED', 'Efetivada'),
+        ('CANCELLED', 'Cancelada'),
+    ]
     
     # Core fields following PRD schema
     user = models.ForeignKey(
@@ -123,7 +129,28 @@ class Transaction(models.Model):
         verbose_name='Tipo de Recorrência',
         help_text='Frequência de repetição (apenas para transações recorrentes)'
     )
-    
+
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='PENDING',
+        verbose_name='Status',
+        help_text='Status da transação: pendente, efetivada ou cancelada',
+    )
+
+    auto_confirm = models.BooleanField(
+        default=False,
+        verbose_name='Efetivar automaticamente',
+        help_text='Se True, efetiva automaticamente na data via cron',
+    )
+
+    confirmed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Efetivada em',
+        help_text='Timestamp de quando a transação foi efetivada',
+    )
+
     # Timestamps for audit trail
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -153,6 +180,8 @@ class Transaction(models.Model):
             models.Index(fields=['category', 'transaction_date']),
             models.Index(fields=['is_recurring']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['status', 'transaction_date', 'auto_confirm']),
         ]
     
     def __str__(self):
@@ -174,13 +203,32 @@ class Transaction(models.Model):
         # Validate amount is positive
         if self.amount is not None and self.amount <= 0:
             raise ValidationError({'amount': 'Transaction amount must be positive.'})
-        
-        # Validate transaction date is not in the future
-        if self.transaction_date and self.transaction_date > date.today():
+
+        # Validate status transitions
+        if self.pk:
+            try:
+                old = Transaction.objects.only('status').get(pk=self.pk)
+                valid_transitions = {
+                    'PENDING': ('CONFIRMED', 'CANCELLED'),
+                    'CONFIRMED': ('CANCELLED',),
+                    'CANCELLED': (),
+                }
+                if self.status != old.status:
+                    allowed = valid_transitions.get(old.status, ())
+                    if self.status not in allowed:
+                        raise ValidationError({
+                            'status': f'Transição de {old.get_status_display()} para '
+                                      f'{self.get_status_display()} não é permitida.'
+                        })
+            except Transaction.DoesNotExist:
+                pass
+
+        # Validate auto_confirm only makes sense for PENDING
+        if self.auto_confirm and self.status != 'PENDING':
             raise ValidationError({
-                'transaction_date': 'Transaction date cannot be in the future.'
+                'auto_confirm': 'Efetivação automática só se aplica a transações pendentes.'
             })
-        
+
         # Validate user data consistency - only if user is set
         # Note: During form validation, the user might not be set yet
         try:
@@ -319,7 +367,37 @@ class Transaction(models.Model):
     def days_ago(self):
         """Return number of days since transaction date."""
         return (date.today() - self.transaction_date).days
-    
+
+    @property
+    def is_pending(self):
+        return self.status == 'PENDING'
+
+    @property
+    def is_confirmed(self):
+        return self.status == 'CONFIRMED'
+
+    @property
+    def is_cancelled(self):
+        return self.status == 'CANCELLED'
+
+    @property
+    def status_color(self):
+        colors = {
+            'PENDING': 'text-yellow-400',
+            'CONFIRMED': 'text-green-400',
+            'CANCELLED': 'text-gray-400',
+        }
+        return colors.get(self.status, 'text-gray-400')
+
+    @property
+    def status_badge_classes(self):
+        classes = {
+            'PENDING': 'bg-yellow-900/40 text-yellow-300 border-yellow-700/50',
+            'CONFIRMED': 'bg-green-900/40 text-green-300 border-green-700/50',
+            'CANCELLED': 'bg-gray-900/40 text-gray-400 border-gray-700/50',
+        }
+        return classes.get(self.status, '')
+
     def get_absolute_url(self):
         """Return the absolute URL to view this transaction."""
         from django.urls import reverse
@@ -366,7 +444,8 @@ class Transaction(models.Model):
         transactions = cls.objects.filter(
             user=user,
             transaction_date__year=year,
-            transaction_date__month=month
+            transaction_date__month=month,
+            status='CONFIRMED',
         )
         
         income_total = transactions.filter(

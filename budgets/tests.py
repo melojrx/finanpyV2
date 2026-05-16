@@ -90,6 +90,7 @@ class BudgetTestMixin:
             amount=Decimal(str(amount)),
             description=f"Despesa {amount}",
             transaction_date=when or date.today(),
+            status="CONFIRMED",
         )
 
 
@@ -331,6 +332,7 @@ class BudgetSignalTests(BudgetTestMixin, TestCase):
             amount=Decimal("3000.00"),
             description="Salário mensal",
             transaction_date=date.today(),
+            status="CONFIRMED",
         )
         self.budget.refresh_from_db()
         # spent_amount must remain 0 — income does not consume an EXPENSE budget
@@ -443,6 +445,7 @@ class BudgetAlertViewTests(BudgetTestMixin, TestCase):
             user=other, account=other_acc, category=other_cat,
             transaction_type="EXPENSE", amount=Decimal("80.00"),
             description="x", transaction_date=date.today(),
+            status="CONFIRMED",
         )
 
         resp = self.client.get(reverse("budgets:alerts"))
@@ -521,6 +524,7 @@ class MonthlyPlanTestMixin(BudgetTestMixin):
             amount=Decimal(str(amount)),
             description=f"Receita {amount}",
             transaction_date=when or date.today(),
+            status="CONFIRMED",
         )
 
 
@@ -790,6 +794,7 @@ class MonthlyPlanItemModelTests(MonthlyPlanTestMixin, TestCase):
             amount=Decimal(amount),
             description="Test",
             transaction_date=tx_date,
+            status="CONFIRMED",
         )
 
     def test_create_valid_item(self):
@@ -844,6 +849,7 @@ class MonthlyPlanItemModelTests(MonthlyPlanTestMixin, TestCase):
             amount=Decimal("300.00"),
             description="Other month",
             transaction_date=other_month,
+            status="CONFIRMED",
         )
         self.assertEqual(item.spent_amount, Decimal("0.00"))
 

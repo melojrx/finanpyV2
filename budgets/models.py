@@ -302,7 +302,8 @@ class Budget(models.Model):
             category_id__in=category_ids,
             transaction_type='EXPENSE',
             transaction_date__gte=self.start_date,
-            transaction_date__lte=self.end_date
+            transaction_date__lte=self.end_date,
+            status='CONFIRMED',
         ).aggregate(
             total=Sum('amount')
         )['total']
@@ -800,7 +801,8 @@ class Budget(models.Model):
             category=self.category,
             transaction_type='EXPENSE',
             transaction_date__gte=start_date,
-            transaction_date__lte=end_date
+            transaction_date__lte=end_date,
+            status='CONFIRMED',
         ).values('transaction_date').annotate(
             daily_total=Sum('amount')
         ).order_by('transaction_date')
@@ -836,7 +838,8 @@ class Budget(models.Model):
                 category=subcategory,
                 transaction_type='EXPENSE',
                 transaction_date__gte=self.start_date,
-                transaction_date__lte=self.end_date
+                transaction_date__lte=self.end_date,
+                status='CONFIRMED',
             ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
             
             if spent > 0:  # Only include subcategories with spending
@@ -875,7 +878,8 @@ class Budget(models.Model):
             category_id__in=category_ids,
             transaction_type='EXPENSE',
             transaction_date__gte=self.start_date,
-            transaction_date__lte=self.end_date
+            transaction_date__lte=self.end_date,
+            status='CONFIRMED',
         ).select_related('account', 'category').order_by('-transaction_date', '-created_at')[:limit]
 
 
@@ -1116,6 +1120,7 @@ class MonthlyPlan(models.Model):
             user=self.user,
             transaction_date__gte=self.period_start,
             transaction_date__lte=self.period_end,
+            status='CONFIRMED',
         ).aggregate(
             income=Sum(
                 Case(
@@ -1378,6 +1383,7 @@ class MonthlyPlanItem(models.Model):
             transaction_type='EXPENSE',
             transaction_date__gte=first_day,
             transaction_date__lte=last_day,
+            status='CONFIRMED',
         ).aggregate(total=Sum('amount'))['total']
 
         return total or Decimal('0.00')

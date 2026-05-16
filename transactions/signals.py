@@ -124,6 +124,7 @@ def handle_transaction_pre_save(sender, instance, **kwargs):
                     'account_id': old_transaction.account_id,
                     'amount': old_transaction.amount,
                     'transaction_type': old_transaction.transaction_type,
+                    'status': old_transaction.status,
                 }
                 
                 logger.debug(f"Stored old values for transaction {instance.pk}")
@@ -140,164 +141,188 @@ def handle_transaction_pre_save(sender, instance, **kwargs):
 def handle_transaction_save(sender, instance, created, **kwargs):
     """
     Signal handler for transaction creation and updates.
-    
-    This signal automatically updates account balances when:
-    1. New transactions are created
-    2. Existing transactions are updated (amount, type, or account changes)
-    
-    For transaction updates, it:
-    - Reverses the old transaction's impact on the old account
-    - Applies the new transaction's impact on the new account
-    - Handles account changes (transaction moved between accounts)
-    
-    Args:
-        sender: Transaction model class
-        instance: Transaction instance being saved
-        created: Boolean indicating if this is a new instance
-        **kwargs: Additional signal arguments including 'update_fields'
+    Only CONFIRMED transactions affect account balance.
     """
     try:
         if created:
-            # Handle new transaction creation
-            logger.info(f"Processing new transaction {instance.id}: {instance}")
-            
-            # Validate that account belongs to the same user as transaction
-            # Check if user relationships exist before accessing them
+            if instance.status != 'CONFIRMED':
+                logger.info(
+                    f"Transaction {instance.id} created as "
+                    f"{instance.status}, no balance impact"
+                )
+                return
+
+            logger.info(
+                f"Processing new CONFIRMED transaction "
+                f"{instance.id}: {instance}"
+            )
+
             try:
-                if not hasattr(instance, 'user') or not instance.user:
-                    logger.error(f"Transaction {instance.id} has no user relationship")
-                    return
-                    
-                if not hasattr(instance, 'account') or not instance.account:
-                    logger.error(f"Transaction {instance.id} has no account relationship")
-                    return
-                    
-                if not hasattr(instance.account, 'user') or not instance.account.user:
-                    logger.error(f"Transaction {instance.id} account has no user relationship")
-                    return
-                    
-                if instance.account.user != instance.user:
+                if not instance.user or not instance.account:
                     logger.error(
-                        f"User mismatch: Transaction user {instance.user.id} "
-                        f"vs Account user {instance.account.user.id}"
+                        f"Transaction {instance.id} missing user or account"
                     )
                     return
-                    
+                if instance.account.user != instance.user:
+                    logger.error(
+                        f"User mismatch for transaction {instance.id}"
+                    )
+                    return
             except Exception as e:
-                logger.error(f"Error validating user relationships for transaction {instance.id}: {str(e)}")
+                logger.error(
+                    f"Error validating relationships for "
+                    f"transaction {instance.id}: {e}"
+                )
                 return
-            
-            # Calculate and apply balance change
+
             delta = calculate_balance_delta(instance)
             update_account_balance(instance.account, delta, 'add')
-            
+
         else:
-            # Handle transaction updates using pre_save stored values
-            logger.info(f"Processing transaction update {instance.id}: {instance}")
-            
-            # Get old values from pre_save signal
-            old_values = _old_transaction_values.get(instance.pk)
-            
+            logger.info(f"Processing transaction update {instance.id}")
+
+            old_values = _old_transaction_values.pop(instance.pk, None)
             if not old_values:
-                logger.warning(f"No old values found for transaction {instance.id} update, skipping balance update")
+                logger.warning(
+                    f"No old values for transaction {instance.id}, "
+                    f"skipping"
+                )
                 return
-            
+
+            old_status = old_values.get('status', 'CONFIRMED')
+            new_status = instance.status
+
             try:
-                # Create a mock old transaction object for balance calculations
-                class MockOldTransaction:
-                    def __init__(self, values):
-                        self.account_id = values['account_id']
-                        self.amount = values['amount'] 
-                        self.transaction_type = values['transaction_type']
-                
-                old_transaction = MockOldTransaction(old_values)
-                
-                # If account changed, reverse impact on old account and apply to new account
-                if instance.account_id != old_values['account_id']:
-                    # Reverse old impact on old account
-                    old_delta = calculate_balance_delta(old_transaction)
-                    from accounts.models import Account
-                    old_account = Account.objects.get(pk=old_values['account_id'])
-                    update_account_balance(old_account, old_delta, 'subtract')
-                    
-                    # Apply new impact on new account
-                    new_delta = calculate_balance_delta(instance)
-                    update_account_balance(instance.account, new_delta, 'add')
-                    
-                    logger.info(f"Transaction {instance.id} moved between accounts")
-                
-                else:
-                    # Same account, but amount or type might have changed
-                    if (instance.amount != old_values['amount'] or 
-                        instance.transaction_type != old_values['transaction_type']):
-                        
-                        # Reverse old impact
-                        old_delta = calculate_balance_delta(old_transaction)
-                        update_account_balance(instance.account, old_delta, 'subtract')
-                        
-                        # Apply new impact  
-                        new_delta = calculate_balance_delta(instance)
-                        update_account_balance(instance.account, new_delta, 'add')
-                        
-                        logger.info(f"Transaction {instance.id} amount/type changed")
-                
-                # Clean up stored values
-                del _old_transaction_values[instance.pk]
-                
+                # Case 1: Status changed
+                if old_status != new_status:
+                    if (old_status == 'PENDING'
+                            and new_status == 'CONFIRMED'):
+                        delta = calculate_balance_delta(instance)
+                        update_account_balance(
+                            instance.account, delta, 'add'
+                        )
+                        logger.info(
+                            f"Transaction {instance.id} confirmed, "
+                            f"balance updated"
+                        )
+
+                    elif (old_status == 'CONFIRMED'
+                            and new_status == 'CANCELLED'):
+                        class MockOld:
+                            def __init__(self, v):
+                                self.amount = v['amount']
+                                self.transaction_type = (
+                                    v['transaction_type']
+                                )
+                        old_delta = calculate_balance_delta(
+                            MockOld(old_values)
+                        )
+                        from accounts.models import Account
+                        old_account = Account.objects.get(
+                            pk=old_values['account_id']
+                        )
+                        update_account_balance(
+                            old_account, old_delta, 'subtract'
+                        )
+                        logger.info(
+                            f"Transaction {instance.id} cancelled, "
+                            f"balance reversed"
+                        )
+
+                # Case 2: Still CONFIRMED but amount/type/account changed
+                elif new_status == 'CONFIRMED':
+                    if (instance.amount != old_values['amount']
+                            or instance.transaction_type
+                            != old_values['transaction_type']
+                            or instance.account_id
+                            != old_values['account_id']):
+
+                        class MockOld:
+                            def __init__(self, v):
+                                self.account_id = v['account_id']
+                                self.amount = v['amount']
+                                self.transaction_type = (
+                                    v['transaction_type']
+                                )
+
+                        old_tx = MockOld(old_values)
+
+                        if (instance.account_id
+                                != old_values['account_id']):
+                            old_delta = calculate_balance_delta(old_tx)
+                            from accounts.models import Account
+                            old_account = Account.objects.get(
+                                pk=old_values['account_id']
+                            )
+                            update_account_balance(
+                                old_account, old_delta, 'subtract'
+                            )
+                            new_delta = calculate_balance_delta(instance)
+                            update_account_balance(
+                                instance.account, new_delta, 'add'
+                            )
+                        else:
+                            old_delta = calculate_balance_delta(old_tx)
+                            update_account_balance(
+                                instance.account, old_delta, 'subtract'
+                            )
+                            new_delta = calculate_balance_delta(instance)
+                            update_account_balance(
+                                instance.account, new_delta, 'add'
+                            )
+
             except Exception as e:
-                logger.error(f"Error handling transaction update for {instance.id}: {str(e)}")
-                # Clean up stored values even on error
-                if instance.pk in _old_transaction_values:
-                    del _old_transaction_values[instance.pk]
-                return
-            
+                logger.error(
+                    f"Error handling transaction update "
+                    f"{instance.id}: {e}"
+                )
+
     except Exception as e:
         logger.error(
-            f"Error in transaction save signal for transaction {instance.id}: {str(e)}"
+            f"Error in transaction save signal for "
+            f"{instance.id}: {e}"
         )
-        # Don't re-raise to avoid breaking the transaction save
-        # The transaction will be saved but balance might be inconsistent
-        # This should be monitored and handled by administrators
 
 
 @receiver(post_delete, sender='transactions.Transaction')
 def handle_transaction_delete(sender, instance, **kwargs):
     """
     Signal handler for transaction deletion.
-    
-    This signal automatically reverses the account balance impact when a
-    transaction is deleted. It subtracts the transaction's impact from
-    the account balance.
-    
-    Args:
-        sender: Transaction model class
-        instance: Transaction instance being deleted
-        **kwargs: Additional signal arguments
+    Only reverses balance for CONFIRMED transactions.
     """
     try:
-        logger.info(f"Processing transaction deletion {instance.id}: {instance}")
-        
-        # Validate that account still exists and belongs to the same user
-        if not hasattr(instance, 'account') or not instance.account:
-            logger.warning(f"Transaction {instance.id} has no account reference")
-            return
-            
-        if instance.account.user != instance.user:
-            logger.error(
-                f"User mismatch on deletion: Transaction user {instance.user.id} "
-                f"vs Account user {instance.account.user.id}"
+        if instance.status != 'CONFIRMED':
+            logger.info(
+                f"Transaction {instance.id} deleted "
+                f"(status={instance.status}), no balance impact"
             )
             return
-        
-        # Calculate and reverse the balance change
+
+        logger.info(
+            f"Processing CONFIRMED transaction deletion {instance.id}"
+        )
+
+        if not instance.account:
+            logger.warning(
+                f"Transaction {instance.id} has no account reference"
+            )
+            return
+
+        if instance.account.user != instance.user:
+            logger.error(
+                f"User mismatch on deletion for "
+                f"transaction {instance.id}"
+            )
+            return
+
         delta = calculate_balance_delta(instance)
         update_account_balance(instance.account, delta, 'subtract')
-        
+
     except Exception as e:
         logger.error(
-            f"Error in transaction delete signal for transaction {instance.id}: {str(e)}"
+            f"Error in transaction delete signal for "
+            f"transaction {instance.id}: {e}"
         )
-        # Don't re-raise to avoid breaking the transaction deletion
 
 
 # Additional utility functions for balance reconciliation and debugging
@@ -323,7 +348,7 @@ def recalculate_account_balance(account):
         
         # Calculate total impact of all transactions for this account
         from django.db.models import F
-        balance_impact = account.transactions.aggregate(
+        balance_impact = account.transactions.filter(status='CONFIRMED').aggregate(
             total_impact=Sum(
                 Case(
                     When(transaction_type='INCOME', then=F('amount')),
@@ -383,7 +408,9 @@ def validate_account_balances(user=None):
         for account in accounts_query:
             # Calculate expected balance from transactions
             from django.db.models import F
-            expected_balance = account.transactions.aggregate(
+            expected_balance = account.transactions.filter(
+                status='CONFIRMED'
+            ).aggregate(
                 total_impact=Sum(
                     Case(
                         When(transaction_type='INCOME', then=F('amount')),

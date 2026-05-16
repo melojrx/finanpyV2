@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from decimal import Decimal
 from datetime import date, timedelta
 
@@ -113,19 +114,19 @@ class TransactionModelTest(TestCase):
             )
             transaction.full_clean()
     
-    def test_future_date_validation(self):
-        """Test that transaction date cannot be in the future."""
-        with self.assertRaises(ValidationError):
-            transaction = Transaction(
-                user=self.user,
-                account=self.account,
-                category=self.expense_category,
-                transaction_type='EXPENSE',
-                amount=Decimal('100.00'),
-                description='Future transaction',
-                transaction_date=date.today() + timedelta(days=1)
-            )
-            transaction.full_clean()
+    def test_future_date_allowed(self):
+        """Test that transaction date can be in the future (for pending transactions)."""
+        transaction = Transaction(
+            user=self.user,
+            account=self.account,
+            category=self.expense_category,
+            transaction_type='EXPENSE',
+            amount=Decimal('100.00'),
+            description='Future bill',
+            transaction_date=date.today() + timedelta(days=30),
+            status='PENDING',
+        )
+        transaction.full_clean()  # Should NOT raise
     
     def test_category_type_validation(self):
         """Test that category type must match transaction type."""
@@ -242,9 +243,10 @@ class TransactionModelTest(TestCase):
             transaction_type='INCOME',
             amount=Decimal('2000.00'),
             description='Salary',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
-        
+
         Transaction.objects.create(
             user=self.user,
             account=self.account,
@@ -252,7 +254,8 @@ class TransactionModelTest(TestCase):
             transaction_type='EXPENSE',
             amount=Decimal('500.00'),
             description='Groceries',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
         
         summary = Transaction.get_monthly_summary(
@@ -305,7 +308,7 @@ class TransactionSignalsTest(TestCase):
         """Test that account balance increases when income transaction is created."""
         initial_balance = self.account.balance
         transaction_amount = Decimal('200.00')
-        
+
         Transaction.objects.create(
             user=self.user,
             account=self.account,
@@ -313,7 +316,8 @@ class TransactionSignalsTest(TestCase):
             transaction_type='INCOME',
             amount=transaction_amount,
             description='Test income',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
         
         # Refresh account from database to get updated balance
@@ -326,7 +330,7 @@ class TransactionSignalsTest(TestCase):
         """Test that account balance decreases when expense transaction is created."""
         initial_balance = self.account.balance
         transaction_amount = Decimal('75.50')
-        
+
         Transaction.objects.create(
             user=self.user,
             account=self.account,
@@ -334,7 +338,8 @@ class TransactionSignalsTest(TestCase):
             transaction_type='EXPENSE',
             amount=transaction_amount,
             description='Test expense',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
         
         # Refresh account from database to get updated balance
@@ -348,7 +353,7 @@ class TransactionSignalsTest(TestCase):
         initial_balance = self.account.balance
         original_amount = Decimal('100.00')
         new_amount = Decimal('150.00')
-        
+
         # Create transaction
         transaction = Transaction.objects.create(
             user=self.user,
@@ -357,7 +362,8 @@ class TransactionSignalsTest(TestCase):
             transaction_type='EXPENSE',
             amount=original_amount,
             description='Test expense update',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
         
         # Check balance after creation
@@ -378,7 +384,7 @@ class TransactionSignalsTest(TestCase):
         """Test that account balance updates correctly when transaction type is changed."""
         initial_balance = self.account.balance
         transaction_amount = Decimal('100.00')
-        
+
         # Create expense transaction
         transaction = Transaction.objects.create(
             user=self.user,
@@ -387,7 +393,8 @@ class TransactionSignalsTest(TestCase):
             transaction_type='EXPENSE',
             amount=transaction_amount,
             description='Test type change',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
         
         # Check balance after expense creation
@@ -409,7 +416,7 @@ class TransactionSignalsTest(TestCase):
         """Test that account balance reverts when transaction is deleted."""
         initial_balance = self.account.balance
         transaction_amount = Decimal('80.00')
-        
+
         # Create transaction
         transaction = Transaction.objects.create(
             user=self.user,
@@ -418,7 +425,8 @@ class TransactionSignalsTest(TestCase):
             transaction_type='EXPENSE',
             amount=transaction_amount,
             description='Test deletion',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
         
         # Check balance after creation
@@ -436,7 +444,7 @@ class TransactionSignalsTest(TestCase):
     def test_multiple_transactions_balance_calculation(self):
         """Test correct balance calculation with multiple transactions."""
         initial_balance = self.account.balance
-        
+
         # Create multiple transactions
         Transaction.objects.create(
             user=self.user,
@@ -445,9 +453,10 @@ class TransactionSignalsTest(TestCase):
             transaction_type='INCOME',
             amount=Decimal('300.00'),
             description='Income 1',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
-        
+
         Transaction.objects.create(
             user=self.user,
             account=self.account,
@@ -455,9 +464,10 @@ class TransactionSignalsTest(TestCase):
             transaction_type='EXPENSE',
             amount=Decimal('150.00'),
             description='Expense 1',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
-        
+
         Transaction.objects.create(
             user=self.user,
             account=self.account,
@@ -465,9 +475,10 @@ class TransactionSignalsTest(TestCase):
             transaction_type='INCOME',
             amount=Decimal('100.00'),
             description='Income 2',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
-        
+
         Transaction.objects.create(
             user=self.user,
             account=self.account,
@@ -475,7 +486,8 @@ class TransactionSignalsTest(TestCase):
             transaction_type='EXPENSE',
             amount=Decimal('75.00'),
             description='Expense 2',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
         
         # Check final balance
@@ -509,9 +521,10 @@ class TransactionSignalsTest(TestCase):
             transaction_type='EXPENSE',
             amount=Decimal('50.00'),
             description='First account expense',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
-        
+
         # Create transaction on second account
         Transaction.objects.create(
             user=self.user,
@@ -520,7 +533,8 @@ class TransactionSignalsTest(TestCase):
             transaction_type='INCOME',
             amount=Decimal('100.00'),
             description='Second account income',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
         
         # Refresh both accounts
@@ -545,9 +559,10 @@ class TransactionSignalsTest(TestCase):
             transaction_type='INCOME',
             amount=Decimal('1000.00'),
             description='Large income',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
-        
+
         Transaction.objects.create(
             user=self.user,
             account=self.account,
@@ -555,7 +570,8 @@ class TransactionSignalsTest(TestCase):
             transaction_type='EXPENSE',
             amount=Decimal('250.00'),
             description='Large expense',
-            transaction_date=date.today()
+            transaction_date=date.today(),
+            status='CONFIRMED',
         )
         
         # Validate balances - should return no discrepancies
@@ -581,3 +597,208 @@ class TransactionSignalsTest(TestCase):
         # Validate again - should be clean now
         discrepancies = validate_account_balances(user=self.user)
         self.assertEqual(len(discrepancies), 0)
+
+
+class TransactionStatusTest(TestCase):
+    """Test cases for transaction status transitions and balance impact."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='statustest@example.com',
+            password='testpass123'
+        )
+        self.account = Account.objects.create(
+            user=self.user,
+            name='Status Test Account',
+            account_type='checking',
+            balance=Decimal('1000.00'),
+            currency='BRL'
+        )
+        self.expense_category = Category.objects.create(
+            user=self.user,
+            name='Bills',
+            category_type='EXPENSE',
+            color='#EF4444',
+            icon='🍔'
+        )
+        self.income_category = Category.objects.create(
+            user=self.user,
+            name='Salary',
+            category_type='INCOME',
+            color='#10B981',
+            icon='💰'
+        )
+
+    def test_pending_transaction_does_not_affect_balance(self):
+        """Creating a PENDING transaction should not change account balance."""
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=self.expense_category,
+            transaction_type='EXPENSE',
+            amount=Decimal('200.00'),
+            description='Pending bill',
+            transaction_date=date.today() + timedelta(days=5),
+            status='PENDING',
+        )
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+
+    def test_confirmed_transaction_affects_balance(self):
+        """Creating a CONFIRMED transaction should update account balance."""
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=self.expense_category,
+            transaction_type='EXPENSE',
+            amount=Decimal('200.00'),
+            description='Confirmed expense',
+            transaction_date=date.today(),
+            status='CONFIRMED',
+        )
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('800.00'))
+
+    def test_confirm_pending_updates_balance(self):
+        """Transitioning PENDING -> CONFIRMED should apply balance delta."""
+        txn = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=self.expense_category,
+            transaction_type='EXPENSE',
+            amount=Decimal('150.00'),
+            description='Bill to confirm',
+            transaction_date=date.today(),
+            status='PENDING',
+        )
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+
+        txn.status = 'CONFIRMED'
+        txn.confirmed_at = timezone.now()
+        txn.save()
+
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('850.00'))
+
+    def test_cancel_confirmed_reverses_balance(self):
+        """Transitioning CONFIRMED -> CANCELLED should reverse balance delta."""
+        txn = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=self.expense_category,
+            transaction_type='EXPENSE',
+            amount=Decimal('300.00'),
+            description='Expense to cancel',
+            transaction_date=date.today(),
+            status='CONFIRMED',
+        )
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('700.00'))
+
+        txn.status = 'CANCELLED'
+        txn.save()
+
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+
+    def test_cancel_pending_no_balance_impact(self):
+        """Transitioning PENDING -> CANCELLED should not affect balance."""
+        txn = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=self.expense_category,
+            transaction_type='EXPENSE',
+            amount=Decimal('500.00'),
+            description='Pending to cancel',
+            transaction_date=date.today() + timedelta(days=10),
+            status='PENDING',
+        )
+        txn.status = 'CANCELLED'
+        txn.save()
+
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+
+    def test_invalid_transition_cancelled_to_confirmed(self):
+        """CANCELLED -> CONFIRMED should raise ValidationError."""
+        txn = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=self.expense_category,
+            transaction_type='EXPENSE',
+            amount=Decimal('100.00'),
+            description='Cancelled transaction',
+            transaction_date=date.today(),
+            status='PENDING',
+        )
+        txn.status = 'CANCELLED'
+        txn.save()
+
+        with self.assertRaises(ValidationError):
+            txn.status = 'CONFIRMED'
+            txn.full_clean()
+
+    def test_delete_pending_no_balance_impact(self):
+        """Deleting a PENDING transaction should not affect balance."""
+        txn = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=self.expense_category,
+            transaction_type='EXPENSE',
+            amount=Decimal('250.00'),
+            description='Pending to delete',
+            transaction_date=date.today(),
+            status='PENDING',
+        )
+        txn.delete()
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+
+    def test_delete_confirmed_reverses_balance(self):
+        """Deleting a CONFIRMED transaction should reverse balance."""
+        txn = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=self.expense_category,
+            transaction_type='EXPENSE',
+            amount=Decimal('250.00'),
+            description='Confirmed to delete',
+            transaction_date=date.today(),
+            status='CONFIRMED',
+        )
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('750.00'))
+
+        txn.delete()
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+
+    def test_monthly_summary_only_counts_confirmed(self):
+        """get_monthly_summary should only include CONFIRMED transactions."""
+        today = date.today()
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=self.income_category,
+            transaction_type='INCOME',
+            amount=Decimal('3000.00'),
+            description='Salary',
+            transaction_date=today,
+            status='CONFIRMED',
+        )
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=self.expense_category,
+            transaction_type='EXPENSE',
+            amount=Decimal('500.00'),
+            description='Pending rent',
+            transaction_date=today,
+            status='PENDING',
+        )
+
+        summary = Transaction.get_monthly_summary(self.user, today.year, today.month)
+        self.assertEqual(summary['income'], Decimal('3000.00'))
+        self.assertEqual(summary['expenses'], Decimal('0.00'))
+        self.assertEqual(summary['transaction_count'], 1)

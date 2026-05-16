@@ -10,7 +10,10 @@ urlpatterns = [
     path('<int:pk>/', views.TransactionDetailView.as_view(), name='detail'),
     path('<int:pk>/edit/', views.TransactionUpdateView.as_view(), name='update'),
     path('<int:pk>/delete/', views.TransactionDeleteView.as_view(), name='delete'),
-    
+    path('<int:pk>/confirm/', views.TransactionConfirmView.as_view(), name='confirm'),
+    path('<int:pk>/cancel/', views.TransactionCancelView.as_view(), name='cancel'),
+    path('bulk-confirm/', views.TransactionBulkConfirmView.as_view(), name='bulk_confirm'),
+
     # Additional utility views
     path('stats/', views.TransactionStatsView.as_view(), name='stats'),
     

@@ -183,11 +183,13 @@ class DashboardSnapshotTests(APITestBase):
             user=self.user, account=self.account, category=self.cat_income,
             transaction_type='INCOME', amount=Decimal('500.00'),
             description='Freela', transaction_date=date.today(),
+            status='CONFIRMED',
         )
         Transaction.objects.create(
             user=self.user, account=self.account, category=self.cat_expense,
             transaction_type='EXPENSE', amount=Decimal('120.00'),
             description='Conta de luz', transaction_date=date.today(),
+            status='CONFIRMED',
         )
         resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -220,11 +222,13 @@ class DashboardSnapshotTests(APITestBase):
             user=self.user, account=self.account, category=self.cat_income,
             transaction_type='INCOME', amount=Decimal('1000.00'),
             description='Salário', transaction_date=date.today(),
+            status='CONFIRMED',
         )
         Transaction.objects.create(
             user=self.user, account=self.account, category=self.cat_expense,
             transaction_type='EXPENSE', amount=Decimal('250.00'),
             description='Mercado', transaction_date=date.today(),
+            status='CONFIRMED',
         )
         resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -273,6 +277,7 @@ class DashboardSnapshotTests(APITestBase):
             user=self.user, account=self.account, category=self.cat_income,
             transaction_type='INCOME', amount=Decimal('300.00'),
             description='Receita', transaction_date=date.today(),
+            status='CONFIRMED',
         )
         resp = self.client.get(self.url, {'include': 'chart_6m'})
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
