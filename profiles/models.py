@@ -82,6 +82,12 @@ class Profile(models.Model):
         blank=True,
         help_text='Short biography or description (max 500 characters)'
     )
+
+    auto_confirm_default = models.BooleanField(
+        default=False,
+        verbose_name='Efetivar transações automaticamente',
+        help_text='Novas transações pendentes terão efetivação automática por padrão',
+    )
     
     # Timestamp fields for audit trail
     created_at = models.DateTimeField(

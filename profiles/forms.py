@@ -133,7 +133,7 @@ class ProfileForm(forms.ModelForm):
 
     class Meta:
         model = Profile
-        fields = ['avatar', 'phone', 'birth_date', 'bio']
+        fields = ['avatar', 'phone', 'birth_date', 'bio', 'auto_confirm_default']
         widgets = {
             'avatar': forms.ClearableFileInput(attrs={
                 'class': 'form-input',
@@ -151,6 +151,9 @@ class ProfileForm(forms.ModelForm):
                 'rows': 4,
                 'maxlength': 500,
                 'enterkeyhint': 'done',
+            }),
+            'auto_confirm_default': forms.CheckboxInput(attrs={
+                'class': 'form-checkbox h-5 w-5 text-sky-500 rounded border-gray-600 bg-gray-700',
             }),
         }
         labels = {

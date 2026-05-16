@@ -128,6 +128,12 @@ class TransactionForm(forms.ModelForm):
             ('PENDING', 'Pendente'),
             ('CONFIRMED', 'Efetivada'),
         ]
+
+        # Pre-fill auto_confirm from user profile preference (new transactions only)
+        if not self.instance.pk:
+            profile = getattr(user, 'profile', None)
+            if profile and profile.auto_confirm_default:
+                self.initial['auto_confirm'] = True
     
     def _filter_categories_by_type(self):
         """Filter categories based on transaction type."""
