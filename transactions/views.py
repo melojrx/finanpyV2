@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.urls import reverse_lazy, reverse
+from django.views import View
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView
 from django.db.models import Q
 from django.core.paginator import Paginator
@@ -56,7 +57,7 @@ class TransactionListView(LoginRequiredMixin, ListView):
             filters = filter_form.get_filters()
             if filters:
                 queryset = queryset.filter(**filters)
-            
+
             # Apply search filter
             search_term = filter_form.get_search_term()
             if search_term:
@@ -64,7 +65,11 @@ class TransactionListView(LoginRequiredMixin, ListView):
                     Q(description__icontains=search_term) |
                     Q(notes__icontains=search_term)
                 )
-        
+
+        # Default: hide cancelled unless explicitly filtered
+        if not self.request.GET.get('status'):
+            queryset = queryset.exclude(status='CANCELLED')
+
         return queryset
     
     def get_context_data(self, **kwargs):
@@ -475,12 +480,82 @@ class TransactionDeleteView(LoginRequiredMixin, DeleteView):
         )
 
 
+class TransactionConfirmView(LoginRequiredMixin, View):
+    """POST: confirm a pending transaction."""
+
+    def post(self, request, pk):
+        transaction = get_object_or_404(
+            Transaction, pk=pk, user=request.user, status='PENDING'
+        )
+        transaction.status = 'CONFIRMED'
+        transaction.confirmed_at = timezone.now()
+        transaction.save()
+
+        messages.success(
+            request,
+            f'Transação "{transaction.description}" efetivada com sucesso!'
+        )
+
+        next_url = request.POST.get('next', reverse('transactions:list'))
+        return redirect(next_url)
+
+
+class TransactionCancelView(LoginRequiredMixin, View):
+    """POST: cancel a pending or confirmed transaction."""
+
+    def post(self, request, pk):
+        transaction = get_object_or_404(
+            Transaction, pk=pk, user=request.user
+        )
+
+        if transaction.status == 'CANCELLED':
+            messages.error(request, 'Transação já está cancelada.')
+            return redirect(
+                reverse('transactions:detail', kwargs={'pk': pk})
+            )
+
+        transaction.status = 'CANCELLED'
+        transaction.save()
+
+        messages.success(
+            request,
+            f'Transação "{transaction.description}" cancelada.'
+        )
+
+        next_url = request.POST.get('next', reverse('transactions:list'))
+        return redirect(next_url)
+
+
+class TransactionBulkConfirmView(LoginRequiredMixin, View):
+    """POST: confirm multiple pending transactions at once."""
+
+    def post(self, request):
+        ids = request.POST.getlist('transaction_ids')
+        if not ids:
+            messages.warning(request, 'Nenhuma transação selecionada.')
+            return redirect(reverse('transactions:list'))
+
+        transactions = Transaction.objects.filter(
+            pk__in=ids, user=request.user, status='PENDING'
+        )
+
+        count = 0
+        for txn in transactions:
+            txn.status = 'CONFIRMED'
+            txn.confirmed_at = timezone.now()
+            txn.save()
+            count += 1
+
+        messages.success(request, f'{count} transação(ões) efetivada(s).')
+        return redirect(reverse('transactions:list'))
+
+
 def get_categories_by_type(request):
     """
     AJAX endpoint to return categories filtered by transaction type.
-    
+
     Used for dynamic category filtering in transaction forms.
-    
+
     Returns:
         JSON response with categories grouped by transaction type
     """
