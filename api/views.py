@@ -276,7 +276,7 @@ class DashboardSnapshotView(APIView):
 
         rows = (
             Transaction.objects
-            .filter(user=user, transaction_date__gte=chart_start)
+            .filter(user=user, transaction_date__gte=chart_start, status='CONFIRMED')
             .annotate(month=TruncMonth('transaction_date'))
             .values('month')
             .annotate(
@@ -562,6 +562,7 @@ class YearlySummaryView(APIView):
         totals = Transaction.objects.filter(
             user=request.user,
             transaction_date__year=year,
+            status='CONFIRMED',
         ).aggregate(
             total_income=Sum('amount', filter=Q(transaction_type='INCOME')),
             total_expenses=Sum('amount', filter=Q(transaction_type='EXPENSE')),
