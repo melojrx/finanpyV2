@@ -35,6 +35,7 @@ class TransactionSerializer(serializers.ModelSerializer):
     category_color = serializers.CharField(source='category.color', read_only=True)
     category_icon = serializers.CharField(source='category.icon', read_only=True)
     amount_display = serializers.CharField(read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
 
     class Meta:
         model = Transaction
@@ -45,6 +46,9 @@ class TransactionSerializer(serializers.ModelSerializer):
             'amount_display',
             'description',
             'transaction_date',
+            'status',
+            'status_display',
+            'confirmed_at',
             'notes',
             'is_recurring',
             'recurrence_type',
@@ -61,6 +65,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'account_name', 'category_name', 'category_full_path',
             'category_color', 'category_icon', 'amount_display',
+            'status_display', 'confirmed_at',
             'created_at', 'updated_at',
         ]
 
@@ -75,6 +80,48 @@ class TransactionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'category': 'Categoria não pertence ao usuário.'})
 
         return data
+
+    @staticmethod
+    def _apply_status_defaults(validated_data):
+        from django.utils import timezone
+
+        status = validated_data.get('status') or 'CONFIRMED'
+        validated_data['status'] = status
+        if status == 'CONFIRMED' and not validated_data.get('confirmed_at'):
+            validated_data['confirmed_at'] = timezone.now()
+            validated_data['auto_confirm'] = False
+        elif status == 'PENDING':
+            validated_data['confirmed_at'] = None
+            validated_data['auto_confirm'] = False
+        return validated_data
+
+    def create(self, validated_data):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        try:
+            return super().create(self._apply_status_defaults(validated_data))
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                exc.message_dict if hasattr(exc, 'message_dict') else exc.messages
+            )
+
+    def update(self, instance, validated_data):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from django.utils import timezone
+
+        if validated_data.get('status') == 'CONFIRMED' and instance.status != 'CONFIRMED':
+            validated_data.setdefault('confirmed_at', timezone.now())
+            validated_data['auto_confirm'] = False
+        elif validated_data.get('status') == 'PENDING':
+            validated_data['confirmed_at'] = None
+            validated_data['auto_confirm'] = False
+
+        try:
+            return super().update(instance, validated_data)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                exc.message_dict if hasattr(exc, 'message_dict') else exc.messages
+            )
 
 
 class QuickTransactionSerializer(serializers.ModelSerializer):
@@ -103,12 +150,14 @@ class QuickTransactionSerializer(serializers.ModelSerializer):
     category_color = serializers.CharField(source='category.color', read_only=True)
     category_icon = serializers.CharField(source='category.icon', read_only=True)
     amount_display = serializers.CharField(read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
 
     class Meta:
         model = Transaction
         fields = [
             'id', 'client_id',
             'transaction_type', 'amount', 'description', 'transaction_date',
+            'status', 'status_display', 'confirmed_at',
             'account', 'account_name',
             'category', 'category_name', 'category_full_path',
             'category_color', 'category_icon',
@@ -116,11 +165,13 @@ class QuickTransactionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'account_name', 'category_name', 'category_full_path',
-            'category_color', 'category_icon', 'amount_display', 'created_at',
+            'category_color', 'category_icon', 'amount_display',
+            'status_display', 'confirmed_at', 'created_at',
         ]
         extra_kwargs = {
             'description': {'required': False, 'allow_blank': True},
             'transaction_date': {'required': False},
+            'status': {'required': False},
         }
 
     def validate(self, data):
@@ -152,7 +203,9 @@ class QuickTransactionSerializer(serializers.ModelSerializer):
         from django.core.exceptions import ValidationError as DjangoValidationError
 
         try:
-            return super().create(validated_data)
+            return super().create(
+                TransactionSerializer._apply_status_defaults(validated_data)
+            )
         except DjangoValidationError as exc:
             raise serializers.ValidationError(
                 exc.message_dict if hasattr(exc, 'message_dict') else exc.messages

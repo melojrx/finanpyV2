@@ -66,7 +66,10 @@ class APITestBase(APITestCase):
     def setUp(self):
         self.token, _ = Token.objects.get_or_create(user=self.user)
         self.client = APIClient()
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f'Token {self.token.key}',
+            HTTP_X_FORWARDED_PROTO='https',
+        )
 
 
 class QuickTransactionEndpointTests(APITestBase):
@@ -153,6 +156,7 @@ class QuickTransactionEndpointTests(APITestBase):
 
     def test_requires_authentication(self):
         anon = APIClient()
+        anon.defaults['HTTP_X_FORWARDED_PROTO'] = 'https'
         resp = anon.post(self.url, {}, format='json')
         self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
 
@@ -166,6 +170,159 @@ class QuickTransactionEndpointTests(APITestBase):
         }
         resp = self.client.post(self.url, payload, format='json')
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_accepts_future_pending_transaction_without_balance_impact(self):
+        future_date = date.today() + timedelta(days=10)
+        payload = {
+            'amount': '292.00',
+            'transaction_type': 'EXPENSE',
+            'account': self.account.pk,
+            'category': self.cat_expense.pk,
+            'description': 'Parcela Bianca futura',
+            'transaction_date': future_date.isoformat(),
+            'status': 'PENDING',
+        }
+
+        resp = self.client.post(self.url, payload, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+        tx = Transaction.objects.get(pk=resp.data['id'])
+        self.assertEqual(tx.status, 'PENDING')
+        self.assertIsNone(tx.confirmed_at)
+        self.assertEqual(resp.data['status'], 'PENDING')
+        self.assertIn('status_display', resp.data)
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+
+
+class ManualPendingTransactionWorkflowTests(APITestBase):
+    """Fluxo manual: criar previsão, relatar pendências e efetivar sob demanda."""
+
+    transactions_url = '/api/v1/transactions/'
+
+    def test_standard_post_defaults_to_confirmed_and_updates_balance(self):
+        payload = {
+            'amount': '49.90',
+            'transaction_type': 'EXPENSE',
+            'account': self.account.pk,
+            'category': self.cat_expense.pk,
+            'description': 'Mercado hoje',
+            'transaction_date': date.today().isoformat(),
+        }
+
+        resp = self.client.post(self.transactions_url, payload, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+        tx = Transaction.objects.get(pk=resp.data['id'])
+        self.assertEqual(tx.status, 'CONFIRMED')
+        self.assertIsNotNone(tx.confirmed_at)
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('950.10'))
+
+    def test_standard_post_can_create_future_pending_without_balance_impact(self):
+        future_date = date.today() + timedelta(days=15)
+        payload = {
+            'amount': '1540.93',
+            'transaction_type': 'INCOME',
+            'account': self.account.pk,
+            'category': self.cat_income.pk,
+            'description': 'Aluguel futuro',
+            'transaction_date': future_date.isoformat(),
+            'status': 'PENDING',
+        }
+
+        resp = self.client.post(self.transactions_url, payload, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+        tx = Transaction.objects.get(pk=resp.data['id'])
+        self.assertEqual(tx.status, 'PENDING')
+        self.assertIsNone(tx.confirmed_at)
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+
+    def test_pending_report_returns_due_and_future_totals(self):
+        due = Transaction.objects.create(
+            user=self.user, account=self.account, category=self.cat_expense,
+            transaction_type='EXPENSE', amount=Decimal('100.00'),
+            description='Despesa vencida', transaction_date=date.today(),
+            status='PENDING',
+        )
+        future = Transaction.objects.create(
+            user=self.user, account=self.account, category=self.cat_income,
+            transaction_type='INCOME', amount=Decimal('250.00'),
+            description='Receita futura', transaction_date=date.today() + timedelta(days=5),
+            status='PENDING',
+        )
+        Transaction.objects.create(
+            user=self.user, account=self.account, category=self.cat_expense,
+            transaction_type='EXPENSE', amount=Decimal('999.00'),
+            description='Confirmada ignorada', transaction_date=date.today(),
+            status='CONFIRMED', confirmed_at=timezone.now(),
+        )
+
+        resp = self.client.get(
+            f'{self.transactions_url}pending/',
+            {'until': (date.today() + timedelta(days=5)).isoformat()},
+        )
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.content)
+        self.assertEqual(resp.data['summary']['count'], 2)
+        self.assertEqual(Decimal(resp.data['summary']['income']), Decimal('250.00'))
+        self.assertEqual(Decimal(resp.data['summary']['expenses']), Decimal('100.00'))
+        self.assertEqual(Decimal(resp.data['summary']['net']), Decimal('150.00'))
+        self.assertEqual({item['id'] for item in resp.data['results']}, {due.id, future.id})
+
+    def test_due_pending_report_filters_until_today(self):
+        due = Transaction.objects.create(
+            user=self.user, account=self.account, category=self.cat_expense,
+            transaction_type='EXPENSE', amount=Decimal('100.00'),
+            description='Despesa vencida', transaction_date=date.today(),
+            status='PENDING',
+        )
+        Transaction.objects.create(
+            user=self.user, account=self.account, category=self.cat_income,
+            transaction_type='INCOME', amount=Decimal('250.00'),
+            description='Receita futura', transaction_date=date.today() + timedelta(days=5),
+            status='PENDING',
+        )
+
+        resp = self.client.get(f'{self.transactions_url}pending/', {'due': 'true'})
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.content)
+        self.assertEqual(resp.data['summary']['count'], 1)
+        self.assertEqual(resp.data['results'][0]['id'], due.id)
+
+    def test_confirm_action_confirms_pending_and_updates_balance(self):
+        tx = Transaction.objects.create(
+            user=self.user, account=self.account, category=self.cat_expense,
+            transaction_type='EXPENSE', amount=Decimal('75.00'),
+            description='Despesa a efetivar', transaction_date=date.today(),
+            status='PENDING',
+        )
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+
+        resp = self.client.post(f'{self.transactions_url}{tx.id}/confirm/', {}, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.content)
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, 'CONFIRMED')
+        self.assertIsNotNone(tx.confirmed_at)
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('925.00'))
+
+    def test_confirm_action_rejects_non_pending_transaction(self):
+        tx = Transaction.objects.create(
+            user=self.user, account=self.account, category=self.cat_expense,
+            transaction_type='EXPENSE', amount=Decimal('75.00'),
+            description='Já confirmada', transaction_date=date.today(),
+            status='CONFIRMED', confirmed_at=timezone.now(),
+        )
+
+        resp = self.client.post(f'{self.transactions_url}{tx.id}/confirm/', {}, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('pendentes', resp.data['detail'])
 
 
 class DashboardSnapshotTests(APITestBase):
@@ -214,6 +371,7 @@ class DashboardSnapshotTests(APITestBase):
 
     def test_requires_authentication(self):
         anon = APIClient()
+        anon.defaults['HTTP_X_FORWARDED_PROTO'] = 'https'
         resp = anon.get(self.url)
         self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
 
@@ -386,6 +544,7 @@ class SyncSinceEndpointTests(APITestBase):
 
     def test_requires_authentication(self):
         anon = APIClient()
+        anon.defaults['HTTP_X_FORWARDED_PROTO'] = 'https'
         resp = anon.get(self.url, {'ts': timezone.now().isoformat()})
         self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
 
@@ -448,12 +607,16 @@ class ReceiptDraftEndpointTests(APITestBase):
 
     def test_requires_authentication(self):
         anon = APIClient()
+        anon.defaults['HTTP_X_FORWARDED_PROTO'] = 'https'
         upload = SimpleUploadedFile('x.png', self._png_bytes(), content_type='image/png')
         resp = anon.post(self.url, {'receipt': upload}, format='multipart')
         self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
 
 
 class DeeplinkHandlerTests(TestCase):
+    def setUp(self):
+        self.client.defaults['HTTP_X_FORWARDED_PROTO'] = 'https'
+
     """GET /handler/?q= — protocol_handlers do PWA.
 
     O handler é uma view do core (não da API), então não exige Token —

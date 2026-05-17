@@ -1,6 +1,9 @@
+from datetime import date
 from decimal import Decimal
 
 from django.db.models import Sum, Q
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -78,10 +81,83 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if category_id:
             qs = qs.filter(category_id=category_id)
 
+        status_param = (params.get('status') or '').upper()
+        valid_statuses = {choice[0] for choice in Transaction.STATUS_CHOICES}
+        if status_param in valid_statuses:
+            qs = qs.filter(status=status_param)
+
         return qs.order_by('-transaction_date', '-created_at')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post'], url_path='confirm')
+    def confirm(self, request, pk=None):
+        """Efetiva manualmente uma transação pendente."""
+        transaction_obj = self.get_object()
+        if transaction_obj.status != 'PENDING':
+            return Response(
+                {'detail': 'Apenas transações pendentes podem ser efetivadas.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        transaction_obj.status = 'CONFIRMED'
+        transaction_obj.auto_confirm = False
+        transaction_obj.confirmed_at = timezone.now()
+        transaction_obj.save()
+
+        return Response(
+            self.get_serializer(transaction_obj).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=['get'], url_path='pending')
+    def pending(self, request):
+        """Relatório manual de transações pendentes a efetivar."""
+        qs = self.get_queryset().filter(status='PENDING')
+
+        due_raw = (request.query_params.get('due') or '').lower()
+        due_only = due_raw in ('1', 'true', 'yes', 'sim')
+        until_raw = (request.query_params.get('until') or '').strip()
+        until_date = None
+
+        if due_only:
+            until_date = date.today()
+        elif until_raw:
+            until_date = parse_date(until_raw)
+            if until_date is None:
+                return Response(
+                    {'detail': 'Parâmetro until inválido. Use YYYY-MM-DD.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if until_date:
+            qs = qs.filter(transaction_date__lte=until_date)
+
+        totals = qs.aggregate(
+            income=Sum('amount', filter=Q(transaction_type='INCOME')),
+            expenses=Sum('amount', filter=Q(transaction_type='EXPENSE')),
+        )
+        income = totals['income'] or Decimal('0.00')
+        expenses = totals['expenses'] or Decimal('0.00')
+
+        return Response({
+            'as_of': date.today().isoformat(),
+            'filters': {
+                'due': due_only,
+                'until': until_date.isoformat() if until_date else None,
+                'type': request.query_params.get('type'),
+                'account': request.query_params.get('account'),
+                'category': request.query_params.get('category'),
+            },
+            'summary': {
+                'count': qs.count(),
+                'income': str(income),
+                'expenses': str(expenses),
+                'net': str(income - expenses),
+            },
+            'results': self.get_serializer(qs, many=True).data,
+        })
 
     @action(detail=False, methods=['post'], url_path='quick',
             serializer_class=QuickTransactionSerializer)
