@@ -10,13 +10,14 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import Account
+from accounts.models import Account, FundTransfer
 from budgets.models import MonthlyPlan, MonthlyPlanItem
 from categories.models import Category
 from transactions.models import Transaction
 
 from .serializers import (
     AccountSerializer,
+    FundTransferSerializer,
     CategorySerializer,
     MonthlyPlanItemSerializer,
     MonthlyPlanSerializer,
@@ -35,6 +36,20 @@ class AccountViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['post'], url_path='transfer',
+            serializer_class=FundTransferSerializer)
+    def transfer(self, request):
+        """Transfere saldo entre contas do usuário autenticado.
+
+        Transferência não entra como receita/despesa; apenas debita a conta de
+        origem, credita a conta de destino e grava auditoria em FundTransfer.
+        """
+        serializer = FundTransferSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        transfer = serializer.save()
+        out = FundTransferSerializer(transfer, context={'request': request}).data
+        return Response(out, status=status.HTTP_201_CREATED)
 
 
 class CategoryViewSet(viewsets.ModelViewSet):

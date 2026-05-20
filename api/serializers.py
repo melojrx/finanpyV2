@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from accounts.models import Account
+from accounts.models import Account, FundTransfer
 from budgets.models import MonthlyPlan, MonthlyPlanItem
 from categories.models import Category
 from transactions.models import Transaction
@@ -16,6 +16,64 @@ class AccountSerializer(serializers.ModelSerializer):
             'currency', 'is_active', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'balance', 'created_at', 'updated_at']
+
+
+
+class FundTransferSerializer(serializers.ModelSerializer):
+    from_account_name = serializers.CharField(source='from_account.name', read_only=True)
+    to_account_name = serializers.CharField(source='to_account.name', read_only=True)
+
+    class Meta:
+        model = FundTransfer
+        fields = [
+            'id', 'from_account', 'from_account_name', 'to_account',
+            'to_account_name', 'amount', 'description', 'transfer_date',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'from_account_name', 'to_account_name',
+            'created_at', 'updated_at',
+        ]
+        extra_kwargs = {
+            'description': {'required': False, 'allow_blank': True},
+            'transfer_date': {'required': False},
+        }
+
+    def validate(self, data):
+        from datetime import date as _date
+
+        user = self.context['request'].user
+        from_account = data.get('from_account')
+        to_account = data.get('to_account')
+        if not data.get('transfer_date'):
+            data['transfer_date'] = _date.today()
+
+        if from_account and from_account.user != user:
+            raise serializers.ValidationError({
+                'from_account': 'Conta de origem não pertence ao usuário.'
+            })
+        if to_account and to_account.user != user:
+            raise serializers.ValidationError({
+                'to_account': 'Conta de destino não pertence ao usuário.'
+            })
+        if from_account and to_account and from_account.pk == to_account.pk:
+            raise serializers.ValidationError({
+                'to_account': 'Conta de destino deve ser diferente da origem.'
+            })
+        return data
+
+    def create(self, validated_data):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        try:
+            return FundTransfer.create_and_apply(
+                user=self.context['request'].user,
+                **validated_data,
+            )
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                exc.message_dict if hasattr(exc, 'message_dict') else exc.messages
+            )
 
 
 class CategorySerializer(serializers.ModelSerializer):

@@ -325,6 +325,70 @@ class ManualPendingTransactionWorkflowTests(APITestBase):
         self.assertIn('pendentes', resp.data['detail'])
 
 
+class AccountTransferEndpointTests(APITestBase):
+    url = '/api/v1/accounts/transfer/'
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.destination = Account.objects.create(
+            user=cls.user,
+            name='Mercado Pago',
+            account_type='checking',
+            balance=Decimal('-149.89'),
+            currency='BRL',
+        )
+
+    def test_transfers_funds_between_owned_accounts_without_creating_income_or_expense(self):
+        payload = {
+            'from_account': self.account.pk,
+            'to_account': self.destination.pk,
+            'amount': '149.89',
+            'description': 'Cobertura Mercado Pago',
+            'transfer_date': '2026-05-20',
+        }
+
+        resp = self.client.post(self.url, payload, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+        self.account.refresh_from_db()
+        self.destination.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('850.11'))
+        self.assertEqual(self.destination.balance, Decimal('0.00'))
+        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 0)
+        self.assertEqual(resp.data['amount'], '149.89')
+        self.assertEqual(resp.data['from_account_name'], 'Itau Corrente')
+        self.assertEqual(resp.data['to_account_name'], 'Mercado Pago')
+
+    def test_rejects_transfer_to_account_not_owned_by_user(self):
+        payload = {
+            'from_account': self.account.pk,
+            'to_account': self.other_account.pk,
+            'amount': '10.00',
+        }
+
+        resp = self.client.post(self.url, payload, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('to_account', resp.data)
+        self.account.refresh_from_db()
+        self.other_account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+        self.assertEqual(self.other_account.balance, Decimal('0.00'))
+
+    def test_rejects_same_source_and_destination(self):
+        payload = {
+            'from_account': self.account.pk,
+            'to_account': self.account.pk,
+            'amount': '10.00',
+        }
+
+        resp = self.client.post(self.url, payload, format='json')
+
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('to_account', resp.data)
+
+
 class DashboardSnapshotTests(APITestBase):
     url = '/api/v1/dashboard/snapshot/'
 
