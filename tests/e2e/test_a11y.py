@@ -10,7 +10,7 @@ class TestAccessibility:
     PAGES = [
         "/dashboard/",
         "/transactions/",
-        "/transactions/new/",
+        "/transactions/create/",
         "/budgets/plano/",
         "/accounts/",
         "/goals/",
@@ -21,7 +21,7 @@ class TestAccessibility:
         page = authenticated_page
         page.set_viewport_size({"width": 375, "height": 812})
         page.goto(f"{base_url}{path}")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         axe = Axe()
         results = axe.run(page)
@@ -46,7 +46,7 @@ class TestAccessibility:
         page = authenticated_page
         page.set_viewport_size({"width": 1280, "height": 800})
         page.goto(f"{base_url}/dashboard/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         axe = Axe()
         results = axe.run(page)

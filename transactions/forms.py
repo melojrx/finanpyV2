@@ -53,10 +53,8 @@ class TransactionForm(forms.ModelForm):
             }),
             # Mobile: inputmode=decimal abre teclado numérico com vírgula no
             # iOS/Android; enterkeyhint=next ajuda fluxo de preenchimento.
-            'amount': forms.NumberInput(attrs={
+            'amount': forms.TextInput(attrs={
                 'class': 'form-input',
-                'step': '0.01',
-                'min': '0.01',
                 'placeholder': '0,00',
                 'inputmode': 'decimal',
                 'enterkeyhint': 'next',

@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import time
 
 import pytest
@@ -14,7 +15,7 @@ def base_url():
 def django_server(base_url):
     """Start Django dev server for E2E tests."""
     proc = subprocess.Popen(
-        ["python", "manage.py", "runserver", "8001", "--noreload"],
+        [sys.executable, "manage.py", "runserver", "8001", "--noreload"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -29,15 +30,21 @@ def test_user(django_server):
     """Create test user via manage.py shell."""
     subprocess.run(
         [
-            "python",
+            sys.executable,
             "manage.py",
             "shell",
             "-c",
             (
                 "from django.contrib.auth import get_user_model; "
+                "from accounts.models import Account; "
+                "from categories.models import Category; "
                 "User = get_user_model(); "
-                "User.objects.filter(email='test@finanpy.dev').exists() or "
-                "User.objects.create_user(email='test@finanpy.dev', password='TestPass123!')"
+                "user, created = User.objects.get_or_create(email='test@finanpy.dev'); "
+                "user.set_password('TestPass123!'); "
+                "user.save(); "
+                "Account.objects.get_or_create(user=user, name='Conta E2E', defaults={'account_type':'checking','balance':'1000.00','currency':'BRL'}); "
+                "Category.objects.get_or_create(user=user, name='Supermercado E2E', category_type='EXPENSE', defaults={'color':'#EF4444','icon':'🍔'}); "
+                "Category.objects.get_or_create(user=user, name='Salário E2E', category_type='INCOME', defaults={'color':'#10B981','icon':'💰'});"
             ),
         ],
         check=True,

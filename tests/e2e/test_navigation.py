@@ -7,13 +7,13 @@ class TestMobileNavigation:
     def test_bottom_nav_visible_on_mobile(self, authenticated_page: Page):
         page = authenticated_page
         page.set_viewport_size({"width": 375, "height": 812})
-        nav = page.locator('nav[aria-label="Navegação principal"]')
+        nav = page.locator(".finanpy-bottom-nav")
         expect(nav).to_be_visible()
 
     def test_bottom_nav_hidden_on_desktop(self, authenticated_page: Page):
         page = authenticated_page
         page.set_viewport_size({"width": 1280, "height": 800})
-        nav = page.locator('nav[aria-label="Navegação principal"]').last
+        nav = page.locator(".finanpy-bottom-nav")
         expect(nav).to_be_hidden()
 
     def test_navigate_to_transactions(self, authenticated_page: Page):

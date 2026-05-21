@@ -8,8 +8,8 @@ class TestTransactionFlow:
         page = authenticated_page
         page.set_viewport_size({"width": 375, "height": 812})
 
-        page.goto(page.url.replace("/dashboard/", "/transactions/new/"))
-        page.wait_for_load_state("networkidle")
+        page.goto(page.url.replace("/dashboard/", "/transactions/create/"))
+        page.wait_for_load_state("load")
 
         page.fill('input[name="description"]', "Teste E2E - Supermercado")
         page.fill('input[name="amount"]', "150,00")
@@ -22,11 +22,10 @@ class TestTransactionFlow:
         if account_select.is_visible():
             account_select.select_option(index=1)
 
-        category_select = page.locator('select[name="category"]')
-        if category_select.is_visible():
-            category_select.select_option(index=1)
+        page.click('#category-trigger')
+        page.locator('.category-item').first.click()
 
-        page.click('button[type="submit"]')
+        page.locator('#transaction-form button[type="submit"]').click()
         page.wait_for_url("**/transactions/**")
 
     def test_fab_opens_transaction_form(self, authenticated_page: Page):
@@ -36,6 +35,5 @@ class TestTransactionFlow:
         fab = page.locator('[aria-label="Nova transação"]')
         fab.click()
 
-        page.wait_for_timeout(500)
-        form_visible = page.locator('form').first.is_visible()
-        assert form_visible
+        page.wait_for_url("**/transactions/create/")
+        expect(page.locator('#transaction-form')).to_be_visible()
