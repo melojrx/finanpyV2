@@ -3,6 +3,37 @@
 
 {% block title %}Passo 1 — Renda e Metas — FinanPy{% endblock %}
 
+{% block extra_head %}
+<style>
+  /* Mantém os inputs do wizard no mesmo padrão dark da tela de transações.
+     Sem este override, o reset do Tailwind Forms aplica fundo branco. */
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    border: 2px solid #374151;
+    border-radius: 0.75rem;
+    background-color: #1F2937;
+    color: #F9FAFB;
+    font-size: 1rem;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .form-input::placeholder,
+  .form-textarea::placeholder {
+    color: #9CA3AF;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: #0ea5e9;
+    box-shadow: 0 0 0 3px rgba(14,165,233,.2);
+    background-color: #1F2937;
+  }
+  .form-textarea {
+    resize: vertical;
+    min-height: 80px;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
