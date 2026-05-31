@@ -257,13 +257,14 @@
                         <div class="flex-1 min-w-0">
                             <p class="text-white font-semibold truncate">{{ tx.description }}</p>
                             <p class="text-xs text-gray-400 truncate mt-0.5">
-                                {{ tx.category.name }} · {{ tx.account.name }} · {{ tx.transaction_date|date:"d/m" }}
+                                {{ tx.category.name }} · {{ tx.account.name }}
                             </p>
                         </div>
-                        <div class="text-right ml-2">
+                        <div class="text-right ml-2 flex-shrink-0">
                             <p class="font-bold num-tabular {% if tx.transaction_type == 'INCOME' %}text-green-400{% else %}text-red-400{% endif %}">
                                 {% if tx.transaction_type == 'INCOME' %}+{% else %}-{% endif %}{{ tx.amount_display }}
                             </p>
+                            <p class="text-xs text-gray-400 num-tabular mt-0.5">{{ tx.transaction_date|date:"d/m/Y" }}</p>
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border {{ tx.status_badge_classes }} mt-0.5">
                                 {% if tx.status == 'PENDING' %}⏳{% elif tx.status == 'CONFIRMED' %}✓{% else %}✕{% endif %}
                                 {{ tx.get_status_display }}
@@ -473,7 +474,9 @@
     </nav>
     {% endif %}
 </section>
+{% endblock %}
 
+{% block bottom_sheets %}
 {# ─── Bottom-sheet de filtros (mobile) ─────────────────────────── #}
 <div id="filter-sheet" class="finanpy-sheet fixed inset-0 z-50 hidden"
      role="dialog" aria-modal="true" aria-labelledby="filter-sheet-title">

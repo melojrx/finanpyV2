@@ -102,6 +102,9 @@
         {% block content %}{% endblock %}
     </main>
 
+    {# Bottom sheets — fora de <main> para não serem afetados por inert #}
+    {% block bottom_sheets %}{% endblock %}
+
     {# Chrome inferior #}
     {% if user.is_authenticated %}
         {% include 'components/_bottom_nav.html' %}
