@@ -63,6 +63,9 @@ urlpatterns = [
     # Goals management URLs
     path('goals/', include('goals.urls')),
 
+    # Tags management URLs
+    path('tags/', include('tags.urls')),
+
     # REST API
     path('api/v1/', include('api.urls')),
     path('api/token/', obtain_auth_token, name='api-token'),
