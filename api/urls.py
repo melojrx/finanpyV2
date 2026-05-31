@@ -12,6 +12,7 @@ from .views import (
     MonthlyPlanViewSet,
     ReceiptDraftView,
     SyncSinceView,
+    TagViewSet,
     TransactionViewSet,
     MonthlySummaryView,
     YearlySummaryView,
@@ -28,6 +29,7 @@ router.register(r'monthly-plans', MonthlyPlanViewSet, basename='api-monthly-plan
 router.register(
     r'monthly-plan-items', MonthlyPlanItemViewSet, basename='api-monthly-plan-item'
 )
+router.register(r'tags', TagViewSet, basename='api-tag')
 
 urlpatterns = [
     # Paths customizados que conflitam com o router precisam vir ANTES

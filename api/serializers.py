@@ -6,6 +6,7 @@ from accounts.models import Account, FundTransfer
 from budgets.models import Budget, MonthlyPlan, MonthlyPlanItem
 from categories.models import Category
 from goals.models import Goal, GoalContribution
+from tags.models import Tag
 from transactions.models import Transaction
 
 
@@ -87,12 +88,24 @@ class CategorySerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ['id', 'name', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
 class TransactionSerializer(serializers.ModelSerializer):
     account_name = serializers.CharField(source='account.name', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
     category_full_path = serializers.CharField(source='category.full_path', read_only=True)
     category_color = serializers.CharField(source='category.color', read_only=True)
     category_icon = serializers.CharField(source='category.icon', read_only=True)
+    tags = TagSerializer(many=True, read_only=True)
+    tag_ids = serializers.PrimaryKeyRelatedField(
+        many=True, write_only=True, required=False,
+        queryset=Tag.objects.all(), source='tags',
+    )
     amount_display = serializers.CharField(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
 
@@ -118,13 +131,15 @@ class TransactionSerializer(serializers.ModelSerializer):
             'category_full_path',
             'category_color',
             'category_icon',
+            'tags',
+            'tag_ids',
             'created_at',
             'updated_at',
         ]
         read_only_fields = [
             'id', 'account_name', 'category_name', 'category_full_path',
             'category_color', 'category_icon', 'amount_display',
-            'status_display', 'confirmed_at',
+            'status_display', 'confirmed_at', 'tags',
             'created_at', 'updated_at',
         ]
 
@@ -137,6 +152,11 @@ class TransactionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'account': 'Conta não pertence ao usuário.'})
         if category and category.user != user:
             raise serializers.ValidationError({'category': 'Categoria não pertence ao usuário.'})
+
+        tag_ids = data.get('tags', [])
+        for tag in tag_ids:
+            if tag.user != user:
+                raise serializers.ValidationError({'tag_ids': 'Tag não pertence ao usuário.'})
 
         return data
 
@@ -157,16 +177,22 @@ class TransactionSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         from django.core.exceptions import ValidationError as DjangoValidationError
 
+        tags = validated_data.pop('tags', [])
         try:
-            return super().create(self._apply_status_defaults(validated_data))
+            instance = super().create(self._apply_status_defaults(validated_data))
         except DjangoValidationError as exc:
             raise serializers.ValidationError(
                 exc.message_dict if hasattr(exc, 'message_dict') else exc.messages
             )
+        if tags:
+            instance.tags.set(tags)
+        return instance
 
     def update(self, instance, validated_data):
         from django.core.exceptions import ValidationError as DjangoValidationError
         from django.utils import timezone
+
+        tags = validated_data.pop('tags', None)
 
         if validated_data.get('status') == 'CONFIRMED' and instance.status != 'CONFIRMED':
             validated_data.setdefault('confirmed_at', timezone.now())
@@ -176,11 +202,14 @@ class TransactionSerializer(serializers.ModelSerializer):
             validated_data['auto_confirm'] = False
 
         try:
-            return super().update(instance, validated_data)
+            instance = super().update(instance, validated_data)
         except DjangoValidationError as exc:
             raise serializers.ValidationError(
                 exc.message_dict if hasattr(exc, 'message_dict') else exc.messages
             )
+        if tags is not None:
+            instance.tags.set(tags)
+        return instance
 
 
 class QuickTransactionSerializer(serializers.ModelSerializer):

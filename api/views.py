@@ -14,6 +14,7 @@ from accounts.models import Account, FundTransfer
 from budgets.models import Budget, MonthlyPlan, MonthlyPlanItem
 from categories.models import Category
 from goals.models import Goal, GoalContribution
+from tags.models import Tag
 from transactions.models import Transaction
 
 from .serializers import (
@@ -27,6 +28,7 @@ from .serializers import (
     MonthlyPlanSerializer,
     MonthlyPlanSummarySerializer,
     QuickTransactionSerializer,
+    TagSerializer,
     TransactionSerializer,
 )
 
@@ -104,6 +106,12 @@ class TransactionViewSet(viewsets.ModelViewSet):
         valid_statuses = {choice[0] for choice in Transaction.STATUS_CHOICES}
         if status_param in valid_statuses:
             qs = qs.filter(status=status_param)
+
+        tag_param = params.get('tag')
+        if tag_param:
+            tag_names = [t.strip().lower() for t in tag_param.split(',') if t.strip()]
+            if tag_names:
+                qs = qs.filter(tags__name__in=tag_names, tags__user=self.request.user).distinct()
 
         return qs.order_by('-transaction_date', '-created_at')
 
@@ -871,6 +879,17 @@ class GoalContributionViewSet(viewsets.ModelViewSet):
         if goal_id:
             qs = qs.filter(goal_id=goal_id)
         return qs.order_by('-date', '-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class TagViewSet(viewsets.ModelViewSet):
+    """CRUD de tags do usuário autenticado."""
+    serializer_class = TagSerializer
+
+    def get_queryset(self):
+        return Tag.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
