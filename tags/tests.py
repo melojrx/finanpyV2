@@ -128,3 +128,135 @@ class TagViewTest(TestCase):
         response = self.client.get(reverse('tags:list'))
         self.assertEqual(response.status_code, 302)
         self.assertIn('login', response.url)
+
+
+from rest_framework.test import APITestCase, APIClient
+from rest_framework import status as http_status
+from transactions.models import Transaction
+from accounts.models import Account
+from categories.models import Category
+from datetime import date
+
+
+class TagAPITest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='apiuser@test.com', password='testpass123'
+        )
+        self.other_user = User.objects.create_user(
+            email='otherapiuser@test.com', password='testpass123'
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.tag = Tag.objects.create(user=self.user, name='viagem')
+
+    def _get_results(self, response):
+        """Handle both paginated and non-paginated responses."""
+        if isinstance(response.data, dict) and 'results' in response.data:
+            return response.data['results']
+        return response.data
+
+    def test_list_tags(self):
+        response = self.client.get('/api/v1/tags/')
+        self.assertEqual(response.status_code, http_status.HTTP_200_OK)
+        results = self._get_results(response)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['name'], 'viagem')
+
+    def test_list_tags_user_isolation(self):
+        Tag.objects.create(user=self.other_user, name='secreto')
+        response = self.client.get('/api/v1/tags/')
+        results = self._get_results(response)
+        self.assertEqual(len(results), 1)
+
+    def test_create_tag(self):
+        response = self.client.post('/api/v1/tags/', {'name': 'reembolso'})
+        self.assertEqual(response.status_code, http_status.HTTP_201_CREATED)
+        self.assertEqual(response.data['name'], 'reembolso')
+        self.assertTrue(Tag.objects.filter(user=self.user, name='reembolso').exists())
+
+    def test_create_duplicate_tag(self):
+        response = self.client.post('/api/v1/tags/', {'name': 'viagem'})
+        self.assertEqual(response.status_code, http_status.HTTP_400_BAD_REQUEST)
+
+    def test_update_tag(self):
+        response = self.client.patch(
+            f'/api/v1/tags/{self.tag.pk}/', {'name': 'trabalho'}
+        )
+        self.assertEqual(response.status_code, http_status.HTTP_200_OK)
+        self.tag.refresh_from_db()
+        self.assertEqual(self.tag.name, 'trabalho')
+
+    def test_delete_tag(self):
+        response = self.client.delete(f'/api/v1/tags/{self.tag.pk}/')
+        self.assertEqual(response.status_code, http_status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Tag.objects.filter(pk=self.tag.pk).exists())
+
+    def test_cannot_access_other_user_tag(self):
+        other_tag = Tag.objects.create(user=self.other_user, name='alheia')
+        response = self.client.get(f'/api/v1/tags/{other_tag.pk}/')
+        self.assertEqual(response.status_code, http_status.HTTP_404_NOT_FOUND)
+
+
+class TransactionTagAPITest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='txtaguser@test.com', password='testpass123'
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+        self.account = Account.objects.create(
+            user=self.user, name='Conta Test',
+            account_type='checking', balance=1000, currency='BRL',
+        )
+        self.category = Category.objects.create(
+            user=self.user, name='Alimentação',
+            category_type='EXPENSE',
+        )
+        self.tag1 = Tag.objects.create(user=self.user, name='viagem')
+        self.tag2 = Tag.objects.create(user=self.user, name='trabalho')
+
+    def test_create_transaction_with_tags(self):
+        data = {
+            'transaction_type': 'EXPENSE',
+            'amount': '50.00',
+            'description': 'Almoço viagem',
+            'transaction_date': '2026-05-31',
+            'account': self.account.pk,
+            'category': self.category.pk,
+            'status': 'CONFIRMED',
+            'tag_ids': [self.tag1.pk, self.tag2.pk],
+        }
+        response = self.client.post('/api/v1/transactions/', data, format='json')
+        self.assertEqual(response.status_code, http_status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data['tags']), 2)
+
+    def test_filter_transactions_by_tag(self):
+        tx = Transaction(
+            user=self.user, account=self.account, category=self.category,
+            transaction_type='EXPENSE', amount=30,
+            description='Com tag', transaction_date=date.today(),
+            status='CONFIRMED',
+        )
+        tx.save()
+        tx.tags.add(self.tag1)
+
+        tx2 = Transaction(
+            user=self.user, account=self.account, category=self.category,
+            transaction_type='EXPENSE', amount=20,
+            description='Sem tag', transaction_date=date.today(),
+            status='CONFIRMED',
+        )
+        tx2.save()
+
+        response = self.client.get('/api/v1/transactions/?tag=viagem')
+        self.assertEqual(response.status_code, http_status.HTTP_200_OK)
+        results = self._get_results(response)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['description'], 'Com tag')
+
+    def _get_results(self, response):
+        if isinstance(response.data, dict) and 'results' in response.data:
+            return response.data['results']
+        return response.data

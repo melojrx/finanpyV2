@@ -94,6 +94,22 @@ class TagSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'created_at']
         read_only_fields = ['id', 'created_at']
 
+    def validate_name(self, value):
+        """Normalize and check uniqueness per user."""
+        normalized = value.strip().lower()
+        if not normalized:
+            raise serializers.ValidationError("O nome da tag não pode ser vazio.")
+        request = self.context.get('request')
+        if request and request.user:
+            qs = Tag.objects.filter(user=request.user, name=normalized)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    "Tag com este nome já existe."
+                )
+        return normalized
+
 
 class TransactionSerializer(serializers.ModelSerializer):
     account_name = serializers.CharField(source='account.name', read_only=True)
