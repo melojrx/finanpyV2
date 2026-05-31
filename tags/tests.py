@@ -260,3 +260,80 @@ class TransactionTagAPITest(APITestCase):
         if isinstance(response.data, dict) and 'results' in response.data:
             return response.data['results']
         return response.data
+
+
+class TagTransactionIntegrationTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='integuser@test.com', password='testpass123'
+        )
+        self.client.login(email='integuser@test.com', password='testpass123')
+
+        self.account = Account.objects.create(
+            user=self.user, name='Conta Integração',
+            account_type='checking', balance=5000, currency='BRL',
+        )
+        self.category = Category.objects.create(
+            user=self.user, name='Transporte',
+            category_type='EXPENSE',
+        )
+        self.tag = Tag.objects.create(user=self.user, name='viagem')
+
+    def test_create_transaction_with_existing_tag(self):
+        data = {
+            'transaction_type': 'EXPENSE',
+            'amount': '100.00',
+            'description': 'Uber aeroporto',
+            'transaction_date': '2026-05-31',
+            'account': self.account.pk,
+            'category': self.category.pk,
+            'status': 'CONFIRMED',
+            'tags': [self.tag.pk],
+        }
+        response = self.client.post(reverse('transactions:create'), data)
+        self.assertEqual(response.status_code, 302)
+
+        tx = Transaction.objects.get(description='Uber aeroporto')
+        self.assertIn(self.tag, tx.tags.all())
+
+    def test_filter_transactions_by_tag_in_list(self):
+        tx1 = Transaction(
+            user=self.user, account=self.account, category=self.category,
+            transaction_type='EXPENSE', amount=50,
+            description='Com tag', transaction_date=date.today(),
+            status='CONFIRMED',
+        )
+        tx1.save()
+        tx1.tags.add(self.tag)
+
+        tx2 = Transaction(
+            user=self.user, account=self.account, category=self.category,
+            transaction_type='EXPENSE', amount=30,
+            description='Sem tag', transaction_date=date.today(),
+            status='CONFIRMED',
+        )
+        tx2.save()
+
+        response = self.client.get(
+            reverse('transactions:list') + f'?tags={self.tag.pk}'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Com tag')
+        self.assertNotContains(response, 'Sem tag')
+
+    def test_transaction_detail_shows_tags(self):
+        tx = Transaction(
+            user=self.user, account=self.account, category=self.category,
+            transaction_type='EXPENSE', amount=75,
+            description='Almoço trabalho', transaction_date=date.today(),
+            status='CONFIRMED',
+        )
+        tx.save()
+        tx.tags.add(self.tag)
+
+        response = self.client.get(
+            reverse('transactions:detail', kwargs={'pk': tx.pk})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'viagem')
