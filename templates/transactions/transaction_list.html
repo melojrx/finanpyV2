@@ -259,6 +259,15 @@
                             <p class="text-xs text-gray-400 truncate mt-0.5">
                                 {{ tx.category.name }} · {{ tx.account.name }}
                             </p>
+                            {% if tx.tags.all %}
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                {% for tag in tx.tags.all %}
+                                <span class="inline-flex px-1.5 py-0.5 rounded text-xs bg-gray-700 text-gray-300">
+                                    {{ tag.name }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
                         </div>
                         <div class="text-right ml-2 flex-shrink-0">
                             <p class="font-bold num-tabular {% if tx.transaction_type == 'INCOME' %}text-green-400{% else %}text-red-400{% endif %}">
@@ -346,6 +355,15 @@
                                     </svg>
                                     Recorrente
                                 </span>
+                            {% endif %}
+                            {% if tx.tags.all %}
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                {% for tag in tx.tags.all %}
+                                <span class="inline-flex px-1.5 py-0.5 rounded text-xs bg-gray-700 text-gray-300">
+                                    {{ tag.name }}
+                                </span>
+                                {% endfor %}
+                            </div>
                             {% endif %}
                         </td>
                         <td class="px-5 py-3">

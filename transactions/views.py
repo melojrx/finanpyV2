@@ -44,7 +44,7 @@ class TransactionListView(LoginRequiredMixin, ListView):
         """Return user-scoped transactions with filters applied."""
         queryset = Transaction.objects.filter(user=self.request.user).select_related(
             'account', 'category'
-        ).order_by('-transaction_date', '-created_at')
+        ).prefetch_related('tags').order_by('-transaction_date', '-created_at')
         
         # Apply filters from the filter form
         filter_form = TransactionFilterForm(
@@ -145,22 +145,22 @@ class TransactionListView(LoginRequiredMixin, ListView):
 class TransactionDetailView(LoginRequiredMixin, DetailView):
     """
     Detail view for individual transactions.
-    
+
     Features:
     - User-scoped access control
     - Related object information
     - Edit and delete action links
     """
-    
+
     model = Transaction
     template_name = 'transactions/transaction_detail.html'
     context_object_name = 'transaction'
-    
+
     def get_queryset(self):
         """Return user-scoped transactions with related objects."""
         return Transaction.objects.filter(user=self.request.user).select_related(
             'account', 'category'
-        )
+        ).prefetch_related('tags')
 
 
 class TransactionCreateView(LoginRequiredMixin, CreateView):

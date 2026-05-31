@@ -461,6 +461,19 @@
                         </div>
                     </div>
 
+                    {% if transaction.tags.all %}
+                    <div class="mt-4">
+                        <h3 class="text-sm font-medium text-gray-400 mb-2">Tags</h3>
+                        <div class="flex flex-wrap gap-1">
+                            {% for tag in transaction.tags.all %}
+                            <span class="inline-flex px-2 py-1 rounded-full text-xs bg-sky-900/40 text-sky-300">
+                                {{ tag.name }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
                     {% if transaction.notes %}
                     <div class="detail-row mt-8 lg:col-span-2">
                         <div class="detail-label mb-4">Observações</div>
