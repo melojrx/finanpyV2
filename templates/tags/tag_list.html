@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Tags{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-4xl">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-white">Tags</h1>
+        <a href="{% url 'tags:create' %}" class="btn-primary">
+            Nova Tag
+        </a>
+    </div>
+
+    {% if tags %}
+    <div class="card p-4">
+        <div class="flex flex-wrap gap-2">
+            {% for tag in tags %}
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-dark-700 border border-gray-600">
+                <span class="text-sm text-white">{{ tag.name }}</span>
+                <a href="{% url 'tags:update' tag.pk %}" class="text-gray-400 hover:text-sky-400 text-xs">✎</a>
+                <a href="{% url 'tags:delete' tag.pk %}" class="text-gray-400 hover:text-red-400 text-xs">✕</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card p-8 text-center">
+        <p class="text-gray-400 mb-4">Nenhuma tag criada ainda.</p>
+        <a href="{% url 'tags:create' %}" class="btn-primary">Criar primeira tag</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
