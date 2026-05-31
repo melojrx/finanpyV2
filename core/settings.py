@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'categories',
     'goals',
     'profiles',
+    'tags',
     'transactions',
     'users',
 ]
