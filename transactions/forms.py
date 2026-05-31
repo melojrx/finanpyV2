@@ -361,20 +361,32 @@ class TransactionFilterForm(forms.Form):
             'aria-label': 'Buscar transações',
         })
     )
+
+    tags = forms.ModelMultipleChoiceField(
+        queryset=Tag.objects.none(),
+        required=False,
+        label='Tags',
+        widget=forms.SelectMultiple(attrs={
+            'class': 'form-select',
+            'aria-label': 'Filtrar por tags',
+        }),
+    )
     
     def __init__(self, user, *args, **kwargs):
         """Initialize form with user-scoped choices."""
         super().__init__(*args, **kwargs)
         self.user = user
-        
+
         # Filter choices to user's active accounts and categories
         self.fields['account'].queryset = Account.objects.filter(
             user=user, is_active=True
         ).order_by('name')
-        
+
         self.fields['category'].queryset = Category.objects.filter(
             user=user, is_active=True
         ).order_by('category_type', 'name')
+
+        self.fields['tags'].queryset = Tag.objects.filter(user=user)
     
     def clean(self):
         """Validate date range."""
@@ -427,3 +439,9 @@ class TransactionFilterForm(forms.Form):
     def get_search_term(self):
         """Return search term for description filtering."""
         return self.cleaned_data.get('search', '').strip() if self.is_valid() else ''
+
+    def get_tag_filter(self):
+        """Return selected tags for M2M filtering."""
+        if self.is_valid() and self.cleaned_data.get('tags'):
+            return self.cleaned_data['tags']
+        return None

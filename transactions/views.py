@@ -66,6 +66,11 @@ class TransactionListView(LoginRequiredMixin, ListView):
                     Q(notes__icontains=search_term)
                 )
 
+            # Apply tag filter (M2M requires distinct)
+            selected_tags = filter_form.get_tag_filter()
+            if selected_tags:
+                queryset = queryset.filter(tags__in=selected_tags).distinct()
+
         # Default: hide cancelled unless explicitly filtered
         if not self.request.GET.get('status'):
             queryset = queryset.exclude(status='CANCELLED')
