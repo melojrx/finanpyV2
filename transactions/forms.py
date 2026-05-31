@@ -6,6 +6,7 @@ from datetime import date
 from .models import Transaction
 from accounts.models import Account
 from categories.models import Category
+from tags.models import Tag
 
 User = get_user_model()
 
@@ -26,7 +27,7 @@ class TransactionForm(forms.ModelForm):
         model = Transaction
         fields = [
             'transaction_type', 'account', 'category', 'amount',
-            'description', 'transaction_date', 'status', 'auto_confirm', 'notes'
+            'description', 'transaction_date', 'status', 'auto_confirm', 'notes', 'tags'
         ]
         localized_fields = ('amount',)
         widgets = {
@@ -132,6 +133,18 @@ class TransactionForm(forms.ModelForm):
             profile = getattr(user, 'profile', None)
             if profile and profile.auto_confirm_default:
                 self.initial['auto_confirm'] = True
+
+        # Tags field - user-scoped
+        self.fields['tags'] = forms.ModelMultipleChoiceField(
+            queryset=Tag.objects.filter(user=user),
+            required=False,
+            label='Tags',
+            widget=forms.SelectMultiple(attrs={
+                'class': 'form-select',
+                'id': 'id_tags',
+                'aria-label': 'Tags',
+            }),
+        )
     
     def _filter_categories_by_type(self):
         """Filter categories based on transaction type."""
@@ -236,22 +249,23 @@ class TransactionForm(forms.ModelForm):
     def save(self, commit=True):
         """Save transaction with user assignment."""
         transaction = super().save(commit=False)
-        
+
         # Ensure user is set - this is critical for the relationship
         if not self.user:
             raise ValidationError("User is required to create transaction")
-        
+
         # Set user if not already set
         if not hasattr(transaction, 'user') or not transaction.user:
             transaction.user = self.user
-        
+
         # Explicitly set user_id as well for safety
         if not transaction.user_id:
             transaction.user_id = self.user.id
-        
+
         if commit:
             transaction.save()
-        
+            self.save_m2m()
+
         return transaction
 
 
