@@ -80,7 +80,14 @@ class Transaction(models.Model):
         verbose_name='Categoria',
         help_text='Categoria para organização e relatórios'
     )
-    
+
+    tags = models.ManyToManyField(
+        'tags.Tag',
+        blank=True,
+        related_name='transactions',
+        verbose_name='Tags',
+    )
+
     transaction_type = models.CharField(
         max_length=10,
         choices=TRANSACTION_TYPE_CHOICES,
