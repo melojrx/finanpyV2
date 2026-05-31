@@ -31,17 +31,17 @@
                 </p>
                 
                 <div class="flex flex-col sm:flex-row gap-4 mb-8">
-                    <a href="{% url 'users:signup' %}" class="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl inline-flex items-center justify-center">
+                    <a href="{% url 'users:login' %}" class="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl inline-flex items-center justify-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
                         </svg>
-                        Começar gratuitamente
+                        Acessar minha conta
                     </a>
                     <a href="#recursos" class="bg-dark-700 hover:bg-dark-600 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 border border-dark-600 hover:border-dark-500 inline-flex items-center justify-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1a3 3 0 000-6h-1v6zm1 0V9a3 3 0 003 3 3 3 0 003-3v1"></path>
                         </svg>
-                        Ver demonstração
+                        Ver recursos
                     </a>
                 </div>
                 
@@ -260,23 +260,23 @@
             <div class="bg-dark-800/40 backdrop-blur-sm rounded-xl p-8 border border-dark-700 hover:border-primary-500/50 transition-all duration-300 hover:transform hover:scale-105">
                 <div class="w-16 h-16 bg-gradient-to-r from-green-600 to-teal-600 rounded-xl flex items-center justify-center mb-6">
                     <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
                     </svg>
                 </div>
-                <h3 class="text-xl font-semibold text-white mb-3">App Mobile</h3>
-                <p class="text-gray-400 mb-4">Acesse suas finanças de qualquer lugar com nosso app nativo para iOS e Android.</p>
+                <h3 class="text-xl font-semibold text-white mb-3">100% Responsivo (PWA)</h3>
+                <p class="text-gray-400 mb-4">Acesse suas finanças de qualquer dispositivo. Interface adaptável com experiência nativa via Progressive Web App — instale direto do navegador.</p>
                 <div class="space-y-2">
                     <div class="flex items-center text-sm text-gray-300">
                         <svg class="w-4 h-4 text-success-400 mr-2" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
                         </svg>
-                        Sincronização em tempo real
+                        Funciona offline
                     </div>
                     <div class="flex items-center text-sm text-gray-300">
                         <svg class="w-4 h-4 text-success-400 mr-2" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
                         </svg>
-                        Notificações push
+                        Instalável no celular e desktop
                     </div>
                 </div>
             </div>
@@ -382,7 +382,7 @@
                         </svg>
                     </div>
                 </div>
-                <p class="text-gray-300 mb-4">"A facilidade de uso é impressionante. Em 5 minutos já estava com tudo configurado. O app mobile é perfeito para acompanhar os gastos no dia a dia."</p>
+                <p class="text-gray-300 mb-4">"A facilidade de uso é impressionante. Em 5 minutos já estava com tudo configurado. Funciona perfeitamente no celular pelo navegador, sem precisar instalar nada."</p>
                 <div class="flex items-center">
                     <div class="w-10 h-10 bg-gradient-to-r from-success-500 to-primary-500 rounded-full flex items-center justify-center mr-3">
                         <span class="text-white font-semibold text-sm">AL</span>
@@ -442,8 +442,8 @@
                         <span class="text-4xl font-bold text-white">R$ 0</span>
                         <span class="text-gray-400">/mês</span>
                     </div>
-                    <a href="{% url 'users:signup' %}" class="bg-dark-700 hover:bg-dark-600 text-white px-6 py-3 rounded-lg font-medium transition-all duration-300 block">
-                        Começar agora
+                    <a href="{% url 'users:login' %}" class="bg-dark-700 hover:bg-dark-600 text-white px-6 py-3 rounded-lg font-medium transition-all duration-300 block">
+                        Acessar
                     </a>
                 </div>
                 
@@ -476,7 +476,7 @@
                         <svg class="w-5 h-5 text-success-400 mr-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
                         </svg>
-                        App mobile
+                        App PWA responsivo
                     </li>
                     <li class="flex items-center text-gray-400">
                         <svg class="w-5 h-5 text-gray-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -502,8 +502,8 @@
                         <span class="text-4xl font-bold text-white">R$ 19</span>
                         <span class="text-gray-400">/mês</span>
                     </div>
-                    <a href="{% url 'users:signup' %}" class="bg-gradient-to-r from-primary-600 to-success-600 hover:from-primary-700 hover:to-success-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-300 block transform hover:scale-105">
-                        Começar teste grátis
+                    <a href="{% url 'users:login' %}" class="bg-gradient-to-r from-primary-600 to-success-600 hover:from-primary-700 hover:to-success-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-300 block transform hover:scale-105">
+                        Acessar
                     </a>
                 </div>
                 
@@ -639,17 +639,11 @@
             Junte-se a milhares de brasileiros que já descobriram o segredo do controle financeiro inteligente.
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <a href="{% url 'users:signup' %}" class="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl inline-flex items-center">
+            <a href="{% url 'users:login' %}" class="bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl inline-flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
                 </svg>
-                Criar conta gratuita
-            </a>
-            <a href="{% url 'users:login' %}" class="text-white hover:text-gray-300 px-8 py-4 font-medium text-lg transition-colors duration-300 inline-flex items-center">
-                Já tem conta? Entre aqui
-                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                </svg>
+                Acessar minha conta
             </a>
         </div>
         
@@ -756,7 +750,7 @@
         }
 
         // Add pulse animation to CTA buttons
-        const ctaButtons = document.querySelectorAll('a[href*="signup"]');
+        const ctaButtons = document.querySelectorAll('a[href*="login"]');
         ctaButtons.forEach(button => {
             button.addEventListener('mouseenter', function() {
                 this.style.animation = 'pulse 0.5s ease-in-out';
@@ -767,7 +761,7 @@
             });
         });
 
-        // Form validation enhancement for signup/login
+        // Form validation enhancement for login
         const forms = document.querySelectorAll('form');
         forms.forEach(form => {
             form.addEventListener('submit', function(e) {
@@ -801,7 +795,7 @@
 
         console.log('🚀 FinanPy Landing Page carregada com sucesso!');
         console.log('💳 Sistema de gestão financeira pronto para transformar vidas!');
-        console.log('🔒 Segurança bancária • 🎯 IA integrada • 📱 App nativo');
+        console.log('🔒 Segurança bancária • 🎯 IA integrada • 📱 PWA responsivo');
     });
 </script>
 {% endblock %}
