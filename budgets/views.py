@@ -110,15 +110,15 @@ class PlanningHeaderView(LoginRequiredMixin, View):
 
     def get(self, request):
         today = date.today()
-        year = int(request.GET.get('year', today.year))
-        month = int(request.GET.get('month', today.month))
+        year = int(str(request.GET.get('year', today.year)).replace('.', '').replace(',', ''))
+        month = int(str(request.GET.get('month', today.month)).replace('.', '').replace(',', ''))
         form = MonthlyPlanHeaderForm()
         return render(request, self.template_name, {'form': form, 'year': year, 'month': month})
 
     def post(self, request):
         today = date.today()
-        year = int(request.POST.get('_year', today.year))
-        month = int(request.POST.get('_month', today.month))
+        year = int(str(request.POST.get('_year', today.year)).replace('.', '').replace(',', ''))
+        month = int(str(request.POST.get('_month', today.month)).replace('.', '').replace(',', ''))
 
         existing = MonthlyPlan.get_or_none(request.user, year, month)
         form = MonthlyPlanHeaderForm(request.POST, instance=existing)
