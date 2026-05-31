@@ -1,0 +1,238 @@
+{# Tag autocomplete widget — vanilla JS, works with <select id="id_tags" multiple> #}
+<div class="form-group" id="tag-input-widget">
+    <label for="tag-text-input" class="block text-sm font-semibold text-gray-200 mb-2">
+        Tags
+    </label>
+
+    {# Chips container + text input #}
+    <div class="flex flex-wrap items-center gap-1.5 p-2 min-h-[44px] bg-[#1F2937] border-2 border-[#374151] rounded-xl
+                focus-within:border-sky-500 focus-within:shadow-[0_0_0_3px_rgba(14,165,233,.2)] transition-colors">
+        <div id="tag-chips" class="contents"></div>
+        <input type="text" id="tag-text-input"
+               class="flex-1 min-w-[120px] bg-transparent border-0 outline-none text-gray-100 text-sm placeholder:text-gray-500 p-1"
+               placeholder="Adicionar tag…"
+               autocomplete="off"
+               enterkeyhint="done"
+               aria-label="Buscar ou criar tag"
+               aria-autocomplete="list"
+               aria-controls="tag-suggestions">
+    </div>
+
+    {# Suggestions dropdown #}
+    <div id="tag-suggestions"
+         class="absolute z-10 w-full mt-1 bg-dark-700 border border-gray-600 rounded-md shadow-lg max-h-40 overflow-y-auto hidden"
+         role="listbox" aria-label="Sugestões de tags"
+         style="position: relative;">
+    </div>
+
+    {# Hidden select kept in sync for form submission #}
+    <div class="hidden">{{ form.tags }}</div>
+</div>
+
+<script>
+(function() {
+    const widget = document.getElementById('tag-input-widget');
+    if (!widget) return;
+
+    const textInput = document.getElementById('tag-text-input');
+    const chipsContainer = document.getElementById('tag-chips');
+    const suggestionsEl = document.getElementById('tag-suggestions');
+    const hiddenSelect = document.getElementById('id_tags');
+    if (!textInput || !hiddenSelect) return;
+
+    // Make suggestions container absolutely positioned relative to widget
+    suggestionsEl.style.position = 'absolute';
+    widget.style.position = 'relative';
+
+    let allTags = []; // {id, name}
+    let selectedTags = []; // {id, name}
+    let debounceTimer = null;
+
+    // CSRF token from the form
+    function getCsrf() {
+        const el = document.querySelector('[name=csrfmiddlewaretoken]');
+        return el ? el.value : '';
+    }
+
+    // ── Fetch all user tags ──────────────────────────────────────────
+    async function fetchTags() {
+        try {
+            const resp = await fetch('/api/v1/tags/', {
+                headers: { 'Accept': 'application/json' }
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                allTags = (data.results || data).map(t => ({ id: String(t.id), name: t.name }));
+            }
+        } catch (e) {
+            console.warn('[tag-input] Failed to fetch tags:', e);
+        }
+    }
+
+    // ── Create new tag via API ───────────────────────────────────────
+    async function createTag(name) {
+        try {
+            const resp = await fetch('/api/v1/tags/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrf(),
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ name: name.trim() })
+            });
+            if (resp.ok) {
+                const tag = await resp.json();
+                const newTag = { id: String(tag.id), name: tag.name };
+                allTags.push(newTag);
+                return newTag;
+            }
+        } catch (e) {
+            console.warn('[tag-input] Failed to create tag:', e);
+        }
+        return null;
+    }
+
+    // ── Sync hidden select with selectedTags ─────────────────────────
+    function syncSelect() {
+        // Clear all options and re-add selected ones
+        hiddenSelect.innerHTML = '';
+        selectedTags.forEach(tag => {
+            const opt = new Option(tag.name, tag.id, true, true);
+            hiddenSelect.add(opt);
+        });
+    }
+
+    // ── Render chips ─────────────────────────────────────────────────
+    function renderChips() {
+        chipsContainer.innerHTML = '';
+        selectedTags.forEach(tag => {
+            const chip = document.createElement('span');
+            chip.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-900/40 text-sky-300 text-xs';
+            chip.setAttribute('data-tag-id', tag.id);
+            chip.innerHTML = `
+                <span>${escapeHtml(tag.name)}</span>
+                <button type="button" class="ml-0.5 hover:text-white transition-colors" aria-label="Remover tag ${escapeHtml(tag.name)}">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>`;
+            chip.querySelector('button').addEventListener('click', () => removeTag(tag.id));
+            chipsContainer.appendChild(chip);
+        });
+    }
+
+    function addTag(tag) {
+        if (selectedTags.find(t => t.id === tag.id)) return;
+        selectedTags.push(tag);
+        renderChips();
+        syncSelect();
+        textInput.value = '';
+        hideSuggestions();
+    }
+
+    function removeTag(id) {
+        selectedTags = selectedTags.filter(t => t.id !== id);
+        renderChips();
+        syncSelect();
+        textInput.focus();
+    }
+
+    // ── Suggestions ──────────────────────────────────────────────────
+    function showSuggestions(query) {
+        const q = query.toLowerCase().trim();
+        if (!q) { hideSuggestions(); return; }
+
+        const selectedIds = new Set(selectedTags.map(t => t.id));
+        const matches = allTags.filter(t =>
+            !selectedIds.has(t.id) && t.name.toLowerCase().includes(q)
+        ).slice(0, 8);
+
+        const exactMatch = allTags.find(t => t.name.toLowerCase() === q);
+
+        let html = matches.map(t =>
+            `<div class="px-3 py-2 text-sm text-gray-200 hover:bg-dark-600 cursor-pointer" role="option" data-tag-id="${t.id}" data-tag-name="${escapeAttr(t.name)}">${escapeHtml(t.name)}</div>`
+        ).join('');
+
+        if (!exactMatch && q.length > 0) {
+            html += `<div class="px-3 py-2 text-sm text-sky-400 hover:bg-dark-600 cursor-pointer" role="option" data-create="${escapeAttr(query.trim())}">Criar nova tag "<strong>${escapeHtml(query.trim())}</strong>"</div>`;
+        }
+
+        if (!html) { hideSuggestions(); return; }
+
+        suggestionsEl.innerHTML = html;
+        suggestionsEl.classList.remove('hidden');
+    }
+
+    function hideSuggestions() {
+        suggestionsEl.classList.add('hidden');
+        suggestionsEl.innerHTML = '';
+    }
+
+    // ── Event handlers ───────────────────────────────────────────────
+    textInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => showSuggestions(textInput.value), 80);
+    });
+
+    textInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const q = textInput.value.trim();
+            if (!q) return;
+
+            const exact = allTags.find(t => t.name.toLowerCase() === q.toLowerCase());
+            if (exact) {
+                addTag(exact);
+            } else {
+                // Create new tag
+                createTag(q).then(tag => { if (tag) addTag(tag); });
+            }
+        } else if (e.key === 'Escape') {
+            hideSuggestions();
+        } else if (e.key === 'Backspace' && !textInput.value && selectedTags.length) {
+            removeTag(selectedTags[selectedTags.length - 1].id);
+        }
+    });
+
+    textInput.addEventListener('blur', () => {
+        // Delay to allow click on suggestion
+        setTimeout(hideSuggestions, 200);
+    });
+
+    suggestionsEl.addEventListener('click', async (e) => {
+        const item = e.target.closest('[data-tag-id]');
+        const createItem = e.target.closest('[data-create]');
+
+        if (item) {
+            addTag({ id: item.dataset.tagId, name: item.dataset.tagName });
+        } else if (createItem) {
+            const tag = await createTag(createItem.dataset.create);
+            if (tag) addTag(tag);
+        }
+    });
+
+    // ── Helpers ──────────────────────────────────────────────────────
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c =>
+            ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function escapeAttr(s) {
+        return String(s).replace(/[&<>"']/g, c =>
+            ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // ── Init: read pre-selected tags from rendered select ────────────
+    function initFromSelect() {
+        Array.from(hiddenSelect.selectedOptions || hiddenSelect.options).forEach(opt => {
+            if (opt.value && opt.selected) {
+                selectedTags.push({ id: String(opt.value), name: opt.textContent.trim() });
+            }
+        });
+        renderChips();
+    }
+
+    initFromSelect();
+    fetchTags();
+})();
+</script>
