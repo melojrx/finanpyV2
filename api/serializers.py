@@ -3,8 +3,9 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from accounts.models import Account, FundTransfer
-from budgets.models import MonthlyPlan, MonthlyPlanItem
+from budgets.models import Budget, MonthlyPlan, MonthlyPlanItem
 from categories.models import Category
+from goals.models import Goal, GoalContribution
 from transactions.models import Transaction
 
 
@@ -352,3 +353,144 @@ class MonthlyPlanSummarySerializer(MonthlyPlanSerializer):
 
     class Meta(MonthlyPlanSerializer.Meta):
         fields = MonthlyPlanSerializer.Meta.fields + ['items']
+
+
+class BudgetSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    category_icon = serializers.CharField(source='category.icon', read_only=True)
+    category_color = serializers.CharField(source='category.color', read_only=True)
+    spent_amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+    remaining_amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+    percentage_used = serializers.DecimalField(
+        max_digits=6, decimal_places=2, read_only=True
+    )
+    is_over_budget = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = Budget
+        fields = [
+            'id', 'name', 'category', 'category_name', 'category_icon',
+            'category_color', 'planned_amount', 'spent_amount',
+            'remaining_amount', 'percentage_used', 'is_over_budget',
+            'start_date', 'end_date', 'is_active', 'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'category_name', 'category_icon', 'category_color',
+            'spent_amount', 'remaining_amount', 'percentage_used',
+            'is_over_budget', 'created_at', 'updated_at',
+        ]
+
+    def validate(self, data):
+        user = self.context['request'].user
+        category = data.get('category')
+        if category and category.user != user:
+            raise serializers.ValidationError(
+                {'category': 'Categoria não pertence ao usuário.'}
+            )
+        if category and category.category_type != 'EXPENSE':
+            raise serializers.ValidationError(
+                {'category': 'Orçamentos só podem ser criados para categorias de despesa.'}
+            )
+        return data
+
+    def create(self, validated_data):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        try:
+            return super().create(validated_data)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                exc.message_dict if hasattr(exc, 'message_dict') else exc.messages
+            )
+
+    def update(self, instance, validated_data):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        try:
+            return super().update(instance, validated_data)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                exc.message_dict if hasattr(exc, 'message_dict') else exc.messages
+            )
+
+
+class GoalSerializer(serializers.ModelSerializer):
+    progress_pct = serializers.DecimalField(
+        max_digits=6, decimal_places=2, read_only=True
+    )
+    remaining_amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+    days_remaining = serializers.IntegerField(read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = Goal
+        fields = [
+            'id', 'name', 'description', 'target_amount', 'current_amount',
+            'deadline', 'icon', 'color', 'status', 'status_display',
+            'progress_pct', 'remaining_amount', 'days_remaining',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'current_amount', 'progress_pct', 'remaining_amount',
+            'days_remaining', 'status_display', 'created_at', 'updated_at',
+        ]
+
+    def create(self, validated_data):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        try:
+            return super().create(validated_data)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                exc.message_dict if hasattr(exc, 'message_dict') else exc.messages
+            )
+
+    def update(self, instance, validated_data):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        try:
+            return super().update(instance, validated_data)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                exc.message_dict if hasattr(exc, 'message_dict') else exc.messages
+            )
+
+
+class GoalContributionSerializer(serializers.ModelSerializer):
+    goal_name = serializers.CharField(source='goal.name', read_only=True)
+
+    class Meta:
+        model = GoalContribution
+        fields = [
+            'id', 'goal', 'goal_name', 'amount', 'date', 'notes', 'created_at',
+        ]
+        read_only_fields = ['id', 'goal_name', 'created_at']
+
+    def validate(self, data):
+        user = self.context['request'].user
+        goal = data.get('goal')
+        if goal and goal.user != user:
+            raise serializers.ValidationError(
+                {'goal': 'Meta não pertence ao usuário.'}
+            )
+        if goal and goal.status != Goal.STATUS_ACTIVE:
+            raise serializers.ValidationError(
+                {'goal': 'Aportes só podem ser feitos em metas ativas.'}
+            )
+        return data
+
+    def create(self, validated_data):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        try:
+            return super().create(validated_data)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                exc.message_dict if hasattr(exc, 'message_dict') else exc.messages
+            )

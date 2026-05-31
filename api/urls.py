@@ -3,8 +3,11 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     AccountViewSet,
+    BudgetViewSet,
     CategoryViewSet,
     DashboardSnapshotView,
+    GoalContributionViewSet,
+    GoalViewSet,
     MonthlyPlanItemViewSet,
     MonthlyPlanViewSet,
     ReceiptDraftView,
@@ -18,6 +21,9 @@ router = DefaultRouter()
 router.register(r'accounts', AccountViewSet, basename='api-account')
 router.register(r'categories', CategoryViewSet, basename='api-category')
 router.register(r'transactions', TransactionViewSet, basename='api-transaction')
+router.register(r'budgets', BudgetViewSet, basename='api-budget')
+router.register(r'goals', GoalViewSet, basename='api-goal')
+router.register(r'goal-contributions', GoalContributionViewSet, basename='api-goal-contribution')
 router.register(r'monthly-plans', MonthlyPlanViewSet, basename='api-monthly-plan')
 router.register(
     r'monthly-plan-items', MonthlyPlanItemViewSet, basename='api-monthly-plan-item'

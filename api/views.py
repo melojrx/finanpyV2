@@ -11,14 +11,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Account, FundTransfer
-from budgets.models import MonthlyPlan, MonthlyPlanItem
+from budgets.models import Budget, MonthlyPlan, MonthlyPlanItem
 from categories.models import Category
+from goals.models import Goal, GoalContribution
 from transactions.models import Transaction
 
 from .serializers import (
     AccountSerializer,
+    BudgetSerializer,
     FundTransferSerializer,
     CategorySerializer,
+    GoalContributionSerializer,
+    GoalSerializer,
     MonthlyPlanItemSerializer,
     MonthlyPlanSerializer,
     MonthlyPlanSummarySerializer,
@@ -454,6 +458,15 @@ class SyncSinceView(APIView):
             .select_related('account', 'category')
             .order_by('updated_at')
         )
+        budgets_qs = (
+            Budget.objects.filter(user=request.user, updated_at__gt=ts)
+            .select_related('category')
+            .order_by('updated_at')
+        )
+        goals_qs = (
+            Goal.objects.filter(user=request.user, updated_at__gt=ts)
+            .order_by('updated_at')
+        )
 
         return Response({
             'server_time': _tz.now().isoformat(),
@@ -466,6 +479,12 @@ class SyncSinceView(APIView):
             ).data,
             'transactions': TransactionSerializer(
                 transactions_qs, many=True, context={'request': request}
+            ).data,
+            'budgets': BudgetSerializer(
+                budgets_qs, many=True, context={'request': request}
+            ).data,
+            'goals': GoalSerializer(
+                goals_qs, many=True, context={'request': request}
             ).data,
         })
 
@@ -747,3 +766,111 @@ class MonthlyPlanItemViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save()
+
+
+class BudgetViewSet(viewsets.ModelViewSet):
+    """CRUD de orçamentos do usuário autenticado."""
+    serializer_class = BudgetSerializer
+
+    def get_queryset(self):
+        qs = Budget.objects.filter(user=self.request.user).select_related('category')
+        params = self.request.query_params
+
+        if params.get('active', '').lower() in ('1', 'true'):
+            qs = qs.filter(is_active=True)
+
+        year = params.get('year')
+        month = params.get('month')
+        if year and month:
+            from datetime import date as _date
+            try:
+                y, m = int(year), int(month)
+                first_day = _date(y, m, 1)
+                if m == 12:
+                    last_day = _date(y + 1, 1, 1)
+                else:
+                    last_day = _date(y, m + 1, 1)
+                qs = qs.filter(start_date__lt=last_day, end_date__gte=first_day)
+            except (ValueError, TypeError):
+                pass
+
+        return qs.order_by('-start_date', 'name')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post'], url_path='refresh-cache')
+    def refresh_cache(self, request, pk=None):
+        """Força recálculo do spent_amount do orçamento."""
+        budget = self.get_object()
+        budget.refresh_spent_amount()
+        return Response(self.get_serializer(budget).data)
+
+
+class GoalViewSet(viewsets.ModelViewSet):
+    """CRUD de metas financeiras do usuário autenticado."""
+    serializer_class = GoalSerializer
+
+    def get_queryset(self):
+        qs = Goal.objects.filter(user=self.request.user)
+        status_param = (self.request.query_params.get('status') or '').upper()
+        valid = {c[0] for c in Goal.STATUS_CHOICES}
+        if status_param in valid:
+            qs = qs.filter(status=status_param)
+        return qs.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def complete(self, request, pk=None):
+        """Marca meta como concluída."""
+        goal = self.get_object()
+        if goal.status != Goal.STATUS_ACTIVE:
+            return Response(
+                {'detail': 'Apenas metas ativas podem ser concluídas.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        goal.status = Goal.STATUS_COMPLETED
+        goal.save(update_fields=['status', 'updated_at'])
+        return Response(self.get_serializer(goal).data)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Cancela uma meta ativa."""
+        goal = self.get_object()
+        if goal.status != Goal.STATUS_ACTIVE:
+            return Response(
+                {'detail': 'Apenas metas ativas podem ser canceladas.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        goal.status = Goal.STATUS_CANCELLED
+        goal.save(update_fields=['status', 'updated_at'])
+        return Response(self.get_serializer(goal).data)
+
+    @action(detail=True, methods=['get'])
+    def contributions(self, request, pk=None):
+        """Lista aportes de uma meta específica."""
+        goal = self.get_object()
+        contribs = goal.contributions.order_by('-date', '-created_at')
+        serializer = GoalContributionSerializer(
+            contribs, many=True, context={'request': request}
+        )
+        return Response(serializer.data)
+
+
+class GoalContributionViewSet(viewsets.ModelViewSet):
+    """CRUD de aportes em metas do usuário autenticado."""
+    serializer_class = GoalContributionSerializer
+
+    def get_queryset(self):
+        qs = GoalContribution.objects.filter(
+            user=self.request.user
+        ).select_related('goal')
+        goal_id = self.request.query_params.get('goal')
+        if goal_id:
+            qs = qs.filter(goal_id=goal_id)
+        return qs.order_by('-date', '-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

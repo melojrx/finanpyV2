@@ -461,11 +461,15 @@ class DashboardSnapshotTests(APITestBase):
         from budgets.models import Budget
 
         today = date.today()
+        if today.month == 12:
+            last_day = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            last_day = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
         Budget.objects.create(
             user=self.user, category=self.cat_expense,
             name='Mercado mensal', planned_amount=Decimal('500.00'),
             start_date=today.replace(day=1),
-            end_date=today.replace(day=28),
+            end_date=last_day,
         )
         resp = self.client.get(self.url, {'include': 'budgets'})
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -741,3 +745,233 @@ class DeeplinkHandlerTests(TestCase):
         resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, 302)
         self.assertTrue(resp.url.startswith('/?deeplink_error='))
+
+
+class BudgetEndpointTests(APITestBase):
+    """Testes do CRUD de orçamentos via API."""
+
+    def _create_budget(self, **overrides):
+        data = {
+            'name': 'Alimentação Jun/2026',
+            'category': self.cat_expense.pk,
+            'planned_amount': '1500.00',
+            'start_date': '2026-06-01',
+            'end_date': '2026-06-30',
+        }
+        data.update(overrides)
+        return self.client.post('/api/v1/budgets/', data, format='json')
+
+    def test_create_budget(self):
+        resp = self._create_budget()
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+        self.assertEqual(resp.data['name'], 'Alimentação Jun/2026')
+        self.assertEqual(resp.data['planned_amount'], '1500.00')
+        self.assertIn('spent_amount', resp.data)
+        self.assertIn('percentage_used', resp.data)
+        self.assertIn('category_name', resp.data)
+
+    def test_list_budgets(self):
+        self._create_budget()
+        resp = self.client.get('/api/v1/budgets/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['count'], 1)
+
+    def test_filter_active(self):
+        self._create_budget()
+        resp = self.client.get('/api/v1/budgets/?active=true')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['count'], 1)
+
+    def test_filter_by_year_month(self):
+        self._create_budget()
+        resp = self.client.get('/api/v1/budgets/?year=2026&month=6')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['count'], 1)
+
+        resp = self.client.get('/api/v1/budgets/?year=2026&month=1')
+        self.assertEqual(resp.data['count'], 0)
+
+    def test_update_budget(self):
+        resp = self._create_budget()
+        pk = resp.data['id']
+        resp = self.client.patch(
+            f'/api/v1/budgets/{pk}/',
+            {'planned_amount': '2000.00'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['planned_amount'], '2000.00')
+
+    def test_delete_budget(self):
+        resp = self._create_budget()
+        pk = resp.data['id']
+        resp = self.client.delete(f'/api/v1/budgets/{pk}/')
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_refresh_cache_action(self):
+        resp = self._create_budget()
+        pk = resp.data['id']
+        resp = self.client.post(f'/api/v1/budgets/{pk}/refresh-cache/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn('spent_amount', resp.data)
+
+    def test_reject_income_category(self):
+        resp = self._create_budget(category=self.cat_income.pk)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_ownership_isolation(self):
+        other_cat = Category.objects.create(
+            user=self.other, name='Other Cat', category_type='EXPENSE',
+            color='#EF4444', icon='🛍️',
+        )
+        resp = self._create_budget(category=other_cat.pk)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class GoalEndpointTests(APITestBase):
+    """Testes do CRUD de metas via API."""
+
+    def _create_goal(self, **overrides):
+        data = {
+            'name': 'Reserva de Emergência',
+            'target_amount': '30000.00',
+            'deadline': '2027-01-01',
+            'icon': '🎯',
+            'color': '#3B82F6',
+        }
+        data.update(overrides)
+        return self.client.post('/api/v1/goals/', data, format='json')
+
+    def test_create_goal(self):
+        resp = self._create_goal()
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+        self.assertEqual(resp.data['name'], 'Reserva de Emergência')
+        self.assertEqual(resp.data['current_amount'], '0.00')
+        self.assertIn('progress_pct', resp.data)
+        self.assertIn('remaining_amount', resp.data)
+        self.assertIn('days_remaining', resp.data)
+
+    def test_list_goals(self):
+        self._create_goal()
+        resp = self.client.get('/api/v1/goals/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['count'], 1)
+
+    def test_filter_by_status(self):
+        self._create_goal()
+        resp = self.client.get('/api/v1/goals/?status=ACTIVE')
+        self.assertEqual(resp.data['count'], 1)
+        resp = self.client.get('/api/v1/goals/?status=COMPLETED')
+        self.assertEqual(resp.data['count'], 0)
+
+    def test_update_goal(self):
+        resp = self._create_goal()
+        pk = resp.data['id']
+        resp = self.client.patch(
+            f'/api/v1/goals/{pk}/',
+            {'name': 'Fundo de Emergência'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['name'], 'Fundo de Emergência')
+
+    def test_delete_goal(self):
+        resp = self._create_goal()
+        pk = resp.data['id']
+        resp = self.client.delete(f'/api/v1/goals/{pk}/')
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_complete_action(self):
+        resp = self._create_goal()
+        pk = resp.data['id']
+        resp = self.client.post(f'/api/v1/goals/{pk}/complete/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['status'], 'COMPLETED')
+
+    def test_complete_non_active_fails(self):
+        resp = self._create_goal()
+        pk = resp.data['id']
+        self.client.post(f'/api/v1/goals/{pk}/complete/')
+        resp = self.client.post(f'/api/v1/goals/{pk}/complete/')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cancel_action(self):
+        resp = self._create_goal()
+        pk = resp.data['id']
+        resp = self.client.post(f'/api/v1/goals/{pk}/cancel/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['status'], 'CANCELLED')
+
+    def test_cancel_non_active_fails(self):
+        resp = self._create_goal()
+        pk = resp.data['id']
+        self.client.post(f'/api/v1/goals/{pk}/cancel/')
+        resp = self.client.post(f'/api/v1/goals/{pk}/cancel/')
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class GoalContributionEndpointTests(APITestBase):
+    """Testes do CRUD de aportes em metas via API."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        from goals.models import Goal
+        cls.goal = Goal.objects.create(
+            user=cls.user, name='Viagem', target_amount=Decimal('5000.00'),
+            icon='✈️', color='#3B82F6',
+        )
+        cls.other_goal = Goal.objects.create(
+            user=cls.other, name='Other Goal', target_amount=Decimal('1000.00'),
+            icon='🎯', color='#3B82F6',
+        )
+
+    def _create_contribution(self, **overrides):
+        data = {
+            'goal': self.goal.pk,
+            'amount': '500.00',
+            'date': '2026-05-20',
+        }
+        data.update(overrides)
+        return self.client.post('/api/v1/goal-contributions/', data, format='json')
+
+    def test_create_contribution(self):
+        resp = self._create_contribution()
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.content)
+        self.assertEqual(resp.data['amount'], '500.00')
+        self.assertEqual(resp.data['goal_name'], 'Viagem')
+
+    def test_list_contributions(self):
+        self._create_contribution()
+        resp = self.client.get('/api/v1/goal-contributions/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['count'], 1)
+
+    def test_filter_by_goal(self):
+        self._create_contribution()
+        resp = self.client.get(f'/api/v1/goal-contributions/?goal={self.goal.pk}')
+        self.assertEqual(resp.data['count'], 1)
+
+    def test_nested_contributions_action(self):
+        self._create_contribution()
+        resp = self.client.get(f'/api/v1/goals/{self.goal.pk}/contributions/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), 1)
+
+    def test_ownership_isolation(self):
+        resp = self._create_contribution(goal=self.other_goal.pk)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_contribution_updates_goal_current_amount(self):
+        self._create_contribution(amount='1000.00')
+        self.goal.refresh_from_db()
+        self.assertEqual(self.goal.current_amount, Decimal('1000.00'))
+
+    def test_reject_contribution_to_completed_goal(self):
+        from goals.models import Goal
+        completed_goal = Goal.objects.create(
+            user=self.user, name='Done', target_amount=Decimal('100.00'),
+            status=Goal.STATUS_COMPLETED, icon='🎯', color='#3B82F6',
+        )
+        resp = self._create_contribution(goal=completed_goal.pk)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
