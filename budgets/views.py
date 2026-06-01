@@ -135,6 +135,11 @@ class PlanningDistributeView(LoginRequiredMixin, View):
             if v.isdigit():
                 visible_ids.add(int(v))
 
+        cat_names = dict(
+            Category.objects.filter(user=request.user, is_active=True)
+            .values_list('pk', 'name')
+        )
+
         submitted_ids = set()
         for key, raw_value in request.POST.items():
             if not key.startswith('amount_'):
@@ -144,7 +149,9 @@ class PlanningDistributeView(LoginRequiredMixin, View):
             except ValueError:
                 continue
 
-            raw_value = raw_value.strip().replace(',', '.')
+            raw_value = raw_value.strip()
+            if ',' in raw_value:
+                raw_value = raw_value.replace('.', '').replace(',', '.')
             if not raw_value:
                 MonthlyPlanItem.objects.filter(
                     monthly_plan=plan, category_id=cat_id
@@ -155,7 +162,8 @@ class PlanningDistributeView(LoginRequiredMixin, View):
             try:
                 amount = Decimal(raw_value)
             except Exception:
-                messages.error(request, f'Valor inválido para categoria {cat_id}.')
+                cat_name = cat_names.get(cat_id, f'#{cat_id}')
+                messages.error(request, f'Valor inválido para "{cat_name}".')
                 continue
 
             if amount <= Decimal('0'):
@@ -191,10 +199,12 @@ class PlanningDistributeView(LoginRequiredMixin, View):
         ).select_related('category')
         root_total = sum(i.planned_amount for i in root_items)
         if root_total > plan.teto_calculado:
+            def _fmt(v):
+                return f"R$ {v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
             messages.error(
                 request,
-                f'A soma das categorias raiz (R$ {root_total:.2f}) excede o teto '
-                f'calculado (R$ {plan.teto_calculado:.2f}).',
+                f'A soma das categorias raiz ({_fmt(root_total)}) excede o teto '
+                f'calculado ({_fmt(plan.teto_calculado)}).',
             )
             tree = _build_categories_tree(request.user, plan)
             return render(request, self.template_name, {
