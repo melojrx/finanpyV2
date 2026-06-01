@@ -469,3 +469,35 @@ class Transaction(models.Model):
             'balance': income_total - expense_total,
             'transaction_count': transactions.count()
         }
+
+    @classmethod
+    def get_period_summary(cls, user, start_date, end_date):
+        """
+        Get summary of transactions for a user within a date range.
+
+        Returns:
+            Dictionary with income, expenses, and balance totals
+        """
+        from django.db.models import Sum
+
+        transactions = cls.objects.filter(
+            user=user,
+            transaction_date__gte=start_date,
+            transaction_date__lte=end_date,
+            status='CONFIRMED',
+        )
+
+        income_total = transactions.filter(
+            transaction_type='INCOME'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+        expense_total = transactions.filter(
+            transaction_type='EXPENSE'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+        return {
+            'income': income_total,
+            'expenses': expense_total,
+            'balance': income_total - expense_total,
+            'transaction_count': transactions.count()
+        }

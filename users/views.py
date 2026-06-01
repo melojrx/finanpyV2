@@ -30,7 +30,7 @@ from django.utils import timezone
 from django.conf import settings
 import ipaddress
 import json
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Dict
 
@@ -335,6 +335,60 @@ def _format_brl(value: Decimal) -> str:
     return f"R$ {formatted}" if value >= 0 else f"-R$ {formatted}"
 
 
+PERIOD_CHOICES = {
+    'today': 'Hoje',
+    '7d': '7 dias',
+    'month': 'Mês',
+    'year': 'Ano',
+}
+
+PERIOD_DEFAULT = 'month'
+
+
+def _get_period_range(period: str, today: date, offset: int = 0):
+    """Return (start_date, end_date) for the given period key with offset.
+
+    offset: number of steps back (negative) or forward (positive).
+    For 'month', offset=-1 means previous month. For 'year', offset=-1 means previous year.
+    """
+    if period == 'today':
+        target = today + timedelta(days=offset)
+        return target, target
+    elif period == '7d':
+        end = today + timedelta(days=offset * 7)
+        start = end - timedelta(days=6)
+        return start, end
+    elif period == 'year':
+        target_year = today.year + offset
+        start = date(target_year, 1, 1)
+        end = date(target_year, 12, 31) if target_year < today.year else today
+        return start, end
+    else:
+        # month
+        total_months = today.year * 12 + (today.month - 1) + offset
+        y, m = total_months // 12, total_months % 12 + 1
+        start = date(y, m, 1)
+        if y == today.year and m == today.month:
+            end = today
+        else:
+            # last day of month
+            next_m = m + 1 if m < 12 else 1
+            next_y = y if m < 12 else y + 1
+            end = date(next_y, next_m, 1) - timedelta(days=1)
+        return start, end
+
+
+def _get_nav_params(period: str, offset: int, today: date):
+    """Return (prev_offset, next_offset, can_go_next) for navigation arrows."""
+    prev_offset = offset - 1
+    next_offset = offset + 1
+
+    # Don't allow navigating into the future
+    can_go_next = offset < 0
+
+    return prev_offset, next_offset, can_go_next
+
+
 class DashboardView(LoginRequiredMixin, TemplateView):
     """Dashboard view — aggregates real financial data for the authenticated user."""
 
@@ -345,6 +399,20 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         user = self.request.user
         today = date.today()
 
+        period = self.request.GET.get('period', PERIOD_DEFAULT)
+        if period not in PERIOD_CHOICES:
+            period = PERIOD_DEFAULT
+
+        try:
+            offset = int(self.request.GET.get('offset', 0))
+        except (ValueError, TypeError):
+            offset = 0
+        # Cap offset to prevent absurd ranges
+        offset = max(-120, min(0, offset))
+
+        start_date, end_date = _get_period_range(period, today, offset)
+        prev_offset, next_offset, can_go_next = _get_nav_params(period, offset, today)
+
         from accounts.models import Account
         from transactions.models import Transaction
         from budgets.models import Budget
@@ -352,25 +420,29 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         from django.db.models import Sum, Case, When, DecimalField, Value
         from django.db.models.functions import TruncMonth
 
-        # ── 1. Saldo total das contas ativas ─────────────────────────────
+        # ── 1. Saldo total das contas ativas (snapshot, não filtra por período)
         total_balance = (
             Account.objects.filter(user=user, is_active=True)
             .aggregate(total=Sum('balance'))['total'] or Decimal('0.00')
         )
 
-        # ── 2. Resumo do mês atual ────────────────────────────────────────
-        monthly = Transaction.get_monthly_summary(user, today.year, today.month)
-        monthly_income = monthly['income']
-        monthly_expenses = monthly['expenses']
-        monthly_savings = monthly['balance']  # income − expenses
+        # ── 2. Resumo do período selecionado ─────────────────────────────
+        period_summary = Transaction.get_period_summary(user, start_date, end_date)
+        period_income = period_summary['income']
+        period_expenses = period_summary['expenses']
+        period_savings = period_summary['balance']
         savings_pct = (
-            int((monthly_savings / monthly_income) * 100)
-            if monthly_income > 0 else 0
+            int((period_savings / period_income) * 100)
+            if period_income > 0 else 0
         )
 
-        # ── 3. Últimas 5 transações ───────────────────────────────────────
+        # ── 3. Transações recentes dentro do período ─────────────────────
         recent_transactions = (
-            Transaction.objects.filter(user=user)
+            Transaction.objects.filter(
+                user=user,
+                transaction_date__gte=start_date,
+                transaction_date__lte=end_date,
+            )
             .select_related('account', 'category')
             .order_by('-transaction_date', '-created_at')[:5]
         )
@@ -392,67 +464,45 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             .order_by('-current_amount')[:3]
         )
 
-        # ── 5. Dados dos últimos 6 meses (único query) ────────────────────
-        total_months_start = today.year * 12 + today.month - 6
-        chart_start = date(total_months_start // 12, total_months_start % 12 + 1, 1)
-
-        monthly_totals = (
-            Transaction.objects
-            .filter(user=user, transaction_date__gte=chart_start)
-            .annotate(month=TruncMonth('transaction_date'))
-            .values('month')
-            .annotate(
-                income=Sum(Case(
-                    When(transaction_type='INCOME', then='amount'),
-                    default=Value(Decimal('0')),
-                    output_field=DecimalField(),
-                )),
-                expenses=Sum(Case(
-                    When(transaction_type='EXPENSE', then='amount'),
-                    default=Value(Decimal('0')),
-                    output_field=DecimalField(),
-                )),
-            )
-            .order_by('month')
+        # ── 5. Dados do gráfico (adaptado ao período) ────────────────────
+        chart_labels, chart_income, chart_expenses = self._build_chart_data(
+            user, today, period, Transaction, Sum, Case, When,
+            DecimalField, Value, TruncMonth,
         )
-        monthly_by_ym = {
-            (row['month'].year, row['month'].month): row
-            for row in monthly_totals
-        }
 
-        MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-                       'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-        chart_labels, chart_income, chart_expenses = [], [], []
-        for i in range(5, -1, -1):
-            total_m = today.year * 12 + today.month - 1 - i
-            y, m = total_m // 12, total_m % 12 + 1
-            row = monthly_by_ym.get((y, m))
-            chart_labels.append(MONTH_NAMES[m - 1])
-            chart_income.append(float(row['income']) if row else 0.0)
-            chart_expenses.append(float(row['expenses']) if row else 0.0)
-
-        # ── 6. Gastos por categoria no mês (gráfico rosca) ────────────────
+        # ── 6. Gastos por categoria no período (gráfico rosca) ────────────
         cat_spending = [
             {**row, 'total_display': _format_brl(row['total'])}
             for row in Transaction.objects.filter(
                 user=user,
                 transaction_type='EXPENSE',
-                transaction_date__year=today.year,
-                transaction_date__month=today.month,
+                transaction_date__gte=start_date,
+                transaction_date__lte=end_date,
             )
             .values('category__name', 'category__color')
             .annotate(total=Sum('amount'))
             .order_by('-total')[:6]
         ]
 
+        # ── Period label for template ─────────────────────────────────────
+        period_label = self._get_period_label(period, start_date, end_date)
+
         context.update({
             'user_full_name': user.get_full_name(),
             'last_login': user.last_login,
+            # Period filter
+            'current_period': period,
+            'current_offset': offset,
+            'period_choices': PERIOD_CHOICES,
+            'period_label': period_label,
+            'prev_offset': prev_offset,
+            'next_offset': next_offset,
+            'can_go_next': can_go_next,
             # Cards
             'total_balance': _format_brl(total_balance),
-            'monthly_income': _format_brl(monthly_income),
-            'monthly_expenses': _format_brl(monthly_expenses),
-            'monthly_savings': _format_brl(monthly_savings),
+            'monthly_income': _format_brl(period_income),
+            'monthly_expenses': _format_brl(period_expenses),
+            'monthly_savings': _format_brl(period_savings),
             'savings_pct': savings_pct,
             # Listas
             'recent_transactions': recent_transactions,
@@ -469,6 +519,134 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         })
 
         return context
+
+    def _get_period_label(self, period, start_date, end_date):
+        today = date.today()
+        if period == 'today':
+            if start_date == today:
+                return f"Hoje, {start_date.strftime('%d/%m')}"
+            return start_date.strftime('%d/%m/%Y')
+        elif period == '7d':
+            return f"{start_date.strftime('%d/%m')} – {end_date.strftime('%d/%m')}"
+        elif period == 'year':
+            return str(start_date.year)
+        else:
+            MONTH_NAMES_FULL = [
+                'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+            ]
+            return f"{MONTH_NAMES_FULL[start_date.month - 1]} {start_date.year}"
+
+    def _build_chart_data(self, user, today, period, Transaction, Sum, Case,
+                          When, DecimalField, Value, TruncMonth):
+        MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                       'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+        if period == 'today':
+            chart_start = today - timedelta(days=6)
+            daily_totals = (
+                Transaction.objects
+                .filter(user=user, transaction_date__gte=chart_start)
+                .values('transaction_date')
+                .annotate(
+                    income=Sum(Case(When(transaction_type='INCOME', then='amount'),
+                                    default=Value(Decimal('0')), output_field=DecimalField())),
+                    expenses=Sum(Case(When(transaction_type='EXPENSE', then='amount'),
+                                      default=Value(Decimal('0')), output_field=DecimalField())),
+                )
+                .order_by('transaction_date')
+            )
+            by_day = {row['transaction_date']: row for row in daily_totals}
+            labels, income_data, expense_data = [], [], []
+            for i in range(7):
+                d = chart_start + timedelta(days=i)
+                row = by_day.get(d)
+                labels.append(d.strftime('%d/%m'))
+                income_data.append(float(row['income']) if row else 0.0)
+                expense_data.append(float(row['expenses']) if row else 0.0)
+            return labels, income_data, expense_data
+
+        elif period == '7d':
+            chart_start = today - timedelta(days=27)
+            daily_totals = (
+                Transaction.objects
+                .filter(user=user, transaction_date__gte=chart_start)
+                .values('transaction_date')
+                .annotate(
+                    income=Sum(Case(When(transaction_type='INCOME', then='amount'),
+                                    default=Value(Decimal('0')), output_field=DecimalField())),
+                    expenses=Sum(Case(When(transaction_type='EXPENSE', then='amount'),
+                                      default=Value(Decimal('0')), output_field=DecimalField())),
+                )
+            )
+            by_day = {row['transaction_date']: row for row in daily_totals}
+            labels, income_data, expense_data = [], [], []
+            for i in range(4):
+                week_start = chart_start + timedelta(weeks=i)
+                week_end = week_start + timedelta(days=6)
+                week_income = sum(
+                    float(by_day[d]['income'])
+                    for d in by_day if week_start <= d <= week_end
+                )
+                week_expenses = sum(
+                    float(by_day[d]['expenses'])
+                    for d in by_day if week_start <= d <= week_end
+                )
+                labels.append(week_start.strftime('%d/%m'))
+                income_data.append(week_income)
+                expense_data.append(week_expenses)
+            return labels, income_data, expense_data
+
+        elif period == 'year':
+            chart_start = date(today.year, 1, 1)
+            monthly_totals = (
+                Transaction.objects
+                .filter(user=user, transaction_date__gte=chart_start)
+                .annotate(month=TruncMonth('transaction_date'))
+                .values('month')
+                .annotate(
+                    income=Sum(Case(When(transaction_type='INCOME', then='amount'),
+                                    default=Value(Decimal('0')), output_field=DecimalField())),
+                    expenses=Sum(Case(When(transaction_type='EXPENSE', then='amount'),
+                                      default=Value(Decimal('0')), output_field=DecimalField())),
+                )
+                .order_by('month')
+            )
+            by_ym = {(row['month'].year, row['month'].month): row for row in monthly_totals}
+            labels, income_data, expense_data = [], [], []
+            for m in range(1, today.month + 1):
+                row = by_ym.get((today.year, m))
+                labels.append(MONTH_NAMES[m - 1])
+                income_data.append(float(row['income']) if row else 0.0)
+                expense_data.append(float(row['expenses']) if row else 0.0)
+            return labels, income_data, expense_data
+
+        else:
+            total_months_start = today.year * 12 + today.month - 6
+            chart_start = date(total_months_start // 12, total_months_start % 12 + 1, 1)
+            monthly_totals = (
+                Transaction.objects
+                .filter(user=user, transaction_date__gte=chart_start)
+                .annotate(month=TruncMonth('transaction_date'))
+                .values('month')
+                .annotate(
+                    income=Sum(Case(When(transaction_type='INCOME', then='amount'),
+                                    default=Value(Decimal('0')), output_field=DecimalField())),
+                    expenses=Sum(Case(When(transaction_type='EXPENSE', then='amount'),
+                                      default=Value(Decimal('0')), output_field=DecimalField())),
+                )
+                .order_by('month')
+            )
+            by_ym = {(row['month'].year, row['month'].month): row for row in monthly_totals}
+            labels, income_data, expense_data = [], [], []
+            for i in range(5, -1, -1):
+                total_m = today.year * 12 + today.month - 1 - i
+                y, m = total_m // 12, total_m % 12 + 1
+                row = by_ym.get((y, m))
+                labels.append(MONTH_NAMES[m - 1])
+                income_data.append(float(row['income']) if row else 0.0)
+                expense_data.append(float(row['expenses']) if row else 0.0)
+            return labels, income_data, expense_data
 
 # NOTE: a duplicate ProfileView used to live here. It was removed because it
 # only rendered User fields and ignored the Profile model. The legacy URL
