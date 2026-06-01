@@ -3,7 +3,6 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
@@ -64,44 +63,7 @@ class PlanningEntryView(LoginRequiredMixin, View):
 
     def get(self, request):
         today = date.today()
-        year, month = today.year, today.month
-
-        active_plan = MonthlyPlan.objects.filter(
-            user=request.user, year=year, month=month, status='ACTIVE'
-        ).first()
-        if active_plan:
-            return redirect('budgets:planning_dashboard', year=year, month=month)
-
-        draft_plan = MonthlyPlan.objects.filter(
-            user=request.user, year=year, month=month, status='DRAFT'
-        ).first()
-        if draft_plan:
-            return redirect('budgets:planning_distribute', year=year, month=month)
-
-        previous_plan = (
-            MonthlyPlan.objects.filter(user=request.user)
-            .exclude(year=year, month=month)
-            .filter(
-                **{'year__lte': year}
-            )
-            .order_by('-year', '-month')
-            .first()
-        )
-        # Refine: strictly before current month
-        if previous_plan and (
-            previous_plan.year > year
-            or (previous_plan.year == year and previous_plan.month >= month)
-        ):
-            previous_plan = None
-
-        context = {
-            'current_month_name': MONTH_NAMES_PT[month],
-            'current_year': year,
-            'current_month': month,
-            'has_previous_plan': previous_plan is not None,
-            'previous_plan': previous_plan,
-        }
-        return render(request, 'budgets/planning_entry.html', context)
+        return redirect('budgets:planning_dashboard', year=today.year, month=today.month)
 
 
 class PlanningHeaderView(LoginRequiredMixin, View):
@@ -269,10 +231,25 @@ class PlanningDashboardView(LoginRequiredMixin, View):
     def get(self, request, year, month):
         plan = MonthlyPlan.get_or_none(request.user, year, month)
         prev_month, next_month = _adjacent_months(year, month)
+
         if plan is None:
-            return redirect(
-                f"{reverse('budgets:planning_header')}?year={year}&month={month}"
+            previous_plan = (
+                MonthlyPlan.objects.filter(user=request.user)
+                .exclude(year=year, month__gte=month)
+                .filter(year__lte=year)
+                .order_by('-year', '-month')
+                .first()
             )
+            context = {
+                'plan': None,
+                'prev_month': prev_month,
+                'next_month': next_month,
+                'year': year,
+                'month': month,
+                'month_name': MONTH_NAMES_PT[month],
+                'has_previous_plan': previous_plan is not None,
+            }
+            return render(request, self.template_name, context)
 
         items = plan.items.select_related('category').order_by('category__name')
         alerts = BudgetAlert.objects.unacknowledged_for_user(request.user)
@@ -292,23 +269,20 @@ class PlanningDashboardView(LoginRequiredMixin, View):
 class PlanningCopyView(LoginRequiredMixin, View):
 
     def post(self, request, year, month):
-        today = date.today()
-        current_year, current_month = today.year, today.month
-
         source = (
             MonthlyPlan.objects.filter(user=request.user)
-            .exclude(year=current_year, month=current_month)
+            .exclude(year=year, month=month)
             .order_by('-year', '-month')
             .first()
         )
         if source is None:
             messages.error(request, 'Nenhum plano anterior encontrado para copiar.')
-            return redirect('budgets:planning_entry')
+            return redirect('budgets:planning_dashboard', year=year, month=month)
 
         plan, _ = MonthlyPlan.objects.get_or_create(
             user=request.user,
-            year=current_year,
-            month=current_month,
+            year=year,
+            month=month,
             defaults={
                 'renda_prevista': source.renda_prevista,
                 'teto_despesas': source.teto_despesas,
@@ -329,8 +303,8 @@ class PlanningCopyView(LoginRequiredMixin, View):
 
         return redirect(
             'budgets:planning_distribute',
-            year=current_year,
-            month=current_month,
+            year=year,
+            month=month,
         )
 
 

@@ -919,7 +919,8 @@ class PlanningWizardViewTests(MonthlyPlanTestMixin, TestCase):
 
     def test_entry_view_returns_200_when_no_plan(self):
         resp = self.client.get(self._entry_url())
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 302)
+        self.assertRedirects(resp, self._dashboard_url(), fetch_redirect_response=False)
 
     def test_entry_view_redirects_to_dashboard_when_active_plan_exists(self):
         self._make_plan(status="ACTIVE")
@@ -929,7 +930,7 @@ class PlanningWizardViewTests(MonthlyPlanTestMixin, TestCase):
     def test_entry_view_redirects_to_distribute_when_draft_exists(self):
         self._make_plan(status="DRAFT")
         resp = self.client.get(self._entry_url())
-        self.assertRedirects(resp, self._distribute_url(), fetch_redirect_response=False)
+        self.assertRedirects(resp, self._dashboard_url(), fetch_redirect_response=False)
 
     def test_header_view_get_returns_200(self):
         resp = self.client.get(self._header_url())
@@ -1002,10 +1003,10 @@ class PlanningWizardViewTests(MonthlyPlanTestMixin, TestCase):
         resp = self.client.get(self._dashboard_url())
         self.assertEqual(resp.status_code, 200)
 
-    def test_dashboard_view_redirects_when_no_plan(self):
+    def test_dashboard_view_shows_empty_state_when_no_plan(self):
         resp = self.client.get(self._dashboard_url())
-        self.assertEqual(resp.status_code, 302)
-        self.assertIn('/budgets/plano/novo/', resp.url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Nenhum planejamento para este mês')
 
     def test_copy_view_copies_items_from_previous_month(self):
         prev_month = self.month - 1 if self.month > 1 else 12

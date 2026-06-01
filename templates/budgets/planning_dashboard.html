@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Acompanhamento — {{ plan.month_name }} {{ plan.year|stringformat:"d" }} — FinanPy{% endblock %}
+{% block title %}Planejamento — {% if plan %}{{ plan.month_name }} {{ plan.year|stringformat:"d" }}{% else %}{{ month_name }} {{ year }}{% endif %} — FinanPy{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -14,8 +14,8 @@
 
   <header class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
     <div>
-      <h1 class="text-2xl sm:text-3xl font-bold text-white">Acompanhamento Mensal</h1>
-      <p class="text-gray-400 mt-1 text-sm">Planejamento de {{ plan.month_name }} {{ plan.year|stringformat:"d" }}</p>
+      <h1 class="text-2xl sm:text-3xl font-bold text-white">Planejamento Mensal</h1>
+      <p class="text-gray-400 mt-1 text-sm">{% if plan %}Acompanhamento de {{ plan.month_name }} {{ plan.year|stringformat:"d" }}{% else %}{{ month_name }} {{ year }}{% endif %}</p>
     </div>
     <nav class="flex items-center gap-2" aria-label="Navegar entre meses">
       <a href="{% url 'budgets:planning_dashboard' year=prev_month.year month=prev_month.month %}"
@@ -26,7 +26,7 @@
         </svg>
       </a>
       <span class="bg-dark-800 border border-dark-700 text-white font-semibold text-sm px-5 h-11 inline-flex items-center justify-center rounded-lg min-w-[150px] text-center">
-        {{ plan.month_name }} {{ plan.year|stringformat:"d" }}
+        {% if plan %}{{ plan.month_name }} {{ plan.year|stringformat:"d" }}{% else %}{{ month_name }} {{ year }}{% endif %}
       </span>
       <a href="{% url 'budgets:planning_dashboard' year=next_month.year month=next_month.month %}"
          class="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-dark-800 hover:bg-dark-700 text-gray-300 hover:text-white transition-colors"
@@ -38,6 +38,7 @@
     </nav>
   </header>
 
+  {% if plan %}
   <div class="mb-4 flex items-center gap-3">
     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
       {% if plan.status == 'ACTIVE' %}bg-green-900/30 border border-green-700/50 text-green-300
@@ -225,6 +226,42 @@
       {% endfor %}
     </div>
   </section>
+
+  {% else %}
+
+  <div class="flex flex-col items-center justify-center py-16 px-4">
+    <div class="w-20 h-20 rounded-full bg-dark-800 border border-dark-700 flex items-center justify-center mb-6">
+      <svg class="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+      </svg>
+    </div>
+    <h2 class="text-lg font-semibold text-white mb-2">Nenhum planejamento para este mês</h2>
+    <p class="text-gray-400 text-sm text-center max-w-sm mb-8">Defina um planejamento para controlar seus gastos e acompanhar suas metas financeiras.</p>
+
+    <div class="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+      <a href="{% url 'budgets:planning_header' %}?year={{ year }}&month={{ month }}"
+         class="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-semibold text-sm transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Novo Planejamento
+      </a>
+      {% if has_previous_plan %}
+      <form method="post" action="{% url 'budgets:planning_copy' year=year month=month %}" class="flex-1">
+        {% csrf_token %}
+        <button type="submit"
+                class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-dark-800 hover:bg-dark-700 border border-dark-700 text-gray-300 hover:text-white font-semibold text-sm transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+          </svg>
+          Copiar Mês Anterior
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% endif %}
 
 </div>
 {% endblock %}
