@@ -32,7 +32,7 @@ def _adjacent_months(year, month):
     return prev, next_
 
 
-def _build_categories_tree(user, plan=None):
+def _build_categories_tree(user, plan=None, filter_empty=False):
     items_by_cat = {}
     if plan:
         for item in plan.items.select_related('category'):
@@ -51,9 +51,16 @@ def _build_categories_tree(user, plan=None):
             {'category': child, 'item': items_by_cat.get(child.pk)}
             for child in parent.children.filter(is_active=True)
         ]
+        if filter_empty:
+            children = [c for c in children if c['item']]
+
+        parent_item = items_by_cat.get(parent.pk)
+        if filter_empty and not parent_item and not children:
+            continue
+
         tree.append({
             'category': parent,
-            'item': items_by_cat.get(parent.pk),
+            'item': parent_item,
             'children': children,
         })
     return tree
@@ -121,6 +128,13 @@ class PlanningDistributeView(LoginRequiredMixin, View):
     def post(self, request, year, month):
         plan = self._get_plan(request, year, month)
 
+        visible_raw = request.POST.get('visible_categories', '')
+        visible_ids = set()
+        for v in visible_raw.split(','):
+            v = v.strip()
+            if v.isdigit():
+                visible_ids.add(int(v))
+
         submitted_ids = set()
         for key, raw_value in request.POST.items():
             if not key.startswith('amount_'):
@@ -135,6 +149,7 @@ class PlanningDistributeView(LoginRequiredMixin, View):
                 MonthlyPlanItem.objects.filter(
                     monthly_plan=plan, category_id=cat_id
                 ).delete()
+                submitted_ids.add(cat_id)
                 continue
 
             try:
@@ -147,6 +162,7 @@ class PlanningDistributeView(LoginRequiredMixin, View):
                 MonthlyPlanItem.objects.filter(
                     monthly_plan=plan, category_id=cat_id
                 ).delete()
+                submitted_ids.add(cat_id)
                 continue
 
             category = Category.objects.filter(
@@ -163,6 +179,12 @@ class PlanningDistributeView(LoginRequiredMixin, View):
                 item.planned_amount = amount
                 item.save(update_fields=['planned_amount', 'updated_at'])
             submitted_ids.add(cat_id)
+
+        excluded_ids = visible_ids - submitted_ids
+        if excluded_ids:
+            MonthlyPlanItem.objects.filter(
+                monthly_plan=plan, category_id__in=excluded_ids
+            ).delete()
 
         root_items = plan.items.filter(
             category__parent__isnull=True
@@ -253,7 +275,7 @@ class PlanningDashboardView(LoginRequiredMixin, View):
 
         items = plan.items.select_related('category').order_by('category__name')
         alerts = BudgetAlert.objects.unacknowledged_for_user(request.user)
-        tree = _build_categories_tree(request.user, plan)
+        tree = _build_categories_tree(request.user, plan, filter_empty=True)
 
         context = {
             'plan': plan,

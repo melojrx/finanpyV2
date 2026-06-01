@@ -76,6 +76,7 @@
         action="{% url 'budgets:planning_distribute' year=plan.year month=plan.month %}"
         novalidate>
     {% csrf_token %}
+    <input type="hidden" name="visible_categories" id="visible-categories" value="">
 
     <div class="space-y-4">
       {% for node in categories_tree %}
@@ -98,7 +99,11 @@
         <div class="p-4 space-y-3">
           {% if node.children %}
             {% for child in node.children %}
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 category-row" data-cat-id="{{ child.category.pk }}">
+              <input type="checkbox"
+                     class="category-toggle w-4 h-4 rounded border-gray-600 bg-dark-700 text-primary-500 focus:ring-primary-500 focus:ring-offset-0 shrink-0"
+                     data-target="amount_{{ child.category.pk }}"
+                     {% if child.item %}checked{% endif %}>
               <label for="amount_{{ child.category.pk }}"
                      class="text-sm text-gray-300 flex-1">
                 {% if child.category.icon %}{{ child.category.icon }} {% endif %}{{ child.category.name }}
@@ -114,12 +119,17 @@
                        class="form-input pl-8 text-right text-sm amount-input child-input-{{ node.category.pk }}"
                        data-parent="{{ node.category.pk }}"
                        data-brl-mask
+                       {% if not child.item %}disabled{% endif %}
                        aria-label="Valor para {{ child.category.name }}">
               </div>
             </div>
             {% endfor %}
           {% else %}
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 category-row" data-cat-id="{{ node.category.pk }}">
+              <input type="checkbox"
+                     class="category-toggle w-4 h-4 rounded border-gray-600 bg-dark-700 text-primary-500 focus:ring-primary-500 focus:ring-offset-0 shrink-0"
+                     data-target="amount_{{ node.category.pk }}"
+                     {% if node.item %}checked{% endif %}>
               <label for="amount_{{ node.category.pk }}"
                      class="text-sm text-gray-300 flex-1">
                 {% if node.category.icon %}{{ node.category.icon }} {% endif %}{{ node.category.name }}
@@ -134,6 +144,7 @@
                        placeholder="0,00"
                        class="form-input pl-8 text-right text-sm amount-input"
                        data-brl-mask
+                       {% if not node.item %}disabled{% endif %}
                        aria-label="Valor para {{ node.category.name }}">
               </div>
             </div>
@@ -179,8 +190,33 @@ function applyMask(input) {
   input.value = formatBRL(cents);
 }
 
+// ── Category toggle ───────────────────────────────────────────────────────
+document.querySelectorAll('.category-toggle').forEach(function(cb) {
+  cb.addEventListener('change', function() {
+    const target = document.getElementById(this.dataset.target);
+    if (!target) return;
+    const row = this.closest('.category-row');
+    if (this.checked) {
+      target.disabled = false;
+      if (row) row.classList.remove('opacity-40');
+      target.focus();
+    } else {
+      target.disabled = true;
+      target.value = '0,00';
+      if (row) row.classList.add('opacity-40');
+      if (target.dataset.parent) updateParentTotal(target.dataset.parent);
+      updateTotals();
+    }
+  });
+  // Initial visual state
+  if (!cb.checked) {
+    const row = cb.closest('.category-row');
+    if (row) row.classList.add('opacity-40');
+  }
+});
+
+// ── BRL mask bindings ─────────────────────────────────────────────────────
 document.querySelectorAll('[data-brl-mask]').forEach(function(el) {
-  // Pre-fill: se valor existente não é BRL, converte (ex: "400.00" → "400,00")
   const raw = el.value.replace('.', ',');
   el.value = formatBRL(brlToCents(raw));
 
@@ -204,7 +240,7 @@ document.querySelectorAll('[data-brl-mask]').forEach(function(el) {
 function updateParentTotal(parentId) {
   let sum = 0;
   document.querySelectorAll('.child-input-' + parentId).forEach(function(inp) {
-    sum += brlToCents(inp.value);
+    if (!inp.disabled) sum += brlToCents(inp.value);
   });
   const display = document.getElementById('parent-total-' + parentId);
   if (display) display.textContent = 'R$ ' + formatBRL(sum);
@@ -213,7 +249,7 @@ function updateParentTotal(parentId) {
 function updateTotals() {
   let total = 0;
   document.querySelectorAll('.amount-input').forEach(function(inp) {
-    total += brlToCents(inp.value);
+    if (!inp.disabled) total += brlToCents(inp.value);
   });
   const teto = brlToCents(String(document.getElementById('teto-value').dataset.teto || '0'));
   const restante = teto - total;
@@ -230,10 +266,18 @@ document.querySelectorAll('[id^="parent-total-"]').forEach(function(el) {
 });
 updateTotals();
 
-// ── Submit: converte BRL → decimal para Django ────────────────────────────
+// ── Submit: converte BRL → decimal + popula visible_categories ───────────
 document.querySelector('form').addEventListener('submit', function() {
+  var ids = [];
+  document.querySelectorAll('.category-row').forEach(function(row) {
+    ids.push(row.dataset.catId);
+  });
+  document.getElementById('visible-categories').value = ids.join(',');
+
   document.querySelectorAll('[data-brl-mask]').forEach(function(inp) {
-    inp.value = (brlToCents(inp.value) / 100).toFixed(2);
+    if (!inp.disabled) {
+      inp.value = (brlToCents(inp.value) / 100).toFixed(2);
+    }
   });
 });
 </script>

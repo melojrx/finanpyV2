@@ -1425,6 +1425,15 @@ class MonthlyPlanItem(models.Model):
             return 'bg-orange-500'
         return 'bg-red-500'
 
+    @property
+    def planned_amount_display(self):
+        return f"R$ {self.planned_amount:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
+    @property
+    def spent_amount_display(self):
+        spent = self.spent_amount
+        return f"R$ {spent:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
 
 class BudgetAlertManager(models.Manager):
     """Convenience queries for BudgetAlert."""
