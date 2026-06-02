@@ -15,4 +15,20 @@
   .btn-secondary {
     @apply bg-dark-600 hover:bg-dark-500 text-white rounded-lg font-medium px-4 py-2 transition-colors duration-200;
   }
+
+  .form-input,
+  .form-select,
+  .form-textarea,
+  .form-multiselect {
+    @apply bg-dark-700 border-dark-600 text-white placeholder-gray-400 rounded-lg focus:border-primary-500 focus:ring-primary-500;
+  }
+  .form-input:focus,
+  .form-select:focus,
+  .form-textarea:focus,
+  .form-multiselect:focus {
+    @apply bg-dark-700;
+  }
+  .form-checkbox {
+    @apply bg-dark-700 border-dark-600 text-primary-500 rounded focus:ring-primary-500 focus:ring-offset-dark-800;
+  }
 }
