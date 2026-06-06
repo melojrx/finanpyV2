@@ -11,11 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -27,23 +22,18 @@ jobs:
           script: |
             set -e
 
-            # Create directory if not exists
+            # Create directory
             mkdir -p /opt/finanpy-mcp
 
-            # Copy files using绝对路径
-            rsync -avz --delete \
-              --exclude='.venv' \
-              --exclude='__pycache__' \
-              --exclude='*.pyc' \
-              --exclude='uv.lock' \
-              /home/runner/work/finanpyV2/finanpyV2/mcp/ \
-              /opt/finanpy-mcp/
+            # Copy files via tar (avoid rsync path issues)
+            cd /home/runner/work/finanpyV2/finanpyV2
+            tar czf - mcp/ | ssh root@38.52.128.62 "cd /opt/finanpy-mcp && rm -rf * && tar xzf -"
 
             # Recreate venv
             cd /opt/finanpy-mcp
             rm -rf .venv
             python3.12 -m venv .venv
-            .venv/bin/pip install -e .
+            .venv/bin/pip install -r requirements.txt
 
             # Restart Hermes
             systemctl restart hermes-gateway
