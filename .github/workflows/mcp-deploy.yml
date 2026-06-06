@@ -30,13 +30,13 @@ jobs:
             # Create directory if not exists
             mkdir -p /opt/finanpy-mcp
 
-            # Copy files using full path
+            # Copy files using GITHUB_WORKSPACE
             rsync -avz --delete \
               --exclude='.venv' \
               --exclude='__pycache__' \
               --exclude='*.pyc' \
               --exclude='uv.lock' \
-              /home/runner/work/finanpyV2/finanpyV2/mcp/ \
+              $GITHUB_WORKSPACE/mcp/ \
               /opt/finanpy-mcp/
 
             # Recreate venv
