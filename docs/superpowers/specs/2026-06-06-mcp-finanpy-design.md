@@ -146,16 +146,18 @@ mcp/
 
 ```bash
 # .env (local dev)
-FINANPY_TOKEN=fe7dd23a50a8399a5b8731d17dbd6d8779fb30dc
-FINANPY_DB_HOST=127.0.0.1
-FINANPY_DB_PORT=5432
-FINANPY_DB_NAME=finanpy
-FINANPY_DB_USER=finanpy
-FINANPY_DB_PASSWORD=xxx
+FINANFY_TOKEN=fe7dd23a50a8399a5b8731d17dbd6d8779fb30dc
 
-# OU para dev local (SQLite)
-FINANPY_USE_SQLITE=true
-FINANPY_DB_PATH=/home/jrmelo/Projetos/finanpy_v2/db.sqlite3
+# Local dev: SQLite (mesmo db.sqlite3 do FinanPy)
+FINANFY_USE_SQLITE=true
+FINANFY_DB_PATH=/home/jrmelo/Projetos/finanpy_v2/db.sqlite3
+
+# Produção VPS: PostgreSQL
+FINANFY_DB_HOST=127.0.0.1
+FINANFY_DB_PORT=5432
+FINANFY_DB_NAME=finanpy
+FINANFY_DB_USER=finanpy
+FINANFY_DB_PASSWORD=xxx
 ```
 
 ### 5.2 Hermes config (VPS)
@@ -167,30 +169,21 @@ mcp_servers:
     command: /opt/finanpy-mcp/.venv/bin/python
     args: [/opt/finanpy-mcp/run_mcp.py]
     env:
-      FINANPY_TOKEN: fe7dd23a50a8399a5b8731d17dbd6d8779fb30dc
-      FINANCY_DB_HOST: 127.0.0.1
-      FINANPY_DB_PORT: 5432
+      FINANFY_TOKEN: fe7dd23a50a8399a5b8731d17dbd6d8779fb30dc
+      FINANFY_USE_SQLITE: false
+      FINANFY_DB_HOST: 127.0.0.1
+      FINANFY_DB_PORT: 5432
 
-# Profile neo (padrão)
-# Usa mcp_servers global
-
-# Profile agente-braba
+# Profile agente-braba: NÃO acessa MCP FinanPy (outro escopo)
 # /home/hermes-admin/.hermes/profiles/agente-braba/config.yaml
-mcp_servers:
-  finanpy:
-    command: /opt/finanpy-mcp/.venv/bin/python
-    args: [/opt/finanpy-mcp/run_mcp.py]
-    env:
-      FINANPY_TOKEN: fe7dd23a50a8399a5b8731d17dbd6d8779fb30dc
-      FINANPY_DB_HOST: 127.0.0.1
-      FINANPY_DB_PORT: 5432
+# (sem mcp_servers.finanpy)
 ```
 
 ---
 
 ## 6. Fluxo de Desenvolvimento
 
-### 6.1 Local (Acer Nitro)
+### 6.1 Local (Acer Nitro) — SQLite
 
 ```bash
 # 1. Setup
@@ -199,9 +192,10 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e .
 
-# 2. Configurar .env
+# 2. Configurar .env (SQLite local, mesmo db.sqlite3 do FinanPy)
 cp .env.example .env
-# Editar FINANPY_TOKEN
+# FINANFY_USE_SQLITE=true
+# FINANFY_DB_PATH=/home/jrmelo/Projetos/finanpy_v2/db.sqlite3
 
 # 3. Testar server (stdio mode)
 python run_mcp.py
@@ -216,6 +210,8 @@ mcp_servers:
     command: /home/jrmelo/Projetos/finanpy_v2/mcp/.venv/bin/python
     args: [/home/jrmelo/Projetos/finanpy_v2/mcp/run_mcp.py]
 ```
+
+**Nota:** SQLite local pode ter dados desatualizados vs produção VPS. Para testes de lógica é suficiente. Para testes de dados reais, usar MPS (futuro)."
 
 ### 6.2 GitHub Actions (deploy)
 
