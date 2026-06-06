@@ -89,23 +89,41 @@ class FinanPyClient:
         with self._get_connection() as conn:
             cur = conn.cursor()
             if category_type:
-                # SQLite uses ? for placeholders
-                cur.execute(
-                    """SELECT c.id, c.name, p.name as parent_name, c.icon
-                       FROM categories_category c
-                       LEFT JOIN categories_category p ON c.parent_id = p.id
-                       WHERE c.category_type = ? AND c.is_active = 1
-                       ORDER BY c.name""",
-                    (category_type,)
-                )
+                if self.config.use_sqlite:
+                    cur.execute(
+                        """SELECT c.id, c.name, p.name as parent_name, c.icon
+                           FROM categories_category c
+                           LEFT JOIN categories_category p ON c.parent_id = p.id
+                           WHERE c.category_type = ? AND c.is_active = 1
+                           ORDER BY c.name""",
+                        (category_type,)
+                    )
+                else:
+                    cur.execute(
+                        """SELECT c.id, c.name, p.name as parent_name, c.icon
+                           FROM categories_category c
+                           LEFT JOIN categories_category p ON c.parent_id = p.id
+                           WHERE c.category_type = %s AND c.is_active = true
+                           ORDER BY c.name""",
+                        (category_type,)
+                    )
             else:
-                cur.execute(
-                    """SELECT c.id, c.name, p.name as parent_name, c.icon
-                       FROM categories_category c
-                       LEFT JOIN categories_category p ON c.parent_id = p.id
-                       WHERE c.is_active = 1
-                       ORDER BY c.name"""
-                )
+                if self.config.use_sqlite:
+                    cur.execute(
+                        """SELECT c.id, c.name, p.name as parent_name, c.icon
+                           FROM categories_category c
+                           LEFT JOIN categories_category p ON c.parent_id = p.id
+                           WHERE c.is_active = 1
+                           ORDER BY c.name"""
+                    )
+                else:
+                    cur.execute(
+                        """SELECT c.id, c.name, p.name as parent_name, c.icon
+                           FROM categories_category c
+                           LEFT JOIN categories_category p ON c.parent_id = p.id
+                           WHERE c.is_active = true
+                           ORDER BY c.name"""
+                    )
             return [
                 CategoryResult(
                     id=row[0],
@@ -202,35 +220,62 @@ class FinanPyClient:
             params = []
 
             if year and month:
-                conditions.append("strftime('%Y', transaction_date) = ?")
-                params.append(str(year))
-                conditions.append("strftime('%m', transaction_date) = ?")
-                params.append(f"{month:02d}")
+                if self.config.use_sqlite:
+                    conditions.append("strftime('%Y', transaction_date) = ?")
+                    params.append(str(year))
+                    conditions.append("strftime('%m', transaction_date) = ?")
+                    params.append(f"{month:02d}")
+                else:
+                    conditions.append("TO_CHAR(transaction_date, 'YYYY') = %s")
+                    params.append(str(year))
+                    conditions.append("TO_CHAR(transaction_date, 'MM') = %s")
+                    params.append(f"{month:02d}")
 
             if account:
-                conditions.append("account_id = ?")
+                if self.config.use_sqlite:
+                    conditions.append("account_id = ?")
+                else:
+                    conditions.append("account_id = %s")
                 params.append(account)
 
             if transaction_type:
-                conditions.append("transaction_type = ?")
+                if self.config.use_sqlite:
+                    conditions.append("transaction_type = ?")
+                else:
+                    conditions.append("transaction_type = %s")
                 params.append(transaction_type)
 
             if category:
-                conditions.append("category_id = ?")
+                if self.config.use_sqlite:
+                    conditions.append("category_id = ?")
+                else:
+                    conditions.append("category_id = %s")
                 params.append(category)
 
             where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
-            cur.execute(
-                f"""SELECT t.id, t.transaction_date, t.transaction_type, t.amount,
-                           t.description, c.name as category_name
-                    FROM transactions_transaction t
-                    JOIN categories_category c ON t.category_id = c.id
-                    {where}
-                    ORDER BY t.transaction_date DESC, t.created_at DESC
-                    LIMIT ?""",
-                params + [limit]
-            )
+            if self.config.use_sqlite:
+                cur.execute(
+                    f"""SELECT t.id, t.transaction_date, t.transaction_type, t.amount,
+                               t.description, c.name as category_name
+                        FROM transactions_transaction t
+                        JOIN categories_category c ON t.category_id = c.id
+                        {where}
+                        ORDER BY t.transaction_date DESC, t.created_at DESC
+                        LIMIT ?""",
+                    params + [limit]
+                )
+            else:
+                cur.execute(
+                    f"""SELECT t.id, t.transaction_date, t.transaction_type, t.amount,
+                               t.description, c.name as category_name
+                        FROM transactions_transaction t
+                        JOIN categories_category c ON t.category_id = c.id
+                        {where}
+                        ORDER BY t.transaction_date DESC, t.created_at DESC
+                        LIMIT %s""",
+                    params + [limit]
+                )
 
             return [
                 {
@@ -251,13 +296,22 @@ class FinanPyClient:
 
             month_str = f"{year}-{month:02d}"
 
-            cur.execute(
-                """SELECT transaction_type, SUM(amount), COUNT(*)
-                   FROM transactions_transaction
-                   WHERE strftime('%Y-%m', transaction_date) = ? AND status = 'CONFIRMED'
-                   GROUP BY transaction_type""",
-                (month_str,)
-            )
+            if self.config.use_sqlite:
+                cur.execute(
+                    """SELECT transaction_type, SUM(amount), COUNT(*)
+                       FROM transactions_transaction
+                       WHERE strftime('%Y-%m', transaction_date) = ? AND status = 'CONFIRMED'
+                       GROUP BY transaction_type""",
+                    (month_str,)
+                )
+            else:
+                cur.execute(
+                    """SELECT transaction_type, SUM(amount), COUNT(*)
+                       FROM transactions_transaction
+                       WHERE TO_CHAR(transaction_date, 'YYYY-MM') = %s AND status = 'CONFIRMED'
+                       GROUP BY transaction_type""",
+                    (month_str,)
+                )
 
             result = {"income": "0", "expenses": "0", "balance": "0", "count": 0}
 
@@ -279,15 +333,26 @@ class FinanPyClient:
         with self._get_connection() as conn:
             cur = conn.cursor()
 
-            cur.execute(
-                """SELECT strftime('%m', transaction_date) as month,
-                          transaction_type, SUM(amount)
-                   FROM transactions_transaction
-                   WHERE strftime('%Y', transaction_date) = ? AND status = 'CONFIRMED'
-                   GROUP BY month, transaction_type
-                   ORDER BY month""",
-                (str(year),)
-            )
+            if self.config.use_sqlite:
+                cur.execute(
+                    """SELECT strftime('%m', transaction_date) as month,
+                              transaction_type, SUM(amount)
+                       FROM transactions_transaction
+                       WHERE strftime('%Y', transaction_date) = ? AND status = 'CONFIRMED'
+                       GROUP BY month, transaction_type
+                       ORDER BY month""",
+                    (str(year),)
+                )
+            else:
+                cur.execute(
+                    """SELECT TO_CHAR(transaction_date, 'MM') as month,
+                              transaction_type, SUM(amount)
+                       FROM transactions_transaction
+                       WHERE TO_CHAR(transaction_date, 'YYYY') = %s AND status = 'CONFIRMED'
+                       GROUP BY month, transaction_type
+                       ORDER BY month""",
+                    (str(year),)
+                )
 
             months = {f"{i:02d}": {"income": Decimal("0"), "expenses": Decimal("0")}
                       for i in range(1, 13)}
