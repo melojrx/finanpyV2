@@ -140,6 +140,7 @@ class PlanningDistributeView(LoginRequiredMixin, View):
             if v.isdigit():
                 visible_ids.add(int(v))
         allocatable_ids = get_allocatable_expense_category_ids(request.user)
+        visible_ids &= allocatable_ids
 
         cat_names = dict(
             Category.objects.filter(user=request.user, is_active=True)
