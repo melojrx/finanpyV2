@@ -59,9 +59,12 @@ The distribution UI keeps the current model:
   the children.
 - If a root expense category has no active children, the user may allocate a
   value directly to the root.
+- An allocatable category is therefore either an active expense child category
+  or an active root expense category with no active children.
 - The backend validation compares total planned expenses against
   `plan.teto_calculado`.
-- Backend validation must use only expense items, not income items.
+- Backend validation must use only allocatable expense items, not income items
+  and not stale parent items that are hidden because the parent has children.
 
 This preserves the current user experience while removing invisible state from
 the calculation.
@@ -76,6 +79,7 @@ today. For items, it copies only valid expense items:
 - category belongs to the same user
 - category is active
 - category has `category_type='EXPENSE'`
+- category is allocatable in the current category tree
 
 Invalid legacy items are ignored. This prevents a bad historical plan from
 poisoning newly copied months.
@@ -89,9 +93,10 @@ The distribution screen remains the editing surface for the current month. It:
 - deletes visible unchecked items
 - validates total expense allocation against `teto_calculado`
 
-The validation must not include income items or non-expense rows. If invalid
-legacy rows already exist on the plan, they should not block editing. A separate
-cleanup task handles their removal.
+The validation must not include income items, non-expense rows, or hidden parent
+rows that are no longer allocatable. If invalid legacy rows already exist on the
+plan, they should not block editing. A separate cleanup task handles their
+removal.
 
 ### Review And Activation
 
