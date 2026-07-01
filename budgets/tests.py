@@ -925,6 +925,28 @@ class PlanningWizardViewTests(MonthlyPlanTestMixin, TestCase):
             status=status,
         )
 
+    def _previous_month(self):
+        prev_month = self.month - 1 if self.month > 1 else 12
+        prev_year = self.year if self.month > 1 else self.year - 1
+        return prev_year, prev_month
+
+    def _make_child_category(self, parent, name="Mercado"):
+        return Category.objects.create(
+            user=self.user,
+            name=name,
+            category_type="EXPENSE",
+            parent=parent,
+        )
+
+    def _bulk_create_legacy_item(self, plan, category, amount):
+        MonthlyPlanItem.objects.bulk_create([
+            MonthlyPlanItem(
+                monthly_plan=plan,
+                category=category,
+                planned_amount=Decimal(amount),
+            )
+        ])
+
     def _entry_url(self):
         return reverse("budgets:planning_entry")
 
@@ -1047,6 +1069,65 @@ class PlanningWizardViewTests(MonthlyPlanTestMixin, TestCase):
         self.client.post(copy_url)
         self.assertTrue(
             MonthlyPlanItem.objects.filter(monthly_plan=new_plan, category=self.expense_cat).exists()
+        )
+
+    def test_copy_view_ignores_income_and_hidden_parent_items(self):
+        prev_year, prev_month = self._previous_month()
+        parent = self.make_expense_category(self.user, name="Alimentação Pai")
+        child = self._make_child_category(parent, name="Supermercado")
+        income = self.make_income_category(self.user, name="Salário")
+        prev_plan = MonthlyPlan.objects.create(
+            user=self.user,
+            year=prev_year,
+            month=prev_month,
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("3000.00"),
+            savings_goal=Decimal("500.00"),
+        )
+        self._bulk_create_legacy_item(prev_plan, income, "5000.00")
+        self._bulk_create_legacy_item(prev_plan, parent, "900.00")
+        MonthlyPlanItem.objects.create(
+            monthly_plan=prev_plan,
+            category=child,
+            planned_amount=Decimal("400.00"),
+        )
+        new_plan = self._make_plan()
+        copy_url = reverse(
+            "budgets:planning_copy",
+            kwargs={"year": self.year, "month": self.month},
+        )
+
+        self.client.post(copy_url)
+
+        copied_categories = set(
+            MonthlyPlanItem.objects.filter(monthly_plan=new_plan)
+            .values_list("category_id", flat=True)
+        )
+        self.assertEqual(copied_categories, {child.pk})
+
+    def test_distribute_validation_ignores_legacy_income_and_hidden_parent_items(self):
+        parent = self.make_expense_category(self.user, name="Moradia")
+        child = self._make_child_category(parent, name="Condomínio")
+        income = self.make_income_category(self.user, name="Salário")
+        plan = self._make_plan(status="ACTIVE")
+        self._bulk_create_legacy_item(plan, income, "5000.00")
+        self._bulk_create_legacy_item(plan, parent, "900.00")
+
+        resp = self.client.post(self._distribute_url(), {
+            "visible_categories": str(child.pk),
+            f"amount_{child.pk}": "400.00",
+        })
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertRedirects(resp, self._review_url(), fetch_redirect_response=False)
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, "ACTIVE")
+        self.assertTrue(
+            MonthlyPlanItem.objects.filter(
+                monthly_plan=plan,
+                category=child,
+                planned_amount=Decimal("400.00"),
+            ).exists()
         )
 
     def test_anonymous_user_redirected(self):

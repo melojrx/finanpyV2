@@ -11,6 +11,10 @@ from decimal import Decimal
 
 from .models import Budget, BudgetAlert, MonthlyPlan, MonthlyPlanItem
 from .forms import MonthlyPlanHeaderForm
+from .plan_item_rules import (
+    copy_allocatable_plan_items,
+    get_allocated_expense_total,
+)
 from categories.models import Category
 
 MONTH_NAMES_PT = {
@@ -194,16 +198,13 @@ class PlanningDistributeView(LoginRequiredMixin, View):
                 monthly_plan=plan, category_id__in=excluded_ids
             ).delete()
 
-        root_items = plan.items.filter(
-            category__parent__isnull=True
-        ).select_related('category')
-        root_total = sum(i.planned_amount for i in root_items)
-        if root_total > plan.teto_calculado:
+        allocated_total = get_allocated_expense_total(plan)
+        if allocated_total > plan.teto_calculado:
             def _fmt(v):
                 return f"R$ {v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
             messages.error(
                 request,
-                f'A soma das categorias raiz ({_fmt(root_total)}) excede o teto '
+                f'A soma das despesas planejadas ({_fmt(allocated_total)}) excede o teto '
                 f'calculado ({_fmt(plan.teto_calculado)}).',
             )
             tree = _build_categories_tree(request.user, plan)
@@ -326,12 +327,7 @@ class PlanningCopyView(LoginRequiredMixin, View):
             },
         )
 
-        for src_item in source.items.select_related('category'):
-            MonthlyPlanItem.objects.get_or_create(
-                monthly_plan=plan,
-                category=src_item.category,
-                defaults={'planned_amount': src_item.planned_amount},
-            )
+        copy_allocatable_plan_items(source, plan)
 
         return redirect(
             'budgets:planning_distribute',
