@@ -154,6 +154,8 @@ class PlanningDistributeView(LoginRequiredMixin, View):
                 cat_id = int(key[len('amount_'):])
             except ValueError:
                 continue
+            if cat_id not in allocatable_ids:
+                continue
 
             raw_value = raw_value.strip()
             if ',' in raw_value:
@@ -183,8 +185,6 @@ class PlanningDistributeView(LoginRequiredMixin, View):
                 pk=cat_id, user=request.user, is_active=True
             ).first()
             if not category:
-                continue
-            if cat_id not in allocatable_ids:
                 continue
 
             item, _ = MonthlyPlanItem.objects.get_or_create(
