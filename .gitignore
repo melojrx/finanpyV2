@@ -327,4 +327,7 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 
+# Local implementation worktrees
+.worktrees/
+
 # End of https://www.toptal.com/developers/gitignore/api/python,django
