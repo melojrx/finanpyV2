@@ -354,6 +354,14 @@ class MonthlyPlanItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {'category': 'Categoria não pertence ao usuário.'}
             )
+        if category and not category.is_active:
+            raise serializers.ValidationError(
+                {'category': 'Apenas categorias ativas podem ser planejadas.'}
+            )
+        if category and category.category_type != 'EXPENSE':
+            raise serializers.ValidationError(
+                {'category': 'Apenas categorias de despesa podem ser planejadas.'}
+            )
         return data
 
 

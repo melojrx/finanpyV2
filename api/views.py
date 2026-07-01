@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 
 from accounts.models import Account, FundTransfer
 from budgets.models import Budget, MonthlyPlan, MonthlyPlanItem
+from budgets.plan_item_rules import copy_allocatable_plan_items
 from categories.models import Category
 from goals.models import Goal, GoalContribution
 from tags.models import Tag
@@ -738,18 +739,7 @@ class MonthlyPlanViewSet(viewsets.ModelViewSet):
                 {'detail': 'Nenhum plano anterior encontrado.'},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        copied = 0
-        for item in previous.items.all():
-            _, created = MonthlyPlanItem.objects.get_or_create(
-                monthly_plan=plan,
-                category=item.category,
-                defaults={
-                    'planned_amount': item.planned_amount,
-                    'alert_threshold': item.alert_threshold,
-                },
-            )
-            if created:
-                copied += 1
+        copied = copy_allocatable_plan_items(previous, plan)
         return Response({'copied_items': copied, 'plan': self.get_serializer(plan).data})
 
     @action(detail=True, methods=['get'])

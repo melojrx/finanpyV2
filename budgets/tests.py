@@ -1290,6 +1290,7 @@ class MonthlyPlanAPITests(MonthlyPlanTestMixin, TestCase):
         self.other = self.make_user(suffix="2")
         self.account = self.make_account(self.user)
         self.expense_cat = self.make_expense_category(self.user, name="Alimentação")
+        self.income_cat = self.make_income_category(self.user, name="Salário")
         self.token = Token.objects.create(user=self.user)
         self.other_token = Token.objects.create(user=self.other)
         self.client = APIClient()
@@ -1387,6 +1388,36 @@ class MonthlyPlanAPITests(MonthlyPlanTestMixin, TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["copied_items"], 1)
 
+    def test_copy_from_previous_ignores_income_items(self):
+        prev_month = self.today.month - 1 if self.today.month > 1 else 12
+        prev_year = self.today.year if self.today.month > 1 else self.today.year - 1
+        prev_plan = MonthlyPlan.objects.create(
+            user=self.user,
+            year=prev_year,
+            month=prev_month,
+            renda_prevista=Decimal("5000.00"),
+            teto_despesas=Decimal("3000.00"),
+        )
+        MonthlyPlanItem.objects.bulk_create([
+            MonthlyPlanItem(
+                monthly_plan=prev_plan,
+                category=self.income_cat,
+                planned_amount=Decimal("5000.00"),
+            )
+        ])
+        self.item.delete()
+
+        resp = self.client.post(f"{self._plan_url(pk=self.plan.pk)}copy_from_previous/")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["copied_items"], 0)
+        self.assertFalse(
+            MonthlyPlanItem.objects.filter(
+                monthly_plan=self.plan,
+                category=self.income_cat,
+            ).exists()
+        )
+
     def test_other_user_plan_returns_404(self):
         other_plan = MonthlyPlan.objects.create(
             user=self.other, year=self.today.year, month=self.today.month,
@@ -1409,6 +1440,33 @@ class MonthlyPlanAPITests(MonthlyPlanTestMixin, TestCase):
             "planned_amount": "200.00",
         }, content_type="application/json")
         self.assertEqual(resp.status_code, 201)
+
+    def test_create_item_rejects_income_category(self):
+        resp = self.client.post(self._item_url(), {
+            "monthly_plan": self.plan.pk,
+            "category": self.income_cat.pk,
+            "planned_amount": "200.00",
+        }, content_type="application/json")
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("category", resp.data)
+
+    def test_create_item_rejects_inactive_category(self):
+        inactive = Category.objects.create(
+            user=self.user,
+            name="Despesa Inativa",
+            category_type="EXPENSE",
+            is_active=False,
+        )
+
+        resp = self.client.post(self._item_url(), {
+            "monthly_plan": self.plan.pk,
+            "category": inactive.pk,
+            "planned_amount": "200.00",
+        }, content_type="application/json")
+
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("category", resp.data)
 
     def test_item_response_includes_spent_amount(self):
         resp = self.client.get(self._item_url(pk=self.item.pk))
