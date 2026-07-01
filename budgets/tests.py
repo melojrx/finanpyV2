@@ -811,6 +811,29 @@ class MonthlyPlanItemModelTests(MonthlyPlanTestMixin, TestCase):
                 planned_amount=Decimal("100.00"),
             ).full_clean()
 
+    def test_income_category_rejected_on_save(self):
+        with self.assertRaises(ValidationError):
+            MonthlyPlanItem.objects.create(
+                monthly_plan=self.plan,
+                category=self.income_cat,
+                planned_amount=Decimal("100.00"),
+            )
+
+    def test_inactive_category_rejected_on_save(self):
+        inactive = Category.objects.create(
+            user=self.user,
+            name="Despesa Inativa",
+            category_type="EXPENSE",
+            is_active=False,
+        )
+
+        with self.assertRaises(ValidationError):
+            MonthlyPlanItem.objects.create(
+                monthly_plan=self.plan,
+                category=inactive,
+                planned_amount=Decimal("100.00"),
+            )
+
     def test_duplicate_item_rejected(self):
         self._make_item()
         from django.db import IntegrityError

@@ -1350,6 +1350,10 @@ class MonthlyPlanItem(models.Model):
 
         if self.category_id:
             try:
+                if not self.category.is_active:
+                    raise ValidationError(
+                        {'category': 'Apenas categorias ativas podem ser planejadas.'}
+                    )
                 if self.category.category_type != 'EXPENSE':
                     raise ValidationError(
                         {'category': 'Apenas categorias de despesa podem ser planejadas.'}
@@ -1360,6 +1364,10 @@ class MonthlyPlanItem(models.Model):
                     )
             except (AttributeError, ObjectDoesNotExist):
                 pass
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     @property
     def spent_amount(self):
