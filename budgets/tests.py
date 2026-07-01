@@ -1152,6 +1152,58 @@ class PlanningWizardViewTests(MonthlyPlanTestMixin, TestCase):
             ).exists()
         )
 
+    def test_distribute_view_ignores_crafted_hidden_grandchild_submission(self):
+        root = self.make_expense_category(self.user, name="Moradia")
+        child = self._make_child_category(root, name="Casa")
+        grandchild = self._make_child_category(child, name="Condomínio")
+        plan = self._make_plan(status="ACTIVE")
+
+        resp = self.client.post(self._distribute_url(), {
+            "visible_categories": str(child.pk),
+            f"amount_{child.pk}": "400.00",
+            f"amount_{grandchild.pk}": "400.00",
+        })
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertRedirects(resp, self._review_url(), fetch_redirect_response=False)
+        self.assertTrue(
+            MonthlyPlanItem.objects.filter(
+                monthly_plan=plan,
+                category=child,
+                planned_amount=Decimal("400.00"),
+            ).exists()
+        )
+        self.assertFalse(
+            MonthlyPlanItem.objects.filter(
+                monthly_plan=plan,
+                category=grandchild,
+            ).exists()
+        )
+
+    def test_distribute_validation_ignores_active_child_under_inactive_root(self):
+        inactive_root = self.make_expense_category(self.user, name="Moradia")
+        inactive_root.is_active = False
+        inactive_root.save(update_fields=["is_active"])
+        hidden_child = self._make_child_category(inactive_root, name="Condomínio")
+        visible_root = self.make_expense_category(self.user, name="Transporte")
+        plan = self._make_plan(status="ACTIVE")
+        self._bulk_create_legacy_item(plan, hidden_child, "5000.00")
+
+        resp = self.client.post(self._distribute_url(), {
+            "visible_categories": str(visible_root.pk),
+            f"amount_{visible_root.pk}": "400.00",
+        })
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertRedirects(resp, self._review_url(), fetch_redirect_response=False)
+        self.assertTrue(
+            MonthlyPlanItem.objects.filter(
+                monthly_plan=plan,
+                category=visible_root,
+                planned_amount=Decimal("400.00"),
+            ).exists()
+        )
+
     def test_anonymous_user_redirected(self):
         self.client.logout()
         resp = self.client.get(self._entry_url())

@@ -13,6 +13,7 @@ from .models import Budget, BudgetAlert, MonthlyPlan, MonthlyPlanItem
 from .forms import MonthlyPlanHeaderForm
 from .plan_item_rules import (
     copy_allocatable_plan_items,
+    get_allocatable_expense_category_ids,
     get_allocated_expense_total,
 )
 from categories.models import Category
@@ -138,6 +139,7 @@ class PlanningDistributeView(LoginRequiredMixin, View):
             v = v.strip()
             if v.isdigit():
                 visible_ids.add(int(v))
+        allocatable_ids = get_allocatable_expense_category_ids(request.user)
 
         cat_names = dict(
             Category.objects.filter(user=request.user, is_active=True)
@@ -181,6 +183,8 @@ class PlanningDistributeView(LoginRequiredMixin, View):
                 pk=cat_id, user=request.user, is_active=True
             ).first()
             if not category:
+                continue
+            if cat_id not in allocatable_ids:
                 continue
 
             item, _ = MonthlyPlanItem.objects.get_or_create(

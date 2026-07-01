@@ -23,6 +23,7 @@ def get_allocatable_expense_category_ids(user):
         .filter(
             (
                 Q(parent_id__isnull=False) &
+                Q(parent__is_active=True) &
                 Q(parent__parent_id__isnull=True)
             ) |
             (
