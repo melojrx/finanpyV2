@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
 from categories.models import Category
 
@@ -20,7 +20,16 @@ def get_allocatable_expense_category_ids(user):
     )
     return set(
         active_expense
-        .exclude(parent_id__isnull=True, id__in=parent_ids_with_active_children)
+        .filter(
+            (
+                Q(parent_id__isnull=False) &
+                Q(parent__parent_id__isnull=True)
+            ) |
+            (
+                Q(parent_id__isnull=True) &
+                ~Q(id__in=parent_ids_with_active_children)
+            )
+        )
         .values_list('id', flat=True)
     )
 

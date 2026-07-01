@@ -1130,6 +1130,28 @@ class PlanningWizardViewTests(MonthlyPlanTestMixin, TestCase):
             ).exists()
         )
 
+    def test_distribute_validation_ignores_hidden_grandchild_items(self):
+        root = self.make_expense_category(self.user, name="Moradia")
+        child = self._make_child_category(root, name="Casa")
+        grandchild = self._make_child_category(child, name="Condomínio")
+        plan = self._make_plan(status="ACTIVE")
+        self._bulk_create_legacy_item(plan, grandchild, "5000.00")
+
+        resp = self.client.post(self._distribute_url(), {
+            "visible_categories": str(child.pk),
+            f"amount_{child.pk}": "400.00",
+        })
+
+        self.assertEqual(resp.status_code, 302)
+        self.assertRedirects(resp, self._review_url(), fetch_redirect_response=False)
+        self.assertTrue(
+            MonthlyPlanItem.objects.filter(
+                monthly_plan=plan,
+                category=child,
+                planned_amount=Decimal("400.00"),
+            ).exists()
+        )
+
     def test_anonymous_user_redirected(self):
         self.client.logout()
         resp = self.client.get(self._entry_url())
