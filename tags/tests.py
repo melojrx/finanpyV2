@@ -1,3 +1,7 @@
+import html
+import re
+from urllib.parse import parse_qs, urlsplit
+
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -280,6 +284,30 @@ class TagTransactionIntegrationTest(TestCase):
         )
         self.tag = Tag.objects.create(user=self.user, name='viagem')
 
+    def _transaction(self, description, tags=()):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            category=self.category,
+            transaction_type='EXPENSE',
+            amount=50,
+            description=description,
+            transaction_date=date.today(),
+            status='CONFIRMED',
+        )
+        transaction.tags.add(*tags)
+        return transaction
+
+    def _link_query(self, response, rel):
+        content = response.content.decode()
+        match = re.search(
+            rf'<a href="([^"]+)"\s+rel="{rel}"',
+            content,
+        )
+        self.assertIsNotNone(match, f'Link rel={rel} não encontrado')
+        href = html.unescape(match.group(1))
+        return parse_qs(urlsplit(href).query)
+
     def test_create_transaction_with_existing_tag(self):
         data = {
             'transaction_type': 'EXPENSE',
@@ -321,6 +349,131 @@ class TagTransactionIntegrationTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Com tag')
         self.assertNotContains(response, 'Sem tag')
+
+    def test_filter_controls_render_user_tags_on_desktop_and_mobile(self):
+        other_user = User.objects.create_user(
+            email='other-tags@test.com', password='testpass123'
+        )
+        Tag.objects.create(user=other_user, name='secreta')
+
+        response = self.client.get(reverse('transactions:list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-tag-filter-root', count=2)
+        self.assertContains(response, 'data-tag-filter-trigger', count=2)
+        self.assertContains(response, 'Todas as tags', count=2)
+        self.assertContains(
+            response,
+            f'type="checkbox" name="tags" value="{self.tag.pk}"',
+            count=2,
+        )
+        self.assertNotContains(response, '<select id="id_tags"')
+        self.assertNotContains(response, 'secreta')
+
+    def test_filter_controls_have_unique_accessible_ids_and_script(self):
+        response = self.client.get(reverse('transactions:list'))
+
+        content = response.content.decode()
+        for prefix in ('tag-filter-desktop', 'tag-filter-mobile'):
+            self.assertIn(f'id="{prefix}-trigger"', content)
+            self.assertIn(f'id="{prefix}-panel"', content)
+            self.assertIn(
+                f'aria-controls="{prefix}-panel"',
+                content,
+            )
+        self.assertContains(response, '/static/js/tag-filter.js')
+
+    def test_multiple_tag_filter_uses_or_without_duplicates(self):
+        work_tag = Tag.objects.create(user=self.user, name='trabalho')
+        both = self._transaction('Duas tags', tags=(self.tag, work_tag))
+        only_travel = self._transaction('Somente viagem', tags=(self.tag,))
+        without_tags = self._transaction('Sem tags')
+
+        response = self.client.get(
+            reverse('transactions:list'),
+            {'tags': [self.tag.pk, work_tag.pk]},
+        )
+
+        transaction_ids = [tx.pk for tx in response.context['transactions']]
+        self.assertCountEqual(transaction_ids, [both.pk, only_travel.pk])
+        self.assertNotIn(without_tags.pk, transaction_ids)
+        self.assertEqual(transaction_ids.count(both.pk), 1)
+
+    def test_tag_filter_composes_with_existing_filters(self):
+        matching = self._transaction('Mercado da viagem', tags=(self.tag,))
+        self._transaction('Hotel da viagem', tags=(self.tag,))
+
+        response = self.client.get(
+            reverse('transactions:list'),
+            {
+                'tags': [self.tag.pk],
+                'transaction_type': 'EXPENSE',
+                'category': self.category.pk,
+                'search': 'mercado',
+                'status': 'CONFIRMED',
+            },
+        )
+
+        transaction_ids = [tx.pk for tx in response.context['transactions']]
+        self.assertEqual(transaction_ids, [matching.pk])
+
+    def test_selected_tags_are_restored_in_both_filter_controls(self):
+        work_tag = Tag.objects.create(user=self.user, name='trabalho')
+
+        response = self.client.get(
+            reverse('transactions:list'),
+            {'tags': [self.tag.pk, work_tag.pk]},
+        )
+
+        self.assertContains(
+            response,
+            f'type="checkbox" name="tags" value="{self.tag.pk}" checked',
+            count=2,
+        )
+        self.assertContains(
+            response,
+            f'type="checkbox" name="tags" value="{work_tag.pk}" checked',
+            count=2,
+        )
+
+    def test_pagination_preserves_all_selected_tags(self):
+        work_tag = Tag.objects.create(user=self.user, name='trabalho')
+        for index in range(21):
+            self._transaction(f'Transação {index}', tags=(self.tag, work_tag))
+
+        response = self.client.get(
+            reverse('transactions:list'),
+            {'tags': [self.tag.pk, work_tag.pk]},
+        )
+
+        query = self._link_query(response, 'next')
+        self.assertEqual(
+            query['tags'],
+            [str(self.tag.pk), str(work_tag.pk)],
+        )
+        self.assertEqual(query['page'], ['2'])
+
+    def test_status_navigation_preserves_all_selected_tags(self):
+        work_tag = Tag.objects.create(user=self.user, name='trabalho')
+
+        response = self.client.get(
+            reverse('transactions:list'),
+            {'tags': [self.tag.pk, work_tag.pk], 'search': 'mercado'},
+        )
+
+        content = response.content.decode()
+        match = re.search(
+            r'<a href="([^"]+)"[^>]*>\s*✓ Efetivadas',
+            content,
+        )
+        self.assertIsNotNone(match, 'Link de status Efetivadas não encontrado')
+        query = parse_qs(urlsplit(html.unescape(match.group(1))).query)
+        self.assertEqual(
+            query['tags'],
+            [str(self.tag.pk), str(work_tag.pk)],
+        )
+        self.assertEqual(query['search'], ['mercado'])
+        self.assertEqual(query['status'], ['CONFIRMED'])
 
     def test_transaction_detail_shows_tags(self):
         tx = Transaction(

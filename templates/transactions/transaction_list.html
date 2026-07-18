@@ -110,19 +110,19 @@
     {# ─── Status Filter Tabs ─────────────────────────────── #}
     <nav class="flex gap-2 mb-4 overflow-x-auto" aria-label="Filtro por status">
         {% with current_status=request.GET.status %}
-        <a href="?{% if request.GET.transaction_type %}transaction_type={{ request.GET.transaction_type }}&{% endif %}"
+        <a href="{% querystring status=None page=None %}"
            class="filter-chip {% if not current_status %}bg-sky-500/20 border-sky-400{% endif %}">
             Todas
         </a>
-        <a href="?status=PENDING{% if request.GET.transaction_type %}&transaction_type={{ request.GET.transaction_type }}{% endif %}"
+        <a href="{% querystring status='PENDING' page=None %}"
            class="filter-chip {% if current_status == 'PENDING' %}bg-yellow-500/20 border-yellow-400{% endif %}">
             ⏳ Pendentes
         </a>
-        <a href="?status=CONFIRMED{% if request.GET.transaction_type %}&transaction_type={{ request.GET.transaction_type }}{% endif %}"
+        <a href="{% querystring status='CONFIRMED' page=None %}"
            class="filter-chip {% if current_status == 'CONFIRMED' %}bg-green-500/20 border-green-400{% endif %}">
             ✓ Efetivadas
         </a>
-        <a href="?status=CANCELLED{% if request.GET.transaction_type %}&transaction_type={{ request.GET.transaction_type }}{% endif %}"
+        <a href="{% querystring status='CANCELLED' page=None %}"
            class="filter-chip {% if current_status == 'CANCELLED' %}bg-gray-500/20 border-gray-400{% endif %}">
             ✕ Canceladas
         </a>
@@ -177,9 +177,9 @@
         </div>
 
         {# Painel inline desktop #}
-        <form method="get" class="hidden lg:block bg-dark-800/60 border border-dark-700 rounded-xl p-4 backdrop-blur-sm">
+        <form method="get" class="hidden lg:block relative z-40 overflow-visible bg-dark-800/60 border border-dark-700 rounded-xl p-4 backdrop-blur-sm">
             <h3 class="sr-only">Filtros avançados</h3>
-            <div class="grid grid-cols-6 gap-3">
+            <div class="grid grid-cols-3 gap-3">
                 <div>
                     <label for="{{ filter_form.date_from.id_for_label }}" class="block text-xs font-medium text-gray-400 mb-1.5">Data inicial</label>
                     {{ filter_form.date_from }}
@@ -201,22 +201,25 @@
                     {{ filter_form.category }}
                 </div>
                 <div>
+                    {% include 'components/_tag_filter_multiselect.html' with field=filter_form.tags widget_id='tag-filter-desktop' %}
+                </div>
+                <div class="col-span-2">
                     <label for="{{ filter_form.search.id_for_label }}" class="block text-xs font-medium text-gray-400 mb-1.5">Buscar</label>
                     {{ filter_form.search }}
                 </div>
-            </div>
-            <div class="flex justify-end gap-2 mt-4">
-                {% if has_filters %}
-                    <a href="{% url 'transactions:list' %}"
-                       class="inline-flex items-center px-4 h-10 rounded-lg text-sm text-gray-300 hover:bg-dark-700 transition">Limpar</a>
-                {% endif %}
-                <button type="submit"
-                        class="inline-flex items-center gap-2 px-4 h-10 rounded-lg bg-primary-700 hover:bg-primary-600 text-white text-sm font-semibold transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                    Aplicar filtros
-                </button>
+                <div class="flex items-end justify-end gap-2">
+                    {% if has_filters %}
+                        <a href="{% url 'transactions:list' %}"
+                           class="inline-flex items-center px-4 h-[52px] rounded-xl text-sm text-gray-300 hover:bg-dark-700 transition">Limpar</a>
+                    {% endif %}
+                    <button type="submit"
+                            class="inline-flex items-center gap-2 px-4 h-[52px] rounded-xl bg-primary-700 hover:bg-primary-600 text-white text-sm font-semibold transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        Aplicar filtros
+                    </button>
+                </div>
             </div>
         </form>
 
@@ -232,6 +235,13 @@
             {% if request.GET.date_from or request.GET.date_to %}
                 <span class="filter-chip">{{ request.GET.date_from|default:"…" }} → {{ request.GET.date_to|default:"…" }}</span>
             {% endif %}
+            {% for tag in filter_form.tags.field.queryset %}
+                {% with tag_id=tag.pk|stringformat:"s" %}
+                    {% if filter_form.tags.value and tag_id in filter_form.tags.value %}
+                        <span class="filter-chip">#{{ tag.name }}</span>
+                    {% endif %}
+                {% endwith %}
+            {% endfor %}
         </div>
         {% endif %}
     </div>
@@ -460,7 +470,7 @@
     {% if is_paginated %}
     <nav class="mt-6 flex items-center justify-between gap-3" aria-label="Paginação">
         {% if page_obj.has_previous %}
-            <a href="?{% for k,v in request.GET.items %}{% if v and k != 'page' %}{{ k }}={{ v }}&amp;{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+            <a href="{% querystring page=page_obj.previous_page_number %}"
                rel="prev"
                class="inline-flex items-center gap-1 px-3 h-11 rounded-xl border border-dark-600 hover:bg-dark-800 text-gray-300 text-sm font-medium transition">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -478,7 +488,7 @@
         </span>
 
         {% if page_obj.has_next %}
-            <a href="?{% for k,v in request.GET.items %}{% if v and k != 'page' %}{{ k }}={{ v }}&amp;{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+            <a href="{% querystring page=page_obj.next_page_number %}"
                rel="next"
                class="inline-flex items-center gap-1 px-3 h-11 rounded-xl border border-dark-600 hover:bg-dark-800 text-gray-300 text-sm font-medium transition">
                 Próxima
@@ -496,7 +506,7 @@
 
 {% block bottom_sheets %}
 {# ─── Bottom-sheet de filtros (mobile) ─────────────────────────── #}
-<div id="filter-sheet" class="finanpy-sheet fixed inset-0 z-50 hidden"
+<div id="filter-sheet" class="finanpy-sheet fixed inset-0 z-[60] hidden"
      role="dialog" aria-modal="true" aria-labelledby="filter-sheet-title">
     <div class="absolute inset-0 bg-black/60 finanpy-sheet-backdrop opacity-0 transition-opacity duration-200"
          data-sheet-close></div>
@@ -571,6 +581,8 @@
                 </select>
             </div>
 
+            {% include 'components/_tag_filter_multiselect.html' with field=filter_form.tags widget_id='tag-filter-mobile' inline_panel=True %}
+
             <div class="pt-2 flex gap-2">
                 {% if has_filters %}
                     <a href="{% url 'transactions:list' %}"
@@ -589,6 +601,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/tag-filter.js' %}" defer></script>
 <script>
     // accounts_json continua disponível para JS legado se algum painel
     // recriar a UI de Quick Transaction depois.
