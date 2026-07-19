@@ -1,33 +1,145 @@
 {% extends "base.html" %}
 
-{% block title %}Tags{% endblock %}
+{% block title %}Tags - FinanPy{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-input {
+        width: 100%;
+        padding: .75rem 1rem;
+        border: 2px solid #374151;
+        border-radius: .75rem;
+        background-color: #1F2937;
+        color: #F9FAFB;
+        font-size: .95rem;
+        transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .form-input:focus {
+        outline: none;
+        border-color: #0ea5e9;
+        box-shadow: 0 0 0 3px rgba(14,165,233,.2);
+    }
+    .stat-card {
+        background: rgba(31, 41, 55, .7);
+        border: 1px solid rgba(55, 65, 81, .4);
+        border-radius: .9rem;
+        padding: 1rem 1.25rem;
+        backdrop-filter: blur(8px);
+    }
+    .num-tabular { font-variant-numeric: tabular-nums; }
+    .tag-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        min-height: 2.5rem;
+        padding: .35rem .5rem .35rem .85rem;
+        border-radius: 999px;
+        background: rgba(31, 41, 55, .72);
+        border: 1px solid rgba(75, 85, 99, .75);
+    }
+    .icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 999px;
+        color: #9CA3AF;
+        transition: background-color .12s ease, color .12s ease;
+    }
+    .icon-btn:hover { background: rgba(55,65,81,.7); color: #fff; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-6 max-w-4xl">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-white">Tags</h1>
-        <a href="{% url 'tags:create' %}" class="btn-primary">
-            Nova Tag
-        </a>
-    </div>
+<section class="px-4 sm:px-6 lg:px-8 pt-4 pb-8 max-w-7xl mx-auto">
+    <header class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+        <div>
+            <h1 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+                <span aria-hidden="true">#</span>
+                Tags
+                {% if has_filters %}
+                    <span class="px-2 py-0.5 text-[11px] uppercase tracking-wider rounded-full bg-primary-700/30 text-primary-300 border border-primary-700/50">
+                        filtradas
+                    </span>
+                {% endif %}
+            </h1>
+            <p class="text-sm text-gray-400 mt-1">
+                Marque transações com contextos livres para busca e análise.
+            </p>
+        </div>
 
-    {% if tags %}
-    <div class="card p-4">
-        <div class="flex flex-wrap gap-2">
-            {% for tag in tags %}
-            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-dark-700 border border-gray-600">
-                <span class="text-sm text-white">{{ tag.name }}</span>
-                <a href="{% url 'tags:update' tag.pk %}" class="text-gray-400 hover:text-sky-400 text-xs">✎</a>
-                <a href="{% url 'tags:delete' tag.pk %}" class="text-gray-400 hover:text-red-400 text-xs">✕</a>
-            </div>
-            {% endfor %}
+        <a href="{% url 'tags:create' %}"
+           class="inline-flex items-center justify-center gap-2 px-4 h-11 rounded-xl bg-primary-700 hover:bg-primary-600 text-white text-sm font-semibold shadow-lg shadow-primary-900/30 transition">
+            <span aria-hidden="true">+</span>
+            Nova tag
+        </a>
+    </header>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-5">
+        <div class="stat-card">
+            <p class="text-xs text-gray-400">Total</p>
+            <p class="text-lg sm:text-xl font-bold text-white num-tabular mt-1">{{ stats.total_tags }}</p>
         </div>
     </div>
+
+    <form method="get" class="mb-5 bg-dark-800/60 border border-dark-700 rounded-xl p-4 backdrop-blur-sm">
+        <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+            <div>
+                <label for="{{ filter_form.search.id_for_label }}" class="block text-xs font-medium text-gray-400 mb-1.5">
+                    {{ filter_form.search.label }}
+                </label>
+                {{ filter_form.search }}
+            </div>
+            <div class="flex gap-2">
+                <button type="submit"
+                        class="inline-flex items-center justify-center px-4 h-11 rounded-lg bg-primary-700 hover:bg-primary-600 text-white text-sm font-semibold transition">
+                    Aplicar
+                </button>
+                {% if has_filters %}
+                    <a href="{% url 'tags:list' %}"
+                       class="inline-flex items-center justify-center px-3 h-11 rounded-lg text-sm text-gray-300 hover:bg-dark-700 transition">
+                        Limpar
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+
+    {% if tags %}
+        <div class="bg-dark-800/60 border border-dark-700 rounded-xl p-4">
+            <div class="flex flex-wrap gap-2">
+                {% for tag in tags %}
+                    <div class="tag-chip">
+                        <span class="text-sm font-medium text-white">#{{ tag.name }}</span>
+                        <a href="{% url 'tags:update' tag.pk %}" class="icon-btn" aria-label="Editar tag {{ tag.name }}">
+                            <span aria-hidden="true">✎</span>
+                        </a>
+                        <a href="{% url 'tags:delete' tag.pk %}" class="icon-btn hover:text-red-400" aria-label="Excluir tag {{ tag.name }}">
+                            <span aria-hidden="true">×</span>
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
     {% else %}
-    <div class="card p-8 text-center">
-        <p class="text-gray-400 mb-4">Nenhuma tag criada ainda.</p>
-        <a href="{% url 'tags:create' %}" class="btn-primary">Criar primeira tag</a>
-    </div>
+        <div class="bg-dark-800/60 border border-dark-700 rounded-xl p-8 text-center">
+            <p class="text-gray-300 font-medium mb-2">
+                {% if has_filters %}Nenhuma tag encontrada.{% else %}Nenhuma tag criada ainda.{% endif %}
+            </p>
+            <p class="text-sm text-gray-400 mb-5">
+                {% if has_filters %}Tente outro termo de busca ou limpe o filtro.{% else %}Crie tags para classificar transações por contexto, projeto ou origem.{% endif %}
+            </p>
+            {% if has_filters %}
+                <a href="{% url 'tags:list' %}" class="inline-flex items-center justify-center px-4 h-11 rounded-xl border border-dark-600 hover:bg-dark-800 text-gray-200 text-sm font-medium transition">
+                    Limpar filtro
+                </a>
+            {% else %}
+                <a href="{% url 'tags:create' %}" class="inline-flex items-center justify-center px-4 h-11 rounded-xl bg-primary-700 hover:bg-primary-600 text-white text-sm font-semibold transition">
+                    Criar primeira tag
+                </a>
+            {% endif %}
+        </div>
     {% endif %}
-</div>
+</section>
 {% endblock %}

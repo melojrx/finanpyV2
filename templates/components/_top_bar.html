@@ -102,6 +102,12 @@
                       {% if active_app == 'categories' %}text-white bg-dark-800{% else %}text-gray-300 hover:text-white hover:bg-dark-800/60{% endif %}">
                 Categorias
             </a>
+            <a href="{% url 'tags:list' %}"
+               {% if active_app == 'tags' %}aria-current="page"{% endif %}
+               class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                      {% if active_app == 'tags' %}text-white bg-dark-800{% else %}text-gray-300 hover:text-white hover:bg-dark-800/60{% endif %}">
+                Tags
+            </a>
         </nav>
 
         {# Slot direito — alertas + avatar (dropdown em desktop) #}

@@ -3,6 +3,20 @@ from django.core.exceptions import ValidationError
 from .models import Tag
 
 
+class TagFilterForm(forms.Form):
+    search = forms.CharField(
+        required=False,
+        max_length=50,
+        label='Buscar',
+        widget=forms.TextInput(attrs={
+            'class': 'form-input',
+            'placeholder': 'Buscar tag...',
+            'enterkeyhint': 'search',
+            'aria-label': 'Buscar tags',
+        }),
+    )
+
+
 class TagForm(forms.ModelForm):
     class Meta:
         model = Tag

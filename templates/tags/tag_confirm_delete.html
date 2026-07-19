@@ -12,7 +12,15 @@
             <span class="font-semibold text-white">"{{ object.name }}"</span>?
         </p>
         <p class="text-sm text-gray-400 mb-6">
-            A tag será removida de todas as transações associadas.
+            {% if transaction_count %}
+                {% if transaction_count == 1 %}
+                    A tag será removida de 1 transação associada.
+                {% else %}
+                    A tag será removida de {{ transaction_count }} transações associadas.
+                {% endif %}
+            {% else %}
+                Esta tag ainda não está associada a nenhuma transação.
+            {% endif %}
         </p>
 
         <form method="post">

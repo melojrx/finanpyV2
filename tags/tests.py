@@ -83,6 +83,20 @@ class TagViewTest(TestCase):
         response = self.client.get(reverse('tags:list'))
         self.assertNotContains(response, 'secreto')
 
+    def test_list_view_search(self):
+        Tag.objects.create(user=self.user, name='reembolso')
+        response = self.client.get(reverse('tags:list'), {'search': 'reem'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'reembolso')
+        self.assertNotContains(response, 'viagem')
+        self.assertContains(response, 'filtradas')
+
+    def test_list_view_search_preserves_user_isolation(self):
+        Tag.objects.create(user=self.other_user, name='reembolso')
+        response = self.client.get(reverse('tags:list'), {'search': 'reem'})
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'reembolso')
+
     def test_create_view(self):
         response = self.client.post(
             reverse('tags:create'), {'name': 'reembolso'}
@@ -119,6 +133,31 @@ class TagViewTest(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Tag.objects.filter(pk=self.tag.pk).exists())
+
+    def test_delete_view_shows_transaction_usage_count(self):
+        account = Account.objects.create(
+            user=self.user, name='Conta Test',
+            account_type='checking', balance=1000, currency='BRL',
+        )
+        category = Category.objects.create(
+            user=self.user, name='Alimentação',
+            category_type='EXPENSE',
+        )
+        tx = Transaction.objects.create(
+            user=self.user,
+            account=account,
+            category=category,
+            transaction_type='EXPENSE',
+            amount=30,
+            description='Com tag',
+            transaction_date=date.today(),
+            status='CONFIRMED',
+        )
+        tx.tags.add(self.tag)
+
+        response = self.client.get(reverse('tags:delete', kwargs={'pk': self.tag.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'A tag será removida de 1 transação associada.')
 
     def test_delete_other_user_tag_404(self):
         other_tag = Tag.objects.create(user=self.other_user, name='alheia')

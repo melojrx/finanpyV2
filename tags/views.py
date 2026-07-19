@@ -4,7 +4,7 @@ from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 
 from .models import Tag
-from .forms import TagForm
+from .forms import TagFilterForm, TagForm
 
 
 class TagListView(LoginRequiredMixin, ListView):
@@ -14,7 +14,25 @@ class TagListView(LoginRequiredMixin, ListView):
     paginate_by = 50
 
     def get_queryset(self):
-        return Tag.objects.filter(user=self.request.user)
+        queryset = Tag.objects.filter(user=self.request.user)
+        filter_form = TagFilterForm(self.request.GET)
+
+        if filter_form.is_valid():
+            search = filter_form.cleaned_data.get('search')
+            if search:
+                queryset = queryset.filter(name__icontains=search)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user_tags = Tag.objects.filter(user=self.request.user)
+        context['filter_form'] = TagFilterForm(self.request.GET)
+        context['stats'] = {
+            'total_tags': user_tags.count(),
+        }
+        context['has_filters'] = bool(self.request.GET.get('search'))
+        return context
 
 
 class TagCreateView(LoginRequiredMixin, CreateView):
@@ -72,6 +90,13 @@ class TagDeleteView(LoginRequiredMixin, DeleteView):
 
     def get_queryset(self):
         return Tag.objects.filter(user=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['transaction_count'] = self.object.transactions.filter(
+            user=self.request.user
+        ).count()
+        return context
 
     def form_valid(self, form):
         messages.success(self.request, f'Tag "{self.object.name}" removida.')
