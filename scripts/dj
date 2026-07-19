@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Django wrapper - limpa variaveis do Cursor AppImage que quebram o Python no Linux.
+# Uso: ./scripts/dj runserver   |   ./scripts/dj migrate   |   ./scripts/dj shell
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="$ROOT/venv/bin/python"
+
+if [[ ! -x "$PY" ]]; then
+  echo "venv nao encontrado em $ROOT/venv" >&2
+  echo "Crie com: uv venv venv --python 3.13 && uv pip install -r requirements.txt" >&2
+  exit 1
+fi
+
+exec env -u PYTHONHOME -u PYTHONPATH -u LD_LIBRARY_PATH \
+  "$PY" "$ROOT/manage.py" "$@"
