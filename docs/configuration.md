@@ -17,18 +17,27 @@ Configuração padrão:
 - Static coletado: `staticfiles/`.
 - Media: `media/`.
 - Email: console backend.
+- CSS: `django-tailwind` via app `theme`.
 
 Comandos principais:
 
 ```bash
-venv/bin/python manage.py migrate
-venv/bin/python manage.py runserver
-venv/bin/python manage.py test
+./scripts/dj migrate
+./scripts/dj runserver
+./scripts/dj test
 ```
+
+Use `./scripts/dj` neste checkout para limpar variáveis de ambiente do shell que
+podem quebrar o Python local (`PYTHONHOME`, `PYTHONPATH`, `LD_LIBRARY_PATH`).
 
 ## Produção
 
 Use `DJANGO_SETTINGS_MODULE=core.settings_production`.
+
+Na VPS atual, a aplicação roda em `/srv/apps/finanpy` usando
+`docker-compose.vps.yml`. O domínio público temporário é
+`https://www.investiorion.com/`; a migração futura será para
+`https://finanpy.com.br/`.
 
 Variáveis obrigatórias:
 
@@ -60,6 +69,11 @@ Variáveis HTTP/segurança:
 | `SESSION_COOKIE_SECURE` | `true` |
 | `CSRF_COOKIE_SECURE` | `true` |
 | `SESSION_COOKIE_AGE` | `3600` |
+
+Observação: em `core.settings_production`, `SESSION_COOKIE_DOMAIN` e
+`CSRF_COOKIE_DOMAIN` estão fixados em `.investiorion.com`. Ao migrar para
+`finanpy.com.br`, esses valores devem ser atualizados junto com Nginx,
+certificados, `ALLOWED_HOSTS` e `CSRF_TRUSTED_ORIGINS`.
 
 Variáveis de email:
 
@@ -98,7 +112,7 @@ O arquivo real `.env.production` não deve ser versionado.
 Validar settings de desenvolvimento:
 
 ```bash
-venv/bin/python manage.py check
+./scripts/dj check
 ```
 
 Validar settings de produção:
@@ -109,7 +123,7 @@ env \
   ALLOWED_HOSTS='localhost,127.0.0.1' \
   POSTGRES_PASSWORD='senha-local-de-validacao' \
   CSRF_TRUSTED_ORIGINS='https://localhost,https://127.0.0.1' \
-  venv/bin/python manage.py check --deploy --settings=core.settings_production
+  ./scripts/dj check --deploy --settings=core.settings_production
 ```
 
 ## Decisões Deliberadas
@@ -118,4 +132,5 @@ env \
 - Celery não faz parte do deploy inicial.
 - Sentry não faz parte do deploy inicial.
 - S3/storage externo não faz parte do deploy inicial.
-- TailwindCSS permanece via CDN até haver necessidade real de build local.
+- TailwindCSS é compilado localmente via `django-tailwind`; o runtime de
+  produção recebe o CSS já gerado pelo stage Node do `Dockerfile`.
