@@ -702,9 +702,24 @@ class MonthlyPlanViewSet(viewsets.ModelViewSet):
     serializer_class = MonthlyPlanSerializer
 
     def get_queryset(self):
-        return MonthlyPlan.objects.filter(
+        qs = MonthlyPlan.objects.filter(
             user=self.request.user
         ).order_by('-year', '-month')
+
+        params = self.request.query_params
+        year = params.get('year')
+        month = params.get('month')
+        if year:
+            try:
+                qs = qs.filter(year=int(year))
+            except ValueError:
+                pass
+        if month:
+            try:
+                qs = qs.filter(month=int(month))
+            except ValueError:
+                pass
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
