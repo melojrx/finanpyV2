@@ -1,48 +1,53 @@
 """MCP FinanPy Server."""
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
+import logging
+
+from mcp.server.fastmcp import FastMCP
 
 from .config import get_config
-from .client import FinanPyClient
+from .http_client import FinanPyClient
+from .tools.health import register_health_tools
 from .tools.accounts import register_account_tools
-from .tools.transactions import register_transaction_tools
 from .tools.categories import register_category_tools
+from .tools.tags import register_tag_tools
+from .tools.transactions import register_transaction_tools
+from .tools.reports import register_report_tools
 from .tools.budgets import register_budget_tools
 from .tools.goals import register_goal_tools
 from .tools.plans import register_plan_tools
-from .tools.reports import register_report_tools
+
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+mcp = FastMCP("finanpy")
 
 
-def create_server() -> Server:
-    """Create and configure MCP server."""
-    config = get_config()
-    client = FinanPyClient(config)
-
-    server = Server("finanpy-mcp")
-
-    # Register all tools
-    register_account_tools(server, config)
-    register_transaction_tools(server, config)
-    register_category_tools(server, config)
-    register_budget_tools(server, config)
-    register_goal_tools(server, config)
-    register_plan_tools(server, config)
-    register_report_tools(server, config)
-
-    return server
+def _get_client() -> FinanPyClient:
+    cfg = get_config()
+    return FinanPyClient(
+        base_url=cfg.base_url,
+        token=cfg.token,
+        timeout=cfg.timeout_seconds,
+    )
 
 
-async def main():
-    """Run the MCP server."""
-    server = create_server()
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            server.create_initialization_options(),
-        )
+def _register_all():
+    client = _get_client()
+    register_health_tools(mcp, client)
+    register_account_tools(mcp, client)
+    register_category_tools(mcp, client)
+    register_tag_tools(mcp, client)
+    register_transaction_tools(mcp, client)
+    register_report_tools(mcp, client)
+    register_budget_tools(mcp, client)
+    register_goal_tools(mcp, client)
+    register_plan_tools(mcp, client)
+
+
+def main():
+    """Run the MCP server (stdio transport)."""
+    _register_all()
+    mcp.run()
 
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()
