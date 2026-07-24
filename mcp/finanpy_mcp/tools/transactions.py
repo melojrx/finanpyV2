@@ -78,6 +78,15 @@ def register_quick_transaction(
     ))
 
 
+def confirm_pending_transaction(client, id) -> dict:
+    """Confirm a pending transaction."""
+    return _safe_call(lambda: _result(
+        "transactions/confirm",
+        client.request("POST", f"transactions/{id}/confirm/"),
+        {"id": id},
+    ))
+
+
 def register_transaction_tools(mcp, client):
     """Register transaction tools with MCP server."""
 
@@ -155,3 +164,19 @@ def register_transaction_tools(mcp, client):
             description=description, transaction_date=transaction_date,
             notes=notes, client_id=client_id,
         )
+
+    @mcp.tool()
+    def finanpy_confirm_pending_transaction(id: int) -> dict:
+        """Efetiva (confirma) uma transação pendente.
+
+        Args:
+            id: ID da transação pendente
+
+        Returns:
+            {ok, endpoint, params, payload} — payload tem {id, status: "CONFIRMED", ...}
+
+        Erros comuns:
+            - 400: transação não está pendente
+            - 404: transação não encontrada
+        """
+        return confirm_pending_transaction(client, id=id)
