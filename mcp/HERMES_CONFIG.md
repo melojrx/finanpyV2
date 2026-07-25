@@ -1,8 +1,18 @@
 # Hermes Configuration for MCP FinanPy
 
+## Decisão de autenticação
+
+O MCP usa o **token DRF do usuário pessoal** (`jrmeloafrf`), não de um
+usuário dedicado. Motivo: o DRF filtra todos os dados por `request.user`
+— um usuário separado (ex.: `hermes`) teria banco vazio e não enxergaria
+contas, transações, metas etc. do usuário real.
+
+> **Não usar** `setup_hermes_user.sh` para gerar o token. Usar o token
+> do usuário pessoal conforme instruções abaixo.
+
 ## Neo (principal)
 
-Adicionar ao `config.yaml` do Neo principal:
+Bloco atual no `config.yaml` do Neo principal (`/home/hermes-admin/.hermes/config.yaml`):
 
 ```yaml
 mcp_servers:
@@ -13,47 +23,48 @@ mcp_servers:
     timeout: 60
     connect_timeout: 30
     env:
-      FINANPY_API_BASE_URL: http://127.0.0.1:8001/api/v1/
-      FINANPY_API_TOKEN: <cole-aqui-o-token-do-user-hermes>
+      FINANPY_API_BASE_URL: https://investiorion.com/api/v1/
+      FINANPY_API_TOKEN: <token-do-usuario-jrmeloafrf>
     enabled: true
 ```
+
+**Nota de topologia:** usar `https://investiorion.com/api/v1/` (via Nginx)
+e não `http://127.0.0.1:8001/api/v1/` (loopback). O Django em produção tem
+`SECURE_SSL_REDIRECT=True` — chamadas HTTP diretas ao container recebem
+301 redirect para HTTPS sem servidor respondendo.
 
 ## agente-braba
 
 **NÃO** adicionar `mcp_servers.finanpy` ao profile do agente-braba.
 Este profile é usado para outras tarefas (Brabus store, etc.) e não deve
-acessar o FinanPy. A política de `mcp_exclude` no perfil garante isolamento.
+acessar o FinanPy.
 
-## Setup do user hermes (uma única vez)
-
-```bash
-# Na VPS, dentro do container FinanPy:
-bash mcp/scripts/setup_hermes_user.sh
-# Copiar o token exibido para FINANPY_API_TOKEN no config.yaml acima.
-```
-
-## Rotacionamento do token
-
-Para rotacionar o DRF Token do user hermes:
+## Obter/rotacionar o token do usuário pessoal
 
 ```bash
-# 1. Revogar token atual
+# Obter token existente (ou criar se não existir)
 docker exec -it finanpy-web-1 python manage.py shell -c "
-from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
+from rest_framework.authtoken.models import Token
 U = get_user_model()
-u = U.objects.get(username='hermes')
-Token.objects.filter(user=u).delete()
-print('Token revogado.')
+u = U.objects.get(username='jrmeloafrf')
+t, created = Token.objects.get_or_create(user=u)
+print('Token:', t.key)
 "
 
-# 2. Gerar novo token
-bash mcp/scripts/setup_hermes_user.sh
+# Para rotacionar: deletar e recriar
+docker exec -it finanpy-web-1 python manage.py shell -c "
+from django.contrib.auth import get_user_model
+from rest_framework.authtoken.models import Token
+U = get_user_model()
+u = U.objects.get(username='jrmeloafrf')
+Token.objects.filter(user=u).delete()
+t = Token.objects.create(user=u)
+print('Novo token:', t.key)
+"
 
-# 3. Atualizar FINANPY_API_TOKEN no config.yaml do Hermes
-
-# 4. Reiniciar Hermes
-ssh root@38.52.128.62 'systemctl restart hermes-gateway'
+# Após rotacionar: atualizar FINANPY_API_TOKEN no config.yaml e reiniciar Hermes
+systemctl restart hermes-webui
 ```
 
 ## Deploy manual
@@ -65,7 +76,7 @@ bash mcp/scripts/deploy_vps.sh
 
 O script:
 1. Roda os testes locais
-2. Faz rsync para /opt/finanpy-mcp/ na VPS
+2. Faz rsync para /opt/finanpy-mcp/ na VPS (preserva .venv e .env)
 3. Reinstala as deps na venv
-4. Reinicia o hermes-gateway
+4. Reinicia o hermes-webui
 5. Roda o smoke test
