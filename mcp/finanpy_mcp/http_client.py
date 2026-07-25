@@ -36,7 +36,7 @@ class FinanPyClient:
 
         headers = {
             "Accept": "application/json",
-            "Authorization": f"Bearer {self.token}",
+            "Authorization": f"Token {self.token}",
             "User-Agent": "Hermes/FinanPyMCP 1.1",
         }
         if json is not None:

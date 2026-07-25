@@ -29,7 +29,7 @@ def test_request_sends_bearer_token():
     client = _client(httpx.MockTransport(handler))
     result = client.request("GET", "accounts/")
     assert result == {"ok": True}
-    assert captured["auth"] == f"Bearer t{'t' * 39}"
+    assert captured["auth"] == f"Token t{'t' * 39}"
     assert captured["accept"] == "application/json"
 
 
