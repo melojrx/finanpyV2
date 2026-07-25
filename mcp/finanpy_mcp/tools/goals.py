@@ -1,32 +1,71 @@
 """Goal-related MCP tools."""
-from ..client import FinanPyClient
+from datetime import date as _date
+
+from ..helpers import _result, _safe_call, _filter_params
 
 
-def register_goal_tools(mcp, config):
+def list_goals(client, status=None) -> dict:
+    """List savings goals, optionally filtered by status."""
+    params = _filter_params({"status": status})
+    return _safe_call(lambda: _result(
+        "goals",
+        client.request("GET", "goals/", params=params or None),
+        params,
+    ))
+
+
+def add_goal_contribution(client, goal_id, amount, date=None) -> dict:
+    """Add a contribution to a savings goal."""
+    amount_str = str(amount or "").strip()
+    if not amount_str:
+        return {"ok": False, "error": "amount é obrigatório."}
+
+    if date is None:
+        date = _date.today().isoformat()
+
+    body = {
+        "goal": goal_id,
+        "amount": amount_str,
+        "date": date,
+    }
+    return _safe_call(lambda: _result(
+        "goal-contributions",
+        client.request("POST", "goal-contributions/", json=body),
+        body,
+    ))
+
+
+def register_goal_tools(mcp, client):
     """Register goal tools with MCP server."""
-    client = FinanPyClient(config)
 
     @mcp.tool()
-    def finanpy_get_goals() -> list[dict]:
-        """Get all savings goals with progress.
-
-        Returns:
-            List of goals: [{id, name, target, current, percentage, deadline}, ...]
-        """
-        # TODO: Implement when Goal model is confirmed
-        return []
-
-    @mcp.tool()
-    def finanpy_add_contribution(goal_id: int, amount: str, date: str | None = None) -> dict:
-        """Add a contribution to a savings goal.
+    def finanpy_list_goals(status: str | None = None) -> dict:
+        """Lista metas financeiras, opcionalmente filtradas por status.
 
         Args:
-            goal_id: Goal ID
-            amount: Contribution amount
-            date: Date in YYYY-MM-DD format (default: today)
+            status: "ACTIVE", "COMPLETED" ou "CANCELLED" (opcional)
 
         Returns:
-            Updated goal: {goal_id, new_balance, total_contributed}
+            {ok, endpoint, params, payload} — payload.results é
+            [{id, name, target_amount, current_amount, progress_pct,
+              status, deadline, ...}, ...]
         """
-        # TODO: Implement when Goal model is confirmed
-        return {"goal_id": goal_id, "new_balance": amount, "total_contributed": amount}
+        return list_goals(client, status=status)
+
+    @mcp.tool()
+    def finanpy_add_goal_contribution(
+        goal_id: int,
+        amount: str,
+        date: str | None = None,
+    ) -> dict:
+        """Adiciona um aporte a uma meta financeira.
+
+        Args:
+            goal_id: ID da meta
+            amount: Valor do aporte (ex.: "100.00")
+            date: Data no formato YYYY-MM-DD (opcional, default = hoje)
+
+        Returns:
+            {ok, endpoint, params, payload} — payload tem {id, goal, amount, date}
+        """
+        return add_goal_contribution(client, goal_id=goal_id, amount=amount, date=date)

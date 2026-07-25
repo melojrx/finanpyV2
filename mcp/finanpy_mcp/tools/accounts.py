@@ -1,34 +1,24 @@
 """Account-related MCP tools."""
-from ..client import FinanPyClient
+from ..helpers import _result, _safe_call
 
 
-def get_accounts(client: FinanPyClient) -> list[dict]:
-    """Get all accounts with balances.
-
-    Returns:
-        List of accounts with id, name, balance, account_type.
-    """
-    accounts = client.get_accounts()
-    return [
-        {
-            "id": a.id,
-            "name": a.name,
-            "balance": a.balance,
-            "account_type": a.account_type,
-        }
-        for a in accounts
-    ]
+def list_accounts(client) -> dict:
+    """List all accounts with current balances."""
+    return _safe_call(lambda: _result(
+        "accounts",
+        client.request("GET", "accounts/"),
+    ))
 
 
-def register_account_tools(mcp, config):
+def register_account_tools(mcp, client):
     """Register account tools with MCP server."""
-    client = FinanPyClient(config)
 
     @mcp.tool()
-    def finanpy_get_accounts() -> list[dict]:
-        """Get all accounts with their current balances.
+    def finanpy_list_accounts() -> dict:
+        """Lista todas as contas com saldos atuais.
 
         Returns:
-            List of accounts: [{id, name, balance, account_type}, ...]
+            {ok, endpoint, params, payload} onde payload.results é
+            [{id, name, balance, account_type}, ...]
         """
-        return get_accounts(client)
+        return list_accounts(client)

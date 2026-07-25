@@ -975,3 +975,44 @@ class GoalContributionEndpointTests(APITestBase):
         )
         resp = self._create_contribution(goal=completed_goal.pk)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class MonthlyPlanFilterTest(APITestCase):
+    """Filtro de MonthlyPlan por year/month via query params."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='plan_test', email='plan_test@example.com', password='x'
+        )
+        self.client.force_authenticate(user=self.user)
+        from budgets.models import MonthlyPlan
+        MonthlyPlan.objects.create(
+            user=self.user, year=2026, month=6,
+            renda_prevista=Decimal('1000.00'), teto_despesas=Decimal('800.00'),
+        )
+        MonthlyPlan.objects.create(
+            user=self.user, year=2026, month=7,
+            renda_prevista=Decimal('1000.00'), teto_despesas=Decimal('800.00'),
+        )
+        MonthlyPlan.objects.create(
+            user=self.user, year=2025, month=12,
+            renda_prevista=Decimal('1000.00'), teto_despesas=Decimal('800.00'),
+        )
+
+    def test_filter_by_year_and_month(self):
+        resp = self.client.get('/api/v1/monthly-plans/?year=2026&month=7')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        results = resp.data.get('results', resp.data)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['year'], 2026)
+        self.assertEqual(results[0]['month'], 7)
+
+    def test_filter_by_year_only(self):
+        resp = self.client.get('/api/v1/monthly-plans/?year=2026')
+        results = resp.data.get('results', resp.data)
+        self.assertEqual(len(results), 2)
+
+    def test_no_filter_returns_all(self):
+        resp = self.client.get('/api/v1/monthly-plans/')
+        results = resp.data.get('results', resp.data)
+        self.assertEqual(len(results), 3)
