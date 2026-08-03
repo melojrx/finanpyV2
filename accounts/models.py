@@ -255,41 +255,79 @@ class FundTransfer(models.Model):
                 })
 
     def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
+        if not self._state.adding:
+            original = type(self).objects.get(pk=self.pk)
+            if (
+                self.from_account_id != original.from_account_id
+                or self.to_account_id != original.to_account_id
+                or self.amount != original.amount
+            ):
+                raise ValidationError(
+                    'Contas e valor de uma transferência não podem ser alterados.'
+                )
 
-    @classmethod
-    def create_and_apply(cls, *, user, from_account, to_account, amount,
-                         transfer_date, description=''):
-        """Cria a transferência e aplica o movimento de saldo atomicamente."""
+            self.full_clean()
+            return super().save(*args, **kwargs)
+
         from django.db import transaction
 
         with transaction.atomic():
             # Bloqueia as contas numa ordem estável para evitar deadlock.
-            account_ids = sorted([from_account.pk, to_account.pk])
+            account_ids = sorted([self.from_account_id, self.to_account_id])
             locked = {
                 account.pk: account
                 for account in Account.objects.select_for_update().filter(
                     pk__in=account_ids
-                )
+                ).order_by('pk')
             }
-            from_locked = locked[from_account.pk]
-            to_locked = locked[to_account.pk]
+            from_locked = locked[self.from_account_id]
+            to_locked = locked[self.to_account_id]
 
-            transfer = cls(
-                user=user,
-                from_account=from_locked,
-                to_account=to_locked,
-                amount=amount,
-                transfer_date=transfer_date,
-                description=description or '',
-            )
-            transfer.full_clean()
+            self.from_account = from_locked
+            self.to_account = to_locked
+            self.full_clean()
 
-            from_locked.balance = from_locked.balance - transfer.amount
-            to_locked.balance = to_locked.balance + transfer.amount
-            from_locked.save(update_fields=['balance', 'updated_at'])
-            to_locked.save(update_fields=['balance', 'updated_at'])
-            transfer.save()
+            from_locked.balance -= self.amount
+            to_locked.balance += self.amount
+            from_locked.save(update_fields=['balance'])
+            to_locked.save(update_fields=['balance'])
+            super().save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        from django.db import transaction
+
+        with transaction.atomic():
+            # Mantém a mesma ordem de bloqueio usada na criação.
+            account_ids = sorted([self.from_account_id, self.to_account_id])
+            locked = {
+                account.pk: account
+                for account in Account.objects.select_for_update().filter(
+                    pk__in=account_ids
+                ).order_by('pk')
+            }
+            from_locked = locked[self.from_account_id]
+            to_locked = locked[self.to_account_id]
+
+            result = super().delete(*args, **kwargs)
+
+            from_locked.balance += self.amount
+            to_locked.balance -= self.amount
+            from_locked.save(update_fields=['balance'])
+            to_locked.save(update_fields=['balance'])
+
+        return result
+
+    @classmethod
+    def create_and_apply(cls, *, user, from_account, to_account, amount,
+                         transfer_date, description=''):
+        """Cria a transferência; o save aplica o movimento atomicamente."""
+        transfer = cls(
+            user=user,
+            from_account=from_account,
+            to_account=to_account,
+            amount=amount,
+            transfer_date=transfer_date,
+            description=description or '',
+        )
+        transfer.save()
         return transfer
