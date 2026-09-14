@@ -56,6 +56,8 @@ class FrontendAssetTests(SimpleTestCase):
         self.assertNotIn("export {", main_js)
 
     def test_runtime_css_does_not_require_tailwind_build_step(self):
-        custom_css = (settings.BASE_DIR / "static" / "css" / "custom.css").read_text()
+        generated_css = (
+            settings.BASE_DIR / "theme" / "static" / "css" / "dist" / "styles.css"
+        ).read_text()
 
-        self.assertNotIn("@apply", custom_css)
+        self.assertNotIn("@apply", generated_css)

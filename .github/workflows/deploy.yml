@@ -1,39 +1,100 @@
-name: Deploy to VPS
+name: Validate and publish FinanPy
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.gitignore'
-
   workflow_dispatch:
-    inputs:
-      force:
-        description: 'Force redeploy even without changes'
-        type: boolean
-        default: false
 
 concurrency:
-  group: deploy-production
+  group: finanpy-production
   cancel-in-progress: false
 
-jobs:
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+permissions:
+  contents: read
+  packages: write
 
+jobs:
+  test:
+    name: Tests and deployment checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DJANGO_SETTINGS_MODULE: core.settings
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: root
-          key: ${{ secrets.VPS_DEPLOY_KEY }}
-          port: 22
-          command_timeout: 8m
-          script: |
-            export FORCE=${{ github.event.inputs.force == 'true' && '1' || '0' }}
-            /srv/apps/finanpy/deploy.sh
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Check migrations
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Run Django tests
+        run: python manage.py test --verbosity 1
+
+      - name: Check production settings
+        env:
+          DJANGO_SETTINGS_MODULE: core.settings_production
+          SECRET_KEY: ci-only-finanpy-secret-key-0123456789-abcdefghijklmnopqrstuvwxyz
+          POSTGRES_PASSWORD: ci-only
+          ALLOWED_HOSTS: finanpy.com.br,www.finanpy.com.br
+          CSRF_TRUSTED_ORIGINS: https://finanpy.com.br,https://www.finanpy.com.br
+        run: python manage.py check --deploy
+
+  publish:
+    name: Publish immutable image
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/melojrx/finanpyv2
+          tags: |
+            type=sha,format=long,prefix=sha-
+
+      - name: Build and publish image
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: true
+          sbom: true
+
+      - name: Record image digest
+        run: |
+          {
+            echo '### FinanPy image'
+            echo '```text'
+            echo 'ghcr.io/melojrx/finanpyv2@${{ steps.image.outputs.digest }}'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
