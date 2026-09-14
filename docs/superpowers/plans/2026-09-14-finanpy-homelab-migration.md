@@ -64,9 +64,32 @@
 - [x] Task 4 — manifests Swarm, edge dedicado e controlador de release
       (`6e36d24`).
 - [x] Verificador local de ensaio de inventário/mídia implementado.
-- [ ] Task 5 — provisionamento Homelab e cópia/restauração de dados; requer
-      aprovação operacional específica.
+- [ ] Task 5 — provisionamento Homelab e cópia/restauração de dados; dados
+      restaurados e verificados; stack privado ainda depende de imagem GHCR e
+      token do Tunnel.
 - [ ] Task 6 — corte DNS/Tunnel; requer aprovação nova após ensaio aprovado.
+
+## Gate 5 — evidência do ensaio privado (14/09/2026)
+
+- Homelab: Swarm ativo; segredos `finanpy_django_secret_key` e
+  `finanpy_postgres_password` criados somente por nome; nenhum valor foi
+  registrado.
+- Backup de origem: `20260914T125619Z`, produzido na VPS com `pg_dump` custom e
+  mídia protegida.
+- Hashes de transferência conferidos: banco
+  `d4eb3efec9ebaeb8612ea377df95af7d4327ae857b23dcc92bed2720b3fd6fbe`, mídia
+  `0db0d74a3749b6c0a3aaa175ffe1870a1d1afbaa34a70ec70e2812f3bec64641` e
+  inventário `8c5c10a426521d898f72240c1f8e19476a773c1fa82c595fddcdaf256fc04a98`.
+- Restauração PostgreSQL isolada concluída; os agregados conferem: 6 usuários,
+  2 contas, 57 categorias, 707 transações, 1 orçamento, 2 planos mensais,
+  0 metas, 6 perfis e 8 tags.
+- Mídia conferida por manifesto SHA-256
+  `4665428758c006bf2fde2891d9e1a75cbaf1790375caf9cec363477d2eabc8a8` e
+  total de 93.245 bytes.
+- Recursos temporários do ensaio foram removidos; backup e inventários permanecem
+  protegidos no Homelab para o próximo gate.
+- Gate pendente: publicar imagem candidata no GHCR por digest completo e
+  provisionar o token do Tunnel dedicado antes de validar o stack privado.
 
 ### Task 1: Tornar settings compatível com Swarm Secrets e domínio novo
 
