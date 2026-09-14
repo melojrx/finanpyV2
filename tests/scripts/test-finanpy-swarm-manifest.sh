@@ -33,6 +33,9 @@ grep -Fq 'whitenoise.middleware.WhiteNoiseMiddleware' core/settings_production.p
 grep -Fq 'whitenoise.storage.CompressedManifestStaticFilesStorage' core/settings_production.py
 grep -Fq 'WHITENOISE_MAX_AGE' core/settings_production.py
 grep -Fq 'SERVE_MEDIA_FILES' core/settings_production.py
-grep -Fq "getattr(settings, 'SERVE_MEDIA_FILES', False)" core/urls.py
+grep -Fq 'core.media_views import serve_media' core/urls.py
+grep -Fq 'settings.MEDIA_URL.lstrip' core/urls.py
+grep -Fq 'not settings.DEBUG and not getattr(settings, "SERVE_MEDIA_FILES", False)' core/media_views.py
+grep -Fq 'django.views.static import serve' core/media_views.py
 grep -Fq 'python manage.py collectstatic --noinput' Dockerfile
 ! grep -Fq 'collectstatic' docker/entrypoint-migrate.sh

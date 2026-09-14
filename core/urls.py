@@ -28,6 +28,7 @@ from core.pwa_views import (
     service_worker,
 )
 from core.health_views import liveness, readiness
+from core.media_views import serve_media
 
 urlpatterns = [
     # Health endpoints for reverse proxies and container orchestration.
@@ -73,14 +74,11 @@ urlpatterns = [
     # REST API
     path('api/v1/', include('api.urls')),
     path('api/token/', obtain_auth_token, name='api-token'),
+    path(f"{settings.MEDIA_URL.lstrip('/')}<path:path>", serve_media, name='media'),
 ]
 
-# WhiteNoise serves static files in production. Django serves media in the
-# containerized deployment, matching the UrbanLive shared-stack contract.
-if settings.DEBUG or getattr(settings, 'SERVE_MEDIA_FILES', False):
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
-# Serve static files during development.
+# WhiteNoise serves static files in production. Django only serves static files
+# directly during development.
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     # django_browser_reload — hot reload de templates/CSS em dev

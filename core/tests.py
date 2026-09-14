@@ -1,4 +1,5 @@
 import os
+import importlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -6,6 +7,7 @@ from unittest.mock import patch
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase, override_settings
+from django.urls import clear_url_caches
 
 from core.secrets import env_secret
 
@@ -61,3 +63,48 @@ class FrontendAssetTests(SimpleTestCase):
         ).read_text()
 
         self.assertNotIn("@apply", generated_css)
+
+
+class MediaDeliveryTests(SimpleTestCase):
+    def setUp(self):
+        self.media_directory = TemporaryDirectory()
+        self.addCleanup(self.media_directory.cleanup)
+
+    def _reload_urlconf(self):
+        import core.urls
+
+        importlib.reload(core.urls)
+        clear_url_caches()
+
+    def tearDown(self):
+        self._reload_urlconf()
+        super().tearDown()
+
+    def test_serves_media_in_production_when_enabled(self):
+        avatar = Path(self.media_directory.name) / "avatars/test/avatar.png"
+        avatar.parent.mkdir(parents=True)
+        avatar.write_bytes(b"avatar-content")
+
+        with self.settings(
+            DEBUG=False,
+            SERVE_MEDIA_FILES=True,
+            MEDIA_ROOT=self.media_directory.name,
+        ):
+            self._reload_urlconf()
+            response = self.client.get(
+                "/media/avatars/test/avatar.png",
+                HTTP_X_FORWARDED_PROTO="https",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(b"".join(response.streaming_content), b"avatar-content")
+
+    def test_returns_404_for_media_in_production_when_disabled(self):
+        with self.settings(DEBUG=False, SERVE_MEDIA_FILES=False):
+            self._reload_urlconf()
+            response = self.client.get(
+                "/media/avatars/test/avatar.png",
+                HTTP_X_FORWARDED_PROTO="https",
+            )
+
+        self.assertEqual(response.status_code, 404)

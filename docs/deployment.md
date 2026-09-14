@@ -39,7 +39,9 @@ consultados apenas por nome no Swarm e nunca aparecem no summary da execução.
 O Homelab segue o padrão do UrbanLive para estáticos: o build da imagem executa
 `collectstatic`, WhiteNoise entrega `/static/` diretamente pelo processo Django
 e não há volume persistente de estáticos. A mídia permanece no volume
-`finanpy_media` e é servida pelo Django quando `SERVE_MEDIA_FILES=true`.
+`finanpy_media`; a rota explícita `/media/` delega a leitura ao Django apenas
+quando `SERVE_MEDIA_FILES=true`. Ela não usa `django.conf.urls.static.static()`,
+pois esse helper não registra URLs com `DEBUG=false`.
 
 Para diagnosticar uma promoção sem abrir portas públicas:
 
