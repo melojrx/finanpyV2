@@ -288,7 +288,7 @@ Run:
   printf '%s\n' \
     'POSTGRES_DB=finanpy' \
     'POSTGRES_USER=finanpy' \
-    'ALLOWED_HOSTS=finanpy.com.br,www.finanpy.com.br' \
+    'ALLOWED_HOSTS=finanpy.com.br,www.finanpy.com.br,127.0.0.1,localhost' \
     'CSRF_TRUSTED_ORIGINS=https://finanpy.com.br,https://www.finanpy.com.br' \
     'SESSION_COOKIE_DOMAIN=.finanpy.com.br' \
     'CSRF_COOKIE_DOMAIN=.finanpy.com.br' \

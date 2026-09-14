@@ -19,6 +19,8 @@ compara inventário e mídia antes de iniciar `web` e não cria nem altera DNS.
 
 O token atual do Tunnel é temporário durante esse ensaio. Sua rotação só ocorre
 depois de `finanpy.com.br` estar publicado e validado, em autorização separada.
+`ALLOWED_HOSTS` deve incluir `127.0.0.1,localhost`, usados exclusivamente pelos
+healthchecks locais do contêiner.
 
 ## Ambiente Atual
 

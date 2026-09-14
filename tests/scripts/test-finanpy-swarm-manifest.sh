@@ -12,6 +12,8 @@ grep -Fq 'finanpy_cloudflared_tunnel_token' "$edge"
 ! grep -Eq '^\s+ports:' "$manifest"
 ! grep -Eq '^\s+ports:' "$edge"
 
+grep -Fxq 'ALLOWED_HOSTS=finanpy.com.br,www.finanpy.com.br,127.0.0.1,localhost' deploy/swarm/finanpy.env.example
+
 bootstrap=deploy/swarm/finanpy-bootstrap.yml
 test -f "$bootstrap"
 grep -Fq 'web:' "$bootstrap"
