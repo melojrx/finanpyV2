@@ -70,6 +70,10 @@ done
 docker stack deploy --with-registry-auth --resolve-image always \
   -c "$stack_file" -c "$bootstrap_file" finanpy
 
+for volume in finanpy_finanpy_postgres_data finanpy_finanpy_staticfiles finanpy_finanpy_media; do
+  docker volume inspect "$volume" >/dev/null 2>&1 || docker volume create "$volume" >/dev/null
+done
+
 attempt=1
 while [ "$attempt" -le 60 ]; do
   postgres_container=$(docker ps --filter "label=com.docker.swarm.service.name=$POSTGRES_SERVICE" \
