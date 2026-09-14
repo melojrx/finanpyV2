@@ -66,9 +66,9 @@
 - [x] Task 4 — manifests Swarm, edge dedicado e controlador de release
       (`6e36d24`).
 - [x] Verificador local de ensaio de inventário/mídia implementado.
-- [ ] Task 5 — provisionamento Homelab e cópia/restauração de dados; dados
-      restaurados e verificados; stack privado ainda depende do token do
-      Tunnel.
+- [ ] Task 5 — Tunnel dedicado conectado e controlador de restauração privada
+      implementado; falta executar a restauração no volume definitivo e validar
+      o stack privado.
 - [ ] Task 6 — corte DNS/Tunnel; requer aprovação nova após ensaio aprovado.
 
 ## Gate 5 — evidência do ensaio privado (14/09/2026)
@@ -92,8 +92,10 @@
   protegidos no Homelab para o próximo gate.
 - Imagem candidata publicada pelo workflow `34848061151`; o digest final da
   revisão vigente será registrado no vault após o último commit documental.
-- Gate pendente: provisionar o token do Tunnel dedicado antes de validar o
-  stack privado.
+- Tunnel `finanpy-edge` conectado ao Cloudflare; o token atual permanece
+  temporariamente até a publicação e validação pública, quando será rotacionado.
+- Gate pendente: executar o controlador de restauração no volume definitivo e
+  validar o stack privado, sem criar DNS ou hostname público.
 
 ### Task 1: Tornar settings compatível com Swarm Secrets e domínio novo
 

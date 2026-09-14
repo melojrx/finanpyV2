@@ -10,6 +10,16 @@ PostgreSQL, Gunicorn e Nginx no host. O objetivo é ser simples, reproduzível e
 adequado para uma VPS Ubuntu sem adicionar Redis, Celery, S3 ou Sentry antes da
 hora.
 
+## Ensaio privado no Homelab
+
+O ensaio usa `scripts/homelab/restore-private-stack.sh` no manager Swarm. O
+backup deve conter `database.dump`, `media.tar.gz` e `source.inventory` em
+`/srv/finanpy/backups/$BACKUP_ID`. O controlador recusa mídia existente,
+compara inventário e mídia antes de iniciar `web` e não cria nem altera DNS.
+
+O token atual do Tunnel é temporário durante esse ensaio. Sua rotação só ocorre
+depois de `finanpy.com.br` estar publicado e validado, em autorização separada.
+
 ## Ambiente Atual
 
 Situação auditada em 2026-07-19:
