@@ -90,8 +90,8 @@
   total de 93.245 bytes.
 - Recursos temporários do ensaio foram removidos; backup e inventários permanecem
   protegidos no Homelab para o próximo gate.
-- Imagem candidata publicada pelo workflow `34847736812` no digest
-  `ghcr.io/melojrx/finanpyv2@sha256:f7011d63001e9e82b6b2a8364d4a32ddb453b7332e62dca1c6f8c6f5dfb55226`.
+- Imagem candidata publicada pelo workflow `34848061151`; o digest final da
+  revisão vigente será registrado no vault após o último commit documental.
 - Gate pendente: provisionar o token do Tunnel dedicado antes de validar o
   stack privado.
 
