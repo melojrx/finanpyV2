@@ -157,6 +157,8 @@ done
 stack_file="$release_directory/deploy/swarm/finanpy.yml"
 bootstrap_file="$release_directory/deploy/swarm/finanpy-bootstrap.yml"
 [ -r "$stack_file" ] && [ -r "$bootstrap_file" ] || { echo 'Bootstrap manifests are not readable.' >&2; exit 1; }
+[ "$(docker info --format '{{.Swarm.LocalNodeState}}')" = active ] || { echo 'Docker Swarm is not active.' >&2; exit 1; }
+docker network inspect edge >/dev/null 2>&1 || { echo 'Required network is missing: edge' >&2; exit 1; }
 for secret in finanpy_django_secret_key finanpy_postgres_password finanpy_cloudflared_tunnel_token; do
   docker secret inspect "$secret" >/dev/null 2>&1 || { echo "Required secret is missing: $secret" >&2; exit 1; }
 done
@@ -275,12 +277,31 @@ Expected: run successful e digest completo.
 
 - [ ] **Step 2: Criar a configuração não secreta**
 
-Criar /srv/finanpy/finanpy.env a partir de deploy/swarm/finanpy.env.example, com
-POSTGRES_DB=finanpy, POSTGRES_USER=finanpy, hosts/CSRF/cookies de finanpy.com.br,
-flags TLS verdadeiras e parâmetros SMTP não secretos copiados privadamente da VPS.
-Não persistir password, token ou FINANPY_IMAGE.
+Criar /srv/finanpy/finanpy.env com valores estáticos e os parâmetros SMTP não
+secretos da VPS. O pipe não mostra valores na saída e não inclui password,
+token ou FINANPY_IMAGE.
 
-Run: \`ssh melojr@100.93.170.120 "sudo stat -c '%a %U:%G %n' /srv/finanpy/finanpy.env"\`  
+Run:
+
+~~~
+{
+  printf '%s\n' \
+    'POSTGRES_DB=finanpy' \
+    'POSTGRES_USER=finanpy' \
+    'ALLOWED_HOSTS=finanpy.com.br,www.finanpy.com.br' \
+    'CSRF_TRUSTED_ORIGINS=https://finanpy.com.br,https://www.finanpy.com.br' \
+    'SESSION_COOKIE_DOMAIN=.finanpy.com.br' \
+    'CSRF_COOKIE_DOMAIN=.finanpy.com.br' \
+    'SECURE_SSL_REDIRECT=true' \
+    'SECURE_HSTS_SECONDS=31536000' \
+    'SESSION_COOKIE_SECURE=true' \
+    'CSRF_COOKIE_SECURE=true' \
+    'LOG_LEVEL=INFO'
+  ssh neo-vps "awk -F= '/^(EMAIL_BACKEND|EMAIL_HOST|EMAIL_PORT|EMAIL_USE_TLS|DEFAULT_FROM_EMAIL)=/{print}' /srv/apps/finanpy/.env.production"
+} | ssh melojr@100.93.170.120 "sudo install -d -m 0750 -o root -g root /srv/finanpy && sudo tee /srv/finanpy/finanpy.env >/dev/null && sudo chmod 0640 /srv/finanpy/finanpy.env && sudo chown root:root /srv/finanpy/finanpy.env"
+ssh melojr@100.93.170.120 "sudo stat -c '%a %U:%G %n' /srv/finanpy/finanpy.env"
+~~~
+
 Expected: \`640 root:root /srv/finanpy/finanpy.env\`.
 
 - [ ] **Step 3: Gerar e transferir snapshot recente**
