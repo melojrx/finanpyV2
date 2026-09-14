@@ -72,5 +72,5 @@ done
 [ "$attempt" -le 60 ] || { docker service ps --no-trunc "$WEB_SERVICE" >&2; docker service logs --tail 100 "$WEB_SERVICE" >&2 || true; exit 1; }
 
 container_id=$(docker ps --filter "label=com.docker.swarm.service.name=$WEB_SERVICE" --filter status=running --format '{{.ID}}' | sed -n '1p')
-docker exec "$container_id" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/readiness/', timeout=5)"
+docker exec "$container_id" python -c "import urllib.request; request=urllib.request.Request('http://127.0.0.1:8000/health/readiness/', headers={'X-Forwarded-Proto': 'https'}); urllib.request.urlopen(request, timeout=5)"
 echo "FinanPy release is ready: $FINANPY_IMAGE"

@@ -9,6 +9,8 @@ grep -Fq 'finanpy_media:' "$manifest"
 grep -Fq 'failure_action: rollback' "$manifest"
 grep -Fq 'finanpy_django_secret_key' "$manifest"
 grep -Fq 'finanpy_cloudflared_tunnel_token' "$edge"
+grep -Fq "'X-Forwarded-Proto': 'https'" "$manifest"
+grep -Fq "'X-Forwarded-Proto': 'https'" scripts/homelab/deploy-stack.sh
 ! grep -Eq '^\s+ports:' "$manifest"
 ! grep -Eq '^\s+ports:' "$edge"
 
