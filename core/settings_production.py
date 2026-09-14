@@ -10,6 +10,7 @@ import os
 from django.core.exceptions import ImproperlyConfigured
 
 from .settings import *  # noqa: F401,F403
+from .secrets import env_secret
 
 
 def env(name, default=None, required=False):
@@ -47,7 +48,7 @@ def env_list(name, default="", required=False):
 
 # Core
 DEBUG = False
-SECRET_KEY = env("SECRET_KEY", required=True)
+SECRET_KEY = env_secret("SECRET_KEY", required=True)
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", required=True)
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 
@@ -58,7 +59,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": env("POSTGRES_DB", "finanpy"),
         "USER": env("POSTGRES_USER", "finanpy"),
-        "PASSWORD": env("POSTGRES_PASSWORD", required=True),
+        "PASSWORD": env_secret("POSTGRES_PASSWORD", required=True),
         "HOST": env("POSTGRES_HOST", "db"),
         "PORT": env("POSTGRES_PORT", "5432"),
         "CONN_MAX_AGE": env_int("DB_CONN_MAX_AGE", 600),
@@ -97,12 +98,12 @@ SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", True)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_AGE = env_int("SESSION_COOKIE_AGE", 3600)
-SESSION_COOKIE_DOMAIN = ".investiorion.com"
+SESSION_COOKIE_DOMAIN = env("SESSION_COOKIE_DOMAIN", "") or None
 
 CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", True)
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_DOMAIN = ".investiorion.com"
+CSRF_COOKIE_DOMAIN = env("CSRF_COOKIE_DOMAIN", "") or None
 
 
 # Email. SMTP can be enabled by setting EMAIL_HOST and credentials.
@@ -114,7 +115,7 @@ EMAIL_HOST = env("EMAIL_HOST", "localhost")
 EMAIL_PORT = env_int("EMAIL_PORT", 587)
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", "")
+EMAIL_HOST_PASSWORD = env_secret("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "FinanPy <noreply@finanpy.local>")
 SERVER_EMAIL = env("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 
