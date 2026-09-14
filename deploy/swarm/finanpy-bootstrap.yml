@@ -1,0 +1,9 @@
+version: "3.8"
+
+services:
+  migrate:
+    deploy:
+      replicas: 0
+  web:
+    deploy:
+      replicas: 0

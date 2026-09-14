@@ -11,3 +11,10 @@ grep -Fq 'finanpy_django_secret_key' "$manifest"
 grep -Fq 'finanpy_cloudflared_tunnel_token' "$edge"
 ! grep -Eq '^\s+ports:' "$manifest"
 ! grep -Eq '^\s+ports:' "$edge"
+
+bootstrap=deploy/swarm/finanpy-bootstrap.yml
+test -f "$bootstrap"
+grep -Fq 'web:' "$bootstrap"
+grep -Fq 'migrate:' "$bootstrap"
+grep -Fq 'replicas: 0' "$bootstrap"
+! grep -Eq '^\s+ports:' "$bootstrap"
