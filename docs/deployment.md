@@ -3,7 +3,7 @@
 > O deploy da VPS descrito neste documento é a contingência atual. Para a
 > migração e a nova produção em `finanpy.com.br`, use o desenho e o plano em
 > `docs/superpowers/specs/2026-09-14-finanpy-homelab-migration-design.md` e
-> `docs/superpowers/plans/2026-09-14-finanpy-homelab-migration.md`.
+> `docs/superpowers/plans/2026-09-14-finanpy-homelab-automated-deploy.md`.
 
 Este guia descreve o deploy de produção atual do FinanPy usando Docker Compose,
 PostgreSQL, Gunicorn e Nginx no host. O objetivo é ser simples, reproduzível e
@@ -21,6 +21,28 @@ O token atual do Tunnel é temporário durante esse ensaio. Sua rotação só oc
 depois de `finanpy.com.br` estar publicado e validado, em autorização separada.
 `ALLOWED_HOSTS` deve incluir `127.0.0.1,localhost`, usados exclusivamente pelos
 healthchecks locais do contêiner.
+
+## Deploy automatizado no Homelab
+
+Um push em `main` executa testes, publica um digest GHCR e promove-o pelo
+runner `homelab-finanpy-deploy`. Acompanhe o run pelo GitHub Actions; não rode
+o wrapper manualmente em paralelo. Em falha, registre run, commit, digest,
+estado de `finanpy_migrate` e `finanpy_web`, então inspecione os logs do
+serviço afetado. O controlador não reverte banco nem remove volumes.
+
+O runner usa o serviço systemd `actions.runner.finanpy.service` e pode executar
+somente `/usr/local/sbin/deploy-finanpy-release` com o checkout autorizado.
+Esse wrapper materializa a release por digest em `/srv/finanpy/releases/` e
+delega migration, rollout e readiness ao controlador versionado. Secrets são
+consultados apenas por nome no Swarm e nunca aparecem no summary da execução.
+
+Para diagnosticar uma promoção sem abrir portas públicas:
+
+```bash
+gh run list --repo melojrx/finanpyV2 --branch main --limit 5
+ssh -o BatchMode=yes melojr@100.93.170.120 \
+  'sudo systemctl is-active actions.runner.finanpy.service; sudo docker service ps --no-trunc finanpy_migrate; sudo docker service ps --no-trunc finanpy_web'
+```
 
 ## Ambiente Atual
 
