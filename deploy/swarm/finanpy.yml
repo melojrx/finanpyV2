@@ -115,6 +115,8 @@ services:
         - traefik.docker.network=edge
         - traefik.http.routers.finanpy.rule=Host(`finanpy.com.br`) || Host(`www.finanpy.com.br`)
         - traefik.http.routers.finanpy.entrypoints=web
+        - traefik.http.middlewares.finanpy-forwarded-https.headers.customrequestheaders.X-Forwarded-Proto=https
+        - traefik.http.routers.finanpy.middlewares=finanpy-forwarded-https
         - traefik.http.services.finanpy.loadbalancer.server.port=8000
 
 volumes:

@@ -11,6 +11,8 @@ grep -Fq 'finanpy_django_secret_key' "$manifest"
 grep -Fq 'finanpy_cloudflared_tunnel_token' "$edge"
 grep -Fq "'X-Forwarded-Proto': 'https'" "$manifest"
 grep -Fq "'X-Forwarded-Proto': 'https'" scripts/homelab/deploy-stack.sh
+grep -Fq 'traefik.http.middlewares.finanpy-forwarded-https.headers.customrequestheaders.X-Forwarded-Proto=https' "$manifest"
+grep -Fq 'traefik.http.routers.finanpy.middlewares=finanpy-forwarded-https' "$manifest"
 ! grep -Eq '^\s+ports:' "$manifest"
 ! grep -Eq '^\s+ports:' "$edge"
 
