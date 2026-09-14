@@ -1,0 +1,15 @@
+[Unit]
+Description=GitHub Actions runner for FinanPy Homelab deploys
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+User=runner-finanpy
+WorkingDirectory=/opt/actions-runner-finanpy
+ExecStart=/opt/actions-runner-finanpy/run.sh
+Restart=always
+RestartSec=5
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

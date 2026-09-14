@@ -1,0 +1,1 @@
+runner-finanpy ALL=(root) NOPASSWD: /usr/local/sbin/deploy-finanpy-release /opt/actions-runner-finanpy/_work/finanpy_v2/finanpy_v2 *

@@ -1,0 +1,43 @@
+#!/bin/sh
+set -eu
+
+FINANPY_ROOT='/srv/finanpy'
+EXPECTED_CHECKOUT='/opt/actions-runner-finanpy/_work/finanpy_v2/finanpy_v2'
+
+[ "$#" -eq 2 ] || {
+  printf '%s\n' 'Usage: deploy-finanpy-release <checkout> <image-digest>' >&2
+  exit 1
+}
+checkout=$1
+image=$2
+
+case "$checkout" in
+  "$EXPECTED_CHECKOUT") ;;
+  *) printf '%s\n' 'Invalid FinanPy checkout path.' >&2; exit 1 ;;
+esac
+
+. "$checkout/scripts/homelab/load-env.sh"
+validate_finanpy_image "$image" || {
+  printf '%s\n' 'Invalid FinanPy image digest.' >&2
+  exit 1
+}
+
+for file in \
+  deploy/swarm/finanpy.yml \
+  deploy/swarm/finanpy-edge.yml \
+  deploy/swarm/finanpy.env.example \
+  scripts/homelab/load-env.sh \
+  scripts/homelab/deploy-stack.sh; do
+  test -f "$checkout/$file" || {
+    printf 'Required release file is missing: %s\n' "$file" >&2
+    exit 1
+  }
+done
+
+digest=${image#ghcr.io/melojrx/finanpyv2@sha256:}
+release_directory="$FINANPY_ROOT/releases/sha256-$digest"
+install -d -m 0750 -o root -g root "$release_directory"
+tar -C "$checkout" -cf - deploy/swarm scripts/homelab | tar -xf - -C "$release_directory"
+install -m 0755 "$release_directory/scripts/homelab/load-env.sh" "$FINANPY_ROOT/bin/load-env.sh"
+install -m 0755 "$release_directory/scripts/homelab/deploy-stack.sh" "$FINANPY_ROOT/bin/deploy-stack.sh"
+exec "$FINANPY_ROOT/bin/deploy-stack.sh" "$release_directory" "$image"
