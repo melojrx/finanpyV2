@@ -70,6 +70,8 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      image: ${{ steps.image.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -111,4 +113,34 @@ jobs:
             echo '```text'
             echo 'ghcr.io/melojrx/finanpyv2@${{ steps.image.outputs.digest }}'
             echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy to Homelab
+    needs: publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, homelab-finanpy-deploy]
+    timeout-minutes: 15
+    concurrency:
+      group: deploy-finanpy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout deployment controller
+        uses: actions/checkout@v4
+
+      - name: Promote immutable image
+        run: |
+          sudo /usr/local/sbin/deploy-finanpy-release \
+            "$GITHUB_WORKSPACE" \
+            "ghcr.io/melojrx/finanpyv2@${{ needs.publish.outputs.image }}"
+
+      - name: Record release
+        run: |
+          {
+            printf '%s\n' '### Homelab deployment'
+            printf '%s\n' "- Commit: $GITHUB_SHA"
+            printf '%s\n' "- Image: ghcr.io/melojrx/finanpyv2@${{ needs.publish.outputs.image }}"
+            printf '%s\n' '- Controller: deploy-finanpy-release'
           } >> "$GITHUB_STEP_SUMMARY"
