@@ -1,5 +1,10 @@
 # Deploy em VPS Ubuntu com Docker Compose
 
+> O deploy da VPS descrito neste documento é a contingência atual. Para a
+> migração e a nova produção em `finanpy.com.br`, use o desenho e o plano em
+> `docs/superpowers/specs/2026-09-14-finanpy-homelab-migration-design.md` e
+> `docs/superpowers/plans/2026-09-14-finanpy-homelab-migration.md`.
+
 Este guia descreve o deploy de produção atual do FinanPy usando Docker Compose,
 PostgreSQL, Gunicorn e Nginx no host. O objetivo é ser simples, reproduzível e
 adequado para uma VPS Ubuntu sem adicionar Redis, Celery, S3 ou Sentry antes da
