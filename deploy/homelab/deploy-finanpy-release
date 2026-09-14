@@ -36,6 +36,7 @@ done
 
 digest=${image#ghcr.io/melojrx/finanpyv2@sha256:}
 release_directory="$FINANPY_ROOT/releases/sha256-$digest"
+install -d -m 0750 -o root -g root "$FINANPY_ROOT/bin"
 install -d -m 0750 -o root -g root "$release_directory"
 tar -C "$checkout" -cf - deploy/swarm scripts/homelab | tar -xf - -C "$release_directory"
 install -m 0755 "$release_directory/scripts/homelab/load-env.sh" "$FINANPY_ROOT/bin/load-env.sh"
