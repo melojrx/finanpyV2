@@ -66,9 +66,9 @@
 - [x] Task 4 — manifests Swarm, edge dedicado e controlador de release
       (`6e36d24`).
 - [x] Verificador local de ensaio de inventário/mídia implementado.
-- [ ] Task 5 — Tunnel dedicado conectado e controlador de restauração privada
-      implementado; falta executar a restauração no volume definitivo e validar
-      o stack privado.
+- [x] Task 5 — backup final do ensaio restaurado no volume definitivo pelo
+      controlador privado; dados, mídia, migration, health e login interno
+      validados no Homelab.
 - [ ] Task 6 — corte DNS/Tunnel; requer aprovação nova após ensaio aprovado.
 
 ## Gate 5 — evidência do ensaio privado (14/09/2026)
@@ -94,8 +94,17 @@
   revisão vigente será registrado no vault após o último commit documental.
 - Tunnel `finanpy-edge` conectado ao Cloudflare; o token atual permanece
   temporariamente até a publicação e validação pública, quando será rotacionado.
-- Gate pendente: executar o controlador de restauração no volume definitivo e
-  validar o stack privado, sem criar DNS ou hostname público.
+- Backup definitivo do ensaio: `20260914T134957Z`; dump, mídia e inventário
+  conferidos após transferência sem exibir conteúdo sensível.
+- O controlador privado materializou os volumes do stack, restaurou banco e
+  mídia, confirmou o inventário/mídia e executou migration one-shot antes do
+  rollout de `web`.
+- Estado final privado: `finanpy_postgres=1/1`, `finanpy_web=1/1` e
+  `finanpy_migrate=0/0`; health Docker, liveness, readiness e página de login
+  interna retornaram sucesso.
+- Nenhuma alteração de DNS foi executada. `finanpy.com.br` resolve atualmente
+  para `2.57.91.91`, fora deste deploy; o corte público segue como gate
+  separado, com nova sincronização final da origem e aprovação explícita.
 
 ### Task 1: Tornar settings compatível com Swarm Secrets e domínio novo
 
