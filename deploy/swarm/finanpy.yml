@@ -46,7 +46,6 @@ services:
     networks:
       - finanpy_backend
     volumes:
-      - finanpy_staticfiles:/app/staticfiles
       - finanpy_media:/app/media
     deploy:
       replicas: 0
@@ -81,6 +80,7 @@ services:
       EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
       EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-FinanPy <noreply@finanpy.com.br>}
+      SERVE_MEDIA_FILES: ${SERVE_MEDIA_FILES:-true}
     secrets:
       - finanpy_django_secret_key
       - finanpy_postgres_password
@@ -88,7 +88,6 @@ services:
       - edge
       - finanpy_backend
     volumes:
-      - finanpy_staticfiles:/app/staticfiles:ro
       - finanpy_media:/app/media
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; request=urllib.request.Request('http://127.0.0.1:8000/health/liveness/', headers={'X-Forwarded-Proto': 'https'}); urllib.request.urlopen(request, timeout=3)"]
@@ -121,7 +120,6 @@ services:
 
 volumes:
   finanpy_postgres_data:
-  finanpy_staticfiles:
   finanpy_media:
 
 networks:

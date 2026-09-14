@@ -75,9 +75,13 @@ urlpatterns = [
     path('api/token/', obtain_auth_token, name='api-token'),
 ]
 
-# Serve static and media files during development
+# WhiteNoise serves static files in production. Django serves media in the
+# containerized deployment, matching the UrbanLive shared-stack contract.
+if settings.DEBUG or getattr(settings, 'SERVE_MEDIA_FILES', False):
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Serve static files during development.
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     # django_browser_reload — hot reload de templates/CSS em dev
     urlpatterns += [path('__reload__/', include('django_browser_reload.urls'))]

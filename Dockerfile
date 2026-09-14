@@ -53,6 +53,11 @@ COPY . /app
 COPY --from=tailwind-build /build/theme/static/css/dist /app/theme/static/css/dist
 
 RUN mkdir -p /app/staticfiles /app/media \
+    && DJANGO_SETTINGS_MODULE=core.settings_production \
+       SECRET_KEY=build-time-static-only \
+       POSTGRES_PASSWORD=build-time-static-only \
+       ALLOWED_HOSTS=finanpy.com.br \
+       python manage.py collectstatic --noinput \
     && chown -R app:app /app
 
 COPY docker/entrypoint-web.sh docker/entrypoint-migrate.sh /usr/local/bin/

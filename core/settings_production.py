@@ -3,7 +3,7 @@ Production settings for FinanPy.
 
 This module keeps production explicit and boring: configuration comes from
 environment variables, logs go to stdout/stderr, PostgreSQL is the database,
-and Django serves only the application while Nginx serves static/media files.
+and WhiteNoise serves immutable static assets from the application image.
 """
 
 import os
@@ -68,7 +68,11 @@ DATABASES = {
 }
 
 
-# Static and media files are shared with the Nginx container through volumes.
+# Static assets are built into the immutable image and served by WhiteNoise,
+# matching the UrbanLive deployment pattern on the shared Traefik stack.
+if "whitenoise.middleware.WhiteNoiseMiddleware" not in MIDDLEWARE:
+    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
+
 STATIC_ROOT = BASE_DIR / "staticfiles"  # noqa: F405
 MEDIA_ROOT = BASE_DIR / "media"  # noqa: F405
 
@@ -77,9 +81,11 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
+WHITENOISE_MAX_AGE = env_int("WHITENOISE_MAX_AGE", 31536000)
+SERVE_MEDIA_FILES = env_bool("SERVE_MEDIA_FILES", True)
 
 
 # Reverse proxy and HTTPS.

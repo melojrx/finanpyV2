@@ -36,6 +36,11 @@ Esse wrapper materializa a release por digest em `/srv/finanpy/releases/` e
 delega migration, rollout e readiness ao controlador versionado. Secrets são
 consultados apenas por nome no Swarm e nunca aparecem no summary da execução.
 
+O Homelab segue o padrão do UrbanLive para estáticos: o build da imagem executa
+`collectstatic`, WhiteNoise entrega `/static/` diretamente pelo processo Django
+e não há volume persistente de estáticos. A mídia permanece no volume
+`finanpy_media` e é servida pelo Django quando `SERVE_MEDIA_FILES=true`.
+
 Para diagnosticar uma promoção sem abrir portas públicas:
 
 ```bash
@@ -152,7 +157,9 @@ O fluxo normal é:
 5. O script faz `git fetch origin main` e `git reset --hard origin/main`.
 6. Rebuilda o serviço `web` com `docker-compose.vps.yml`.
 7. Recria `finanpy-web-1`.
-8. O entrypoint do container roda migrations e `collectstatic`.
+8. A imagem já contém os estáticos coletados durante o build imutável. As
+   migrations no Homelab são aplicadas pelo serviço one-shot; o fluxo legado da
+   VPS será desativado após a validação pública final.
 9. O script valida `http://127.0.0.1:8001/`.
 
 O workflow ignora mudanças puramente documentais (`docs/**`, `**.md` e
