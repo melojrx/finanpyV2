@@ -61,12 +61,14 @@
 - [x] Task 2 — health endpoints e entrypoints web/migration separados
       (`6a2ec64`).
 - [x] Task 3 — CI bloqueante e publicação GHCR por SHA/digest (`87d3878`).
+- [x] Correções de CI pós-merge: diretório de logs e build de CSS (`7776c44`,
+      `b4ebf4b`); workflow `34847736812` concluído com sucesso.
 - [x] Task 4 — manifests Swarm, edge dedicado e controlador de release
       (`6e36d24`).
 - [x] Verificador local de ensaio de inventário/mídia implementado.
 - [ ] Task 5 — provisionamento Homelab e cópia/restauração de dados; dados
-      restaurados e verificados; stack privado ainda depende de imagem GHCR e
-      token do Tunnel.
+      restaurados e verificados; stack privado ainda depende do token do
+      Tunnel.
 - [ ] Task 6 — corte DNS/Tunnel; requer aprovação nova após ensaio aprovado.
 
 ## Gate 5 — evidência do ensaio privado (14/09/2026)
@@ -88,8 +90,10 @@
   total de 93.245 bytes.
 - Recursos temporários do ensaio foram removidos; backup e inventários permanecem
   protegidos no Homelab para o próximo gate.
-- Gate pendente: publicar imagem candidata no GHCR por digest completo e
-  provisionar o token do Tunnel dedicado antes de validar o stack privado.
+- Imagem candidata publicada pelo workflow `34847736812` no digest
+  `ghcr.io/melojrx/finanpyv2@sha256:f7011d63001e9e82b6b2a8364d4a32ddb453b7332e62dca1c6f8c6f5dfb55226`.
+- Gate pendente: provisionar o token do Tunnel dedicado antes de validar o
+  stack privado.
 
 ### Task 1: Tornar settings compatível com Swarm Secrets e domínio novo
 
