@@ -1,0 +1,136 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-finanpy}
+      POSTGRES_USER: ${POSTGRES_USER:-finanpy}
+      POSTGRES_PASSWORD_FILE: /run/secrets/finanpy_postgres_password
+    secrets:
+      - finanpy_postgres_password
+    networks:
+      - finanpy_backend
+    volumes:
+      - finanpy_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == homelab
+
+  migrate:
+    image: ${FINANPY_IMAGE:?set FINANPY_IMAGE}
+    entrypoint: ["/usr/local/bin/entrypoint-migrate.sh"]
+    environment:
+      DJANGO_SETTINGS_MODULE: core.settings_production
+      SECRET_KEY_FILE: /run/secrets/finanpy_django_secret_key
+      POSTGRES_DB: ${POSTGRES_DB:-finanpy}
+      POSTGRES_USER: ${POSTGRES_USER:-finanpy}
+      POSTGRES_PASSWORD_FILE: /run/secrets/finanpy_postgres_password
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:?set ALLOWED_HOSTS}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?set CSRF_TRUSTED_ORIGINS}
+      SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-.finanpy.com.br}
+      CSRF_COOKIE_DOMAIN: ${CSRF_COOKIE_DOMAIN:-.finanpy.com.br}
+    secrets:
+      - finanpy_django_secret_key
+      - finanpy_postgres_password
+    networks:
+      - finanpy_backend
+    volumes:
+      - finanpy_staticfiles:/app/staticfiles
+      - finanpy_media:/app/media
+    deploy:
+      replicas: 0
+      restart_policy:
+        condition: none
+      placement:
+        constraints:
+          - node.hostname == homelab
+
+  web:
+    image: ${FINANPY_IMAGE:?set FINANPY_IMAGE}
+    environment:
+      DJANGO_SETTINGS_MODULE: core.settings_production
+      SECRET_KEY_FILE: /run/secrets/finanpy_django_secret_key
+      POSTGRES_DB: ${POSTGRES_DB:-finanpy}
+      POSTGRES_USER: ${POSTGRES_USER:-finanpy}
+      POSTGRES_PASSWORD_FILE: /run/secrets/finanpy_postgres_password
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:?set ALLOWED_HOSTS}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?set CSRF_TRUSTED_ORIGINS}
+      SESSION_COOKIE_DOMAIN: ${SESSION_COOKIE_DOMAIN:-.finanpy.com.br}
+      CSRF_COOKIE_DOMAIN: ${CSRF_COOKIE_DOMAIN:-.finanpy.com.br}
+      SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-true}
+      SECURE_HSTS_SECONDS: ${SECURE_HSTS_SECONDS:-31536000}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      CSRF_COOKIE_SECURE: ${CSRF_COOKIE_SECURE:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.smtp.EmailBackend}
+      EMAIL_HOST: ${EMAIL_HOST:-localhost}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-FinanPy <noreply@finanpy.com.br>}
+    secrets:
+      - finanpy_django_secret_key
+      - finanpy_postgres_password
+    networks:
+      - edge
+      - finanpy_backend
+    volumes:
+      - finanpy_staticfiles:/app/staticfiles:ro
+      - finanpy_media:/app/media
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/liveness/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == homelab
+      update_config:
+        parallelism: 1
+        order: start-first
+        delay: 10s
+        monitor: 60s
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        order: stop-first
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=edge
+        - traefik.http.routers.finanpy.rule=Host(`finanpy.com.br`) || Host(`www.finanpy.com.br`)
+        - traefik.http.routers.finanpy.entrypoints=web
+        - traefik.http.services.finanpy.loadbalancer.server.port=8000
+
+volumes:
+  finanpy_postgres_data:
+  finanpy_staticfiles:
+  finanpy_media:
+
+networks:
+  edge:
+    external: true
+  finanpy_backend:
+    driver: overlay
+    internal: true
+
+secrets:
+  finanpy_django_secret_key:
+    external: true
+  finanpy_postgres_password:
+    external: true
