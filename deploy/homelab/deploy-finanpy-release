@@ -2,7 +2,7 @@
 set -eu
 
 FINANPY_ROOT='/srv/finanpy'
-EXPECTED_CHECKOUT='/opt/actions-runner-finanpy/_work/finanpy_v2/finanpy_v2'
+EXPECTED_CHECKOUT='/opt/actions-runner-finanpy/_work/finanpyV2/finanpyV2'
 
 [ "$#" -eq 2 ] || {
   printf '%s\n' 'Usage: deploy-finanpy-release <checkout> <image-digest>' >&2

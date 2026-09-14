@@ -20,7 +20,7 @@ Traefik e cloudflared.
 - A branch de trabalho é `codex/finanpy-homelab-automated-deploy`, derivada de `main`; executar inline e sem worktree ou subagentes.
 - Publicar somente `ghcr.io/melojrx/finanpyv2@sha256:<64-hex>`; nunca tag mutável, build ou checkout no Homelab.
 - O runner é `runner-finanpy`, sem login e sem grupo `docker`; não compartilhar runner, diretório, wrapper, sudoers ou concorrência com Brabus/UrbanLive.
-- O único checkout aceito pelo wrapper é `/opt/actions-runner-finanpy/_work/finanpy_v2/finanpy_v2`.
+- O único checkout aceito pelo wrapper é `/opt/actions-runner-finanpy/_work/finanpyV2/finanpyV2`.
 - O único comando sudo liberado ao runner é `/usr/local/sbin/deploy-finanpy-release` com o checkout literal e o digest validado.
 - Manter `/srv/finanpy/finanpy.env`, secrets Swarm, tokens de runner, credenciais GHCR, dumps e dados financeiros fora do Git, logs, workflow summary e vault.
 - Preservar os volumes `finanpy_finanpy_postgres_data`, `finanpy_finanpy_staticfiles` e `finanpy_finanpy_media`; não executar rollback automático de banco.
@@ -195,14 +195,14 @@ test -x "$wrapper"
 test -f "$unit"
 test -f "$sudoers"
 grep -Fq "FINANPY_ROOT='/srv/finanpy'" "$wrapper"
-grep -Fq '/opt/actions-runner-finanpy/_work/finanpy_v2/finanpy_v2' "$wrapper"
+grep -Fq '/opt/actions-runner-finanpy/_work/finanpyV2/finanpyV2' "$wrapper"
 grep -Fq 'validate_finanpy_image "$image"' "$wrapper"
 grep -Fq 'tar -C "$checkout" -cf - deploy/swarm scripts/homelab' "$wrapper"
 grep -Fq 'exec "$FINANPY_ROOT/bin/deploy-stack.sh" "$release_directory" "$image"' "$wrapper"
 grep -Fq 'User=runner-finanpy' "$unit"
 grep -Fq 'WorkingDirectory=/opt/actions-runner-finanpy' "$unit"
 grep -Fq 'PrivateTmp=true' "$unit"
-grep -Fxq 'runner-finanpy ALL=(root) NOPASSWD: /usr/local/sbin/deploy-finanpy-release /opt/actions-runner-finanpy/_work/finanpy_v2/finanpy_v2 *' "$sudoers"
+grep -Fxq 'runner-finanpy ALL=(root) NOPASSWD: /usr/local/sbin/deploy-finanpy-release /opt/actions-runner-finanpy/_work/finanpyV2/finanpyV2 *' "$sudoers"
 ! grep -Eq '(^|[^[:alnum:]_])docker([^[:alnum:]_]|$)' "$sudoers"
 ```
 
@@ -219,7 +219,7 @@ Crie `deploy/homelab/deploy-finanpy-release` com modo executável:
 set -eu
 
 FINANPY_ROOT='/srv/finanpy'
-EXPECTED_CHECKOUT='/opt/actions-runner-finanpy/_work/finanpy_v2/finanpy_v2'
+EXPECTED_CHECKOUT='/opt/actions-runner-finanpy/_work/finanpyV2/finanpyV2'
 
 checkout=${1:?Usage: deploy-finanpy-release <checkout> <image-digest>}
 image=${2:?Usage: deploy-finanpy-release <checkout> <image-digest>}
@@ -285,7 +285,7 @@ WantedBy=multi-user.target
 Crie `deploy/homelab/runner-finanpy.sudoers`:
 
 ```sudoers
-runner-finanpy ALL=(root) NOPASSWD: /usr/local/sbin/deploy-finanpy-release /opt/actions-runner-finanpy/_work/finanpy_v2/finanpy_v2 *
+runner-finanpy ALL=(root) NOPASSWD: /usr/local/sbin/deploy-finanpy-release /opt/actions-runner-finanpy/_work/finanpyV2/finanpyV2 *
 ```
 
 - [ ] **Step 4: Verificar shell, permissões de fonte e contrato**
@@ -321,7 +321,7 @@ git commit -m "feat: add isolated FinanPy deployment runner contract"
 
 **Interfaces:**
 - Consumes: token efêmero obtido no GitHub para o repositório
-  `melojrx/finanpy_v2`, label `homelab-finanpy-deploy`.
+  `melojrx/finanpyV2`, label `homelab-finanpy-deploy`.
 - Produces: serviço ativo e um runner online sem acesso direto ao Docker.
 
 - [ ] **Step 1: Conferir estado remoto sem alterar nada**
@@ -373,7 +373,7 @@ read -rs FINANPY_RUNNER_TOKEN
 printf '\n'
 sudo -u runner-finanpy /opt/actions-runner-finanpy/config.sh \
   --unattended \
-  --url https://github.com/melojrx/finanpy_v2 \
+  --url https://github.com/melojrx/finanpyV2 \
   --token "$FINANPY_RUNNER_TOKEN" \
   --name homelab-finanpy-deploy \
   --labels self-hosted,Linux,X64,homelab-finanpy-deploy \
@@ -441,9 +441,9 @@ jobs `test`, `publish` e `deploy`; não invoque manualmente o wrapper em
 paralelo. Acompanhe o último run dessa branch:
 
 ```bash
-run_id=$(gh run list --repo melojrx/finanpy_v2 --branch main --limit 1 --json databaseId --jq '.[0].databaseId')
+run_id=$(gh run list --repo melojrx/finanpyV2 --branch main --limit 1 --json databaseId --jq '.[0].databaseId')
 test -n "$run_id"
-gh run view "$run_id" --repo melojrx/finanpy_v2 --json status,conclusion,url,jobs
+gh run view "$run_id" --repo melojrx/finanpyV2 --json status,conclusion,url,jobs
 ```
 
 Expected: `test`, `publish` e `deploy` com conclusão `success`; o resumo do
@@ -533,7 +533,7 @@ Run:
 ```bash
 git status --short --branch
 git log --oneline main..HEAD
-gh run list --repo melojrx/finanpy_v2 --branch main --limit 5
+gh run list --repo melojrx/finanpyV2 --branch main --limit 5
 ssh -o BatchMode=yes melojr@100.93.170.120 \
   'sudo systemctl is-active actions.runner.finanpy.service; sudo docker service ls --format "{{.Name}} {{.Image}} {{.Replicas}}" | sort'
 ```
