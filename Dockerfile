@@ -55,7 +55,10 @@ COPY --from=tailwind-build /build/theme/static/css/dist /app/theme/static/css/di
 RUN mkdir -p /app/staticfiles /app/media \
     && chown -R app:app /app
 
+COPY docker/entrypoint-web.sh docker/entrypoint-migrate.sh /usr/local/bin/
+RUN chmod 0555 /usr/local/bin/entrypoint-web.sh /usr/local/bin/entrypoint-migrate.sh
+
 USER app
 
-ENTRYPOINT ["/app/docker/entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint-web.sh"]
 CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "60", "--access-logfile", "-", "--error-logfile", "-"]

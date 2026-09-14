@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
 from core.secrets import env_secret
 
@@ -26,6 +26,24 @@ class SecretEnvironmentTests(SimpleTestCase):
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaises(ImproperlyConfigured):
                 env_secret("SETTING", required=True)
+
+
+class HealthEndpointTests(SimpleTestCase):
+    @override_settings(ALLOWED_HOSTS=["testserver"])
+    def test_liveness_does_not_require_database(self):
+        response = self.client.get("/health/liveness/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"alive": True})
+
+    @override_settings(ALLOWED_HOSTS=["testserver"])
+    @patch("core.health_views.connection")
+    def test_readiness_returns_200_when_database_is_available(self, connection):
+        response = self.client.get("/health/readiness/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"ready": True})
+        connection.ensure_connection.assert_called_once_with()
 
 
 class FrontendAssetTests(SimpleTestCase):

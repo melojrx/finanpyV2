@@ -27,8 +27,12 @@ from core.pwa_views import (
     manifest,
     service_worker,
 )
+from core.health_views import liveness, readiness
 
 urlpatterns = [
+    # Health endpoints for reverse proxies and container orchestration.
+    path('health/liveness/', liveness, name='health-liveness'),
+    path('health/readiness/', readiness, name='health-readiness'),
     # Admin interface
     path('admin/', admin.site.urls),
 
