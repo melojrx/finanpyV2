@@ -187,9 +187,9 @@ Corta ~1.520ms de render-blocking medidos no baseline
         <article class="stat-card-mobile card group">
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
-                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Saldo total</p>
-                    <p class="text-xl sm:text-2xl font-bold text-white num-tabular mt-1 truncate">{{ total_balance }}</p>
-                    <p class="text-[11px] text-gray-400 mt-1">Todas as contas ativas</p>
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Caixa disponível</p>
+                    <p class="text-xl sm:text-2xl font-bold text-white num-tabular mt-1 truncate">{{ available_cash }}</p>
+                    <p class="text-[11px] text-gray-400 mt-1">Contas correntes</p>
                 </div>
                 <span class="p-2.5 bg-gradient-financial rounded-full flex-shrink-0" aria-hidden="true">
                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -263,6 +263,23 @@ Corta ~1.520ms de render-blocking medidos no baseline
             </div>
         </article>
     </div>
+
+    <section class="card mb-6" aria-labelledby="patrimony-title">
+        <header class="flex items-center justify-between gap-3 mb-3">
+            <h2 id="patrimony-title" class="text-lg font-semibold text-white">Patrimônio</h2>
+            <span class="text-sm text-gray-400">Total: {{ total_balance }}</span>
+        </header>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="bg-dark-700/50 rounded-lg p-3">
+                <dt class="text-xs uppercase tracking-wider text-gray-400">Reservas</dt>
+                <dd class="mt-1 text-xl font-semibold text-white num-tabular">{{ reserves_balance }}</dd>
+            </div>
+            <div class="bg-dark-700/50 rounded-lg p-3">
+                <dt class="text-xs uppercase tracking-wider text-gray-400">Valores a receber</dt>
+                <dd class="mt-1 text-xl font-semibold text-white num-tabular">{{ receivables_balance }}</dd>
+            </div>
+        </dl>
+    </section>
 
     {# ─── Conteúdo principal: 1col mobile, 3col desktop ──────────────── #}
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8">

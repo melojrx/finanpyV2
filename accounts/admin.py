@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Account
+from .models import Account, AccountBalanceAdjustment, FundTransfer
 
 
 @admin.register(Account)
@@ -101,3 +101,37 @@ class AccountAdmin(admin.ModelAdmin):
                 # Could limit to specific users based on permissions
                 pass
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
+@admin.register(AccountBalanceAdjustment)
+class AccountBalanceAdjustmentAdmin(admin.ModelAdmin):
+    list_display = ['account', 'previous_balance', 'new_balance', 'delta', 'adjustment_date', 'user']
+    list_filter = ['adjustment_date']
+    search_fields = ['account__name', 'reason', 'user__email']
+    readonly_fields = [
+        'user', 'account', 'previous_balance', 'new_balance', 'delta',
+        'adjustment_date', 'reason', 'client_id', 'created_at',
+    ]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(FundTransfer)
+class FundTransferAdmin(admin.ModelAdmin):
+    list_display = ['transfer_date', 'from_account', 'to_account', 'amount', 'user']
+    list_filter = ['transfer_date']
+    search_fields = ['description', 'destination_context', 'user__email']
+    readonly_fields = [
+        'user', 'from_account', 'to_account', 'amount', 'description',
+        'destination_context', 'client_id', 'transfer_date', 'created_at', 'updated_at',
+    ]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

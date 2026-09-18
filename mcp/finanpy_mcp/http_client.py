@@ -55,6 +55,9 @@ class FinanPyClient:
         except httpx.RequestError:
             raise FinanPyMCPError("Falha de comunicação ao consultar a API do FinanPy.")
 
+        if response.status_code == 204:
+            return {}
+
         try:
             payload = response.json()
         except Exception:

@@ -87,6 +87,19 @@ def confirm_pending_transaction(client, id) -> dict:
     ))
 
 
+def update_transaction(client, id, **changes) -> dict:
+    body = {key: value for key, value in changes.items() if value is not None}
+    return _safe_call(lambda: _result(
+        'transactions', client.request('PATCH', f'transactions/{id}/', json=body), body,
+    ))
+
+
+def delete_transaction(client, id) -> dict:
+    return _safe_call(lambda: _result(
+        'transactions', client.request('DELETE', f'transactions/{id}/'), {'id': id},
+    ))
+
+
 def register_transaction_tools(mcp, client):
     """Register transaction tools with MCP server."""
 
@@ -180,3 +193,15 @@ def register_transaction_tools(mcp, client):
             - 404: transação não encontrada
         """
         return confirm_pending_transaction(client, id=id)
+
+    @mcp.tool()
+    def finanpy_update_transaction(id: int, amount: str | None = None, description: str | None = None, transaction_date: str | None = None, status: str | None = None, account: int | None = None, category: int | None = None) -> dict:
+        """Atualiza uma transação existente via PATCH autenticado."""
+        return update_transaction(client, id, amount=amount, description=description,
+                                  transaction_date=transaction_date, status=status,
+                                  account=account, category=category)
+
+    @mcp.tool()
+    def finanpy_delete_transaction(id: int) -> dict:
+        """Exclui uma transação; o backend reverte seu impacto de saldo."""
+        return delete_transaction(client, id)

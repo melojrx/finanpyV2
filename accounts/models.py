@@ -205,6 +205,18 @@ class FundTransfer(models.Model):
         default='',
         verbose_name='Descrição',
     )
+    destination_context = models.CharField(
+        max_length=300,
+        blank=True,
+        default='',
+        verbose_name='Contexto de destino',
+    )
+    client_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        verbose_name='Identificador idempotente',
+    )
     transfer_date = models.DateField(verbose_name='Data da transferência')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Criada em')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Atualizada em')
@@ -217,6 +229,13 @@ class FundTransfer(models.Model):
             models.Index(fields=['user', 'transfer_date']),
             models.Index(fields=['user', 'from_account']),
             models.Index(fields=['user', 'to_account']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'client_id'],
+                condition=~models.Q(client_id=''),
+                name='unique_transfer_client_id_per_user',
+            ),
         ]
 
     def __str__(self):
@@ -331,3 +350,60 @@ class FundTransfer(models.Model):
         )
         transfer.save()
         return transfer
+
+
+class AccountBalanceAdjustment(models.Model):
+    """Immutable audit record for a manual reserve balance adjustment."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='account_balance_adjustments',
+    )
+    account = models.ForeignKey(
+        Account,
+        on_delete=models.PROTECT,
+        related_name='balance_adjustments',
+    )
+    previous_balance = models.DecimalField(max_digits=12, decimal_places=2)
+    new_balance = models.DecimalField(max_digits=12, decimal_places=2)
+    delta = models.DecimalField(max_digits=12, decimal_places=2)
+    adjustment_date = models.DateField()
+    reason = models.CharField(max_length=300)
+    client_id = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-adjustment_date', '-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'client_id'],
+                name='unique_account_adjustment_client_id_per_user',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['account', 'adjustment_date']),
+            models.Index(fields=['user', 'adjustment_date']),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.account_id and self.account.account_type not in {
+            'savings', 'investment'
+        }:
+            raise ValidationError({
+                'account': 'Ajustes manuais só são permitidos para reservas ou investimentos.'
+            })
+        if self.account_id and self.user_id and self.account.user_id != self.user_id:
+            raise ValidationError({'account': 'Conta não pertence ao usuário.'})
+        if self.delta != self.new_balance - self.previous_balance:
+            raise ValidationError({'delta': 'Delta deve corresponder aos saldos informado.'})
+        self.reason = (self.reason or '').strip()
+        if not self.reason:
+            raise ValidationError({'reason': 'Motivo do ajuste é obrigatório.'})
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError('Ajustes de saldo são imutáveis.')
+        self.full_clean()
+        return super().save(*args, **kwargs)

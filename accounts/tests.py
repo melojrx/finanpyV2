@@ -3,9 +3,11 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from django.test import TestCase
 
-from .models import Account, FundTransfer
+from .models import Account, AccountBalanceAdjustment, FundTransfer
+from .services import adjust_account_balance
 
 
 User = get_user_model()
@@ -90,3 +92,69 @@ class FundTransferBalanceTests(TestCase):
 
                 with self.assertRaises(ValidationError):
                     transfer.save()
+
+
+class AccountBalanceAdjustmentTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='reserve@example.com', password='test-password'
+        )
+        self.reserve = Account.objects.create(
+            user=self.user,
+            name='Cofre Mercado Pago',
+            account_type='savings',
+            balance=Decimal('100.00'),
+        )
+
+    def test_adjustment_records_old_new_and_delta(self):
+        adjustment = AccountBalanceAdjustment.objects.create(
+            user=self.user,
+            account=self.reserve,
+            previous_balance=Decimal('100.00'),
+            new_balance=Decimal('125.50'),
+            delta=Decimal('25.50'),
+            adjustment_date=date.today(),
+            reason='Rendimento do cofre',
+            client_id='cofre-yield-001',
+        )
+
+        self.assertEqual(adjustment.delta, Decimal('25.50'))
+        self.assertEqual(adjustment.account, self.reserve)
+
+    def test_service_updates_reserve_and_reuses_same_client_id(self):
+        first = adjust_account_balance(
+            user=self.user,
+            account_id=self.reserve.id,
+            new_balance=Decimal('125.50'),
+            adjustment_date=date.today(),
+            reason='Rendimento do cofre',
+            client_id='cofre-yield-service-001',
+        )
+        second = adjust_account_balance(
+            user=self.user,
+            account_id=self.reserve.id,
+            new_balance=Decimal('125.50'),
+            adjustment_date=date.today(),
+            reason='Rendimento do cofre',
+            client_id='cofre-yield-service-001',
+        )
+
+        self.reserve.refresh_from_db()
+        self.assertEqual(self.reserve.balance, Decimal('125.50'))
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(first.previous_balance, Decimal('100.00'))
+
+    def test_service_rejects_checking_account(self):
+        checking = Account.objects.create(
+            user=self.user, name='Operacional', account_type='checking'
+        )
+
+        with self.assertRaises(ValidationError):
+            adjust_account_balance(
+                user=self.user,
+                account_id=checking.id,
+                new_balance=Decimal('10.00'),
+                adjustment_date=date.today(),
+                reason='Não permitido',
+                client_id='checking-adjustment-001',
+            )

@@ -7,6 +7,8 @@ from .config import get_config
 from .http_client import FinanPyClient
 from .tools.health import register_health_tools
 from .tools.accounts import register_account_tools
+from .tools.transfers import register_transfer_tools
+from .tools.loans_receivable import register_loans_receivable_tools
 from .tools.categories import register_category_tools
 from .tools.tags import register_tag_tools
 from .tools.transactions import register_transaction_tools
@@ -34,6 +36,8 @@ def _register_all():
     client = _get_client()
     register_health_tools(mcp, client)
     register_account_tools(mcp, client)
+    register_transfer_tools(mcp, client)
+    register_loans_receivable_tools(mcp, client)
     register_category_tools(mcp, client)
     register_tag_tools(mcp, client)
     register_transaction_tools(mcp, client)
