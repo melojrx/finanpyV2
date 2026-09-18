@@ -2,22 +2,55 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from accounts.models import Account, FundTransfer
+from accounts.models import Account, AccountBalanceAdjustment, FundTransfer
+from accounts.services import adjust_account_balance, create_transfer
 from budgets.models import Budget, MonthlyPlan, MonthlyPlanItem
 from categories.models import Category
 from goals.models import Goal, GoalContribution
+from receivables.models import LoanReceivable, LoanSettlement
+from receivables.services import (
+    create_loan_receivable, settle_loan_receivable, write_off_loan_receivable,
+)
 from tags.models import Tag
 from transactions.models import Transaction
 
 
 class AccountSerializer(serializers.ModelSerializer):
+    opening_balance = serializers.DecimalField(
+        max_digits=12, decimal_places=2, write_only=True, required=False
+    )
+
     class Meta:
         model = Account
         fields = [
-            'id', 'name', 'account_type', 'balance',
+            'id', 'name', 'account_type', 'balance', 'opening_balance',
             'currency', 'is_active', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'balance', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        opening_balance = validated_data.pop('opening_balance', Decimal('0.00'))
+        return Account.objects.create(balance=opening_balance, **validated_data)
+
+
+class AccountBalanceAdjustmentSerializer(serializers.ModelSerializer):
+    new_balance = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        model = AccountBalanceAdjustment
+        fields = [
+            'id', 'previous_balance', 'new_balance', 'delta', 'adjustment_date',
+            'reason', 'client_id', 'created_at',
+        ]
+        read_only_fields = ['id', 'previous_balance', 'delta', 'created_at']
+
+    def create(self, validated_data):
+        account_id = self.context['account_id']
+        return adjust_account_balance(
+            user=self.context['request'].user,
+            account_id=account_id,
+            **validated_data,
+        )
 
 
 
@@ -76,6 +109,96 @@ class FundTransferSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 exc.message_dict if hasattr(exc, 'message_dict') else exc.messages
             )
+
+
+class TransferSerializer(serializers.ModelSerializer):
+    source_account = serializers.PrimaryKeyRelatedField(
+        source='from_account', queryset=Account.objects.all()
+    )
+    target_account = serializers.PrimaryKeyRelatedField(
+        source='to_account', queryset=Account.objects.all()
+    )
+
+    class Meta:
+        model = FundTransfer
+        fields = [
+            'id', 'source_account', 'target_account', 'amount', 'transfer_date',
+            'description', 'destination_context', 'client_id', 'created_at',
+        ]
+        read_only_fields = ['id', 'created_at']
+        extra_kwargs = {
+            'description': {'required': False, 'allow_blank': True},
+            'destination_context': {'required': False, 'allow_blank': True},
+            'client_id': {'required': False, 'allow_blank': True},
+        }
+
+    def validate(self, data):
+        user = self.context['request'].user
+        source = data['from_account']
+        target = data['to_account']
+        if source.user_id != user.id or target.user_id != user.id:
+            raise serializers.ValidationError('Contas devem pertencer ao usuário autenticado.')
+        if source.pk == target.pk:
+            raise serializers.ValidationError({'target_account': 'Conta de destino deve ser diferente.'})
+        return data
+
+    def create(self, validated_data):
+        transfer, created = create_transfer(
+            user=self.context['request'].user,
+            source_account=validated_data.pop('from_account'),
+            target_account=validated_data.pop('to_account'),
+            **validated_data,
+        )
+        self.created = created
+        return transfer
+
+
+class LoanSettlementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LoanSettlement
+        fields = [
+            'id', 'amount', 'target_account', 'settlement_date', 'description',
+            'client_id', 'created_at',
+        ]
+        read_only_fields = ['id', 'created_at']
+        extra_kwargs = {'description': {'required': False, 'allow_blank': True}}
+
+
+class LoanReceivableSerializer(serializers.ModelSerializer):
+    settlements = LoanSettlementSerializer(many=True, read_only=True)
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, write_only=True)
+
+    class Meta:
+        model = LoanReceivable
+        fields = [
+            'id', 'counterparty', 'amount', 'original_amount', 'outstanding_amount',
+            'origin_account', 'loan_date', 'description', 'expected_return_date',
+            'status', 'client_id', 'written_off_at', 'write_off_reason',
+            'created_at', 'updated_at', 'settlements',
+        ]
+        read_only_fields = [
+            'id', 'original_amount', 'outstanding_amount', 'status',
+            'written_off_at', 'write_off_reason', 'created_at', 'updated_at',
+            'settlements',
+        ]
+
+    def create(self, validated_data):
+        validated_data['amount'] = validated_data.pop('amount')
+        validated_data['origin_account_id'] = validated_data.pop('origin_account').id
+        validated_data.setdefault('expected_return_date', None)
+        return create_loan_receivable(user=self.context['request'].user, **validated_data)
+
+
+class LoanSettlementCreateSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    target_account = serializers.PrimaryKeyRelatedField(queryset=Account.objects.all())
+    settlement_date = serializers.DateField()
+    description = serializers.CharField(required=False, allow_blank=True, max_length=300)
+    client_id = serializers.CharField(max_length=64)
+
+
+class LoanWriteOffSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=300)
 
 
 class CategorySerializer(serializers.ModelSerializer):

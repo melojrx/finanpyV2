@@ -29,6 +29,7 @@ from rest_framework.test import APIClient, APITestCase
 
 from accounts.models import Account
 from categories.models import Category
+from receivables.models import LoanReceivable
 from transactions.models import Transaction
 
 
@@ -389,6 +390,72 @@ class AccountTransferEndpointTests(APITestBase):
         self.assertIn('to_account', resp.data)
 
 
+class TransferResourceEndpointTests(APITestBase):
+    url = '/api/v1/transfers/'
+
+    def test_creates_idempotent_transfer_with_public_account_names(self):
+        destination = Account.objects.create(
+            user=self.user, name='Cofre Mercado Pago', account_type='savings',
+            balance=Decimal('100.00'),
+        )
+        payload = {
+            'source_account': self.account.pk,
+            'target_account': destination.pk,
+            'amount': '49.90',
+            'transfer_date': '2026-09-18',
+            'description': 'Reserva',
+            'destination_context': 'Reserva de emergência',
+            'client_id': 'transfer-001',
+        }
+        first = self.client.post(self.url, payload, format='json')
+        second = self.client.post(self.url, payload, format='json')
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED, first.content)
+        self.assertEqual(second.status_code, status.HTTP_200_OK, second.content)
+        self.assertEqual(first.data['id'], second.data['id'])
+        destination.refresh_from_db()
+        self.assertEqual(destination.balance, Decimal('149.90'))
+
+
+class AccountAdjustmentEndpointTests(APITestBase):
+    def test_create_reserve_with_opening_balance_and_adjust_it(self):
+        created = self.client.post('/api/v1/accounts/', {
+            'name': 'Cofre Mercado Pago', 'account_type': 'savings',
+            'currency': 'BRL', 'opening_balance': '13749.75',
+        }, format='json')
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.content)
+        adjustment = self.client.post(
+            f"/api/v1/accounts/{created.data['id']}/adjustments/", {
+                'new_balance': '13800.00', 'adjustment_date': '2026-09-18',
+                'reason': 'Rendimento', 'client_id': 'cofre-adjust-api-001',
+            }, format='json'
+        )
+
+        self.assertEqual(adjustment.status_code, status.HTTP_201_CREATED, adjustment.content)
+        self.assertEqual(adjustment.data['previous_balance'], '13749.75')
+
+
+class LoansReceivableEndpointTests(APITestBase):
+    url = '/api/v1/loans-receivable/'
+
+    def test_create_and_settle_loan_without_operational_income_or_expense(self):
+        create = self.client.post(self.url, {
+            'counterparty': 'Sabrina', 'amount': '600.00',
+            'origin_account': self.account.pk, 'loan_date': '2026-09-18',
+            'description': 'Brabus Performance Store', 'client_id': 'loan-api-001',
+        }, format='json')
+        self.assertEqual(create.status_code, status.HTTP_201_CREATED, create.content)
+        settle = self.client.post(f"{self.url}{create.data['id']}/settle/", {
+            'amount': '600.00', 'target_account': self.account.pk,
+            'settlement_date': '2026-09-19', 'client_id': 'settlement-api-001',
+        }, format='json')
+
+        self.assertEqual(settle.status_code, status.HTTP_201_CREATED, settle.content)
+        loan = LoanReceivable.objects.get(pk=create.data['id'])
+        self.assertEqual(loan.status, 'SETTLED')
+        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 0)
+
+
 class DashboardSnapshotTests(APITestBase):
     url = '/api/v1/dashboard/snapshot/'
 
@@ -398,6 +465,25 @@ class DashboardSnapshotTests(APITestBase):
         self.assertEqual(resp.data['totals']['transaction_count_month'], 0)
         self.assertEqual(resp.data['totals']['income_month'], '0.00')
         self.assertEqual(resp.data['recent_transactions'], [])
+
+    def test_snapshot_separates_cash_reserves_and_receivables(self):
+        Account.objects.create(
+            user=self.user, name='Reserva', account_type='savings',
+            balance=Decimal('200.00'),
+        )
+        LoanReceivable.objects.create(
+            user=self.user, counterparty='Sabrina', original_amount=Decimal('60.00'),
+            outstanding_amount=Decimal('60.00'), origin_account=self.account,
+            loan_date=date.today(), description='Empréstimo', client_id='snapshot-loan-1',
+        )
+
+        resp = self.client.get(self.url)
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data['patrimony']['available_cash'], '1000.00')
+        self.assertEqual(resp.data['patrimony']['reserves'], '200.00')
+        self.assertEqual(resp.data['patrimony']['receivables'], '60.00')
+        self.assertEqual(resp.data['patrimony']['net_worth'], '1260.00')
 
     def test_snapshot_with_data(self):
         Transaction.objects.create(

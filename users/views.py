@@ -417,6 +417,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         from transactions.models import Transaction
         from budgets.models import Budget
         from goals.models import Goal
+        from receivables.models import LoanReceivable
         from django.db.models import Sum, Case, When, DecimalField, Value
         from django.db.models.functions import TruncMonth
 
@@ -424,6 +425,22 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         total_balance = (
             Account.objects.filter(user=user, is_active=True)
             .aggregate(total=Sum('balance'))['total'] or Decimal('0.00')
+        )
+        available_cash = (
+            Account.objects.filter(
+                user=user, is_active=True, account_type='checking'
+            ).aggregate(total=Sum('balance'))['total'] or Decimal('0.00')
+        )
+        reserves_balance = (
+            Account.objects.filter(
+                user=user, is_active=True,
+                account_type__in=['savings', 'investment'],
+            ).aggregate(total=Sum('balance'))['total'] or Decimal('0.00')
+        )
+        receivables_balance = (
+            LoanReceivable.objects.filter(
+                user=user, status=LoanReceivable.STATUS_ACTIVE
+            ).aggregate(total=Sum('outstanding_amount'))['total'] or Decimal('0.00')
         )
 
         # ── 2. Resumo do período selecionado ─────────────────────────────
@@ -499,7 +516,10 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             'next_offset': next_offset,
             'can_go_next': can_go_next,
             # Cards
-            'total_balance': _format_brl(total_balance),
+            'total_balance': _format_brl(total_balance + receivables_balance),
+            'available_cash': _format_brl(available_cash),
+            'reserves_balance': _format_brl(reserves_balance),
+            'receivables_balance': _format_brl(receivables_balance),
             'monthly_income': _format_brl(period_income),
             'monthly_expenses': _format_brl(period_expenses),
             'monthly_savings': _format_brl(period_savings),

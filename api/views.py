@@ -15,11 +15,14 @@ from budgets.models import Budget, MonthlyPlan, MonthlyPlanItem
 from budgets.plan_item_rules import copy_allocatable_plan_items
 from categories.models import Category
 from goals.models import Goal, GoalContribution
+from receivables.models import LoanReceivable
+from receivables.services import settle_loan_receivable, write_off_loan_receivable
 from tags.models import Tag
 from transactions.models import Transaction
 
 from .serializers import (
     AccountSerializer,
+    AccountBalanceAdjustmentSerializer,
     BudgetSerializer,
     FundTransferSerializer,
     CategorySerializer,
@@ -31,6 +34,11 @@ from .serializers import (
     QuickTransactionSerializer,
     TagSerializer,
     TransactionSerializer,
+    TransferSerializer,
+    LoanReceivableSerializer,
+    LoanSettlementCreateSerializer,
+    LoanSettlementSerializer,
+    LoanWriteOffSerializer,
 )
 
 
@@ -43,6 +51,22 @@ class AccountViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['get', 'post'])
+    def adjustments(self, request, pk=None):
+        account = self.get_object()
+        if request.method == 'GET':
+            queryset = account.balance_adjustments.all()
+            return Response(AccountBalanceAdjustmentSerializer(queryset, many=True).data)
+        serializer = AccountBalanceAdjustmentSerializer(
+            data=request.data, context={'request': request, 'account_id': account.id}
+        )
+        serializer.is_valid(raise_exception=True)
+        adjustment = serializer.save()
+        return Response(
+            AccountBalanceAdjustmentSerializer(adjustment).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=False, methods=['post'], url_path='transfer',
             serializer_class=FundTransferSerializer)
@@ -57,6 +81,74 @@ class AccountViewSet(viewsets.ModelViewSet):
         transfer = serializer.save()
         out = FundTransferSerializer(transfer, context={'request': request}).data
         return Response(out, status=status.HTTP_201_CREATED)
+
+
+class TransferViewSet(viewsets.ModelViewSet):
+    """First-class, idempotent API for movements between owned accounts."""
+
+    serializer_class = TransferSerializer
+    http_method_names = ['get', 'post', 'head', 'options']
+
+    def get_queryset(self):
+        qs = FundTransfer.objects.filter(user=self.request.user)
+        account = self.request.query_params.get('account')
+        if account:
+            qs = qs.filter(Q(from_account_id=account) | Q(to_account_id=account))
+        date_from = parse_date(self.request.query_params.get('date_from', ''))
+        date_to = parse_date(self.request.query_params.get('date_to', ''))
+        if date_from:
+            qs = qs.filter(transfer_date__gte=date_from)
+        if date_to:
+            qs = qs.filter(transfer_date__lte=date_to)
+        return qs.select_related('from_account', 'to_account')
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        transfer = serializer.save()
+        output = self.get_serializer(transfer).data
+        return Response(
+            output,
+            status=status.HTTP_201_CREATED if serializer.created else status.HTTP_200_OK,
+        )
+
+
+class LoanReceivableViewSet(viewsets.ModelViewSet):
+    serializer_class = LoanReceivableSerializer
+    http_method_names = ['get', 'post', 'head', 'options']
+
+    def get_queryset(self):
+        qs = LoanReceivable.objects.filter(user=self.request.user)
+        status_value = self.request.query_params.get('status')
+        if status_value in dict(LoanReceivable.STATUS_CHOICES):
+            qs = qs.filter(status=status_value)
+        return qs.select_related('origin_account').prefetch_related('settlements')
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+    @action(detail=True, methods=['post'])
+    def settle(self, request, pk=None):
+        loan = self.get_object()
+        serializer = LoanSettlementCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        data['target_account_id'] = data.pop('target_account').id
+        data.setdefault('description', '')
+        settlement = settle_loan_receivable(
+            user=request.user, loan_id=loan.id, **data
+        )
+        return Response(LoanSettlementSerializer(settlement).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='write-off')
+    def write_off(self, request, pk=None):
+        loan = self.get_object()
+        serializer = LoanWriteOffSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        loan = write_off_loan_receivable(
+            user=request.user, loan_id=loan.id, **serializer.validated_data
+        )
+        return Response(self.get_serializer(loan).data)
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -266,6 +358,28 @@ class DashboardSnapshotView(APIView):
             .aggregate(s=Sum('balance'))['s']
             or Decimal('0.00')
         )
+        available_cash = (
+            Account.objects.filter(
+                user=request.user, is_active=True, account_type='checking'
+            ).aggregate(s=Sum('balance'))['s'] or Decimal('0.00')
+        )
+        reserves = (
+            Account.objects.filter(
+                user=request.user, is_active=True,
+                account_type__in=['savings', 'investment'],
+            ).aggregate(s=Sum('balance'))['s'] or Decimal('0.00')
+        )
+        receivables = (
+            LoanReceivable.objects.filter(
+                user=request.user, status=LoanReceivable.STATUS_ACTIVE
+            ).aggregate(s=Sum('outstanding_amount'))['s'] or Decimal('0.00')
+        )
+        unclassified_balance = (
+            Account.objects.filter(
+                user=request.user, is_active=True,
+                account_type__in=['cash', 'credit_card'],
+            ).aggregate(s=Sum('balance'))['s'] or Decimal('0.00')
+        )
 
         recent = (
             Transaction.objects.filter(user=request.user)
@@ -292,6 +406,13 @@ class DashboardSnapshotView(APIView):
             'recent_transactions': TransactionSerializer(
                 recent, many=True, context={'request': request}
             ).data,
+            'patrimony': {
+                'available_cash': f'{available_cash:.2f}',
+                'reserves': f'{reserves:.2f}',
+                'receivables': f'{receivables:.2f}',
+                'unclassified_account_balance': f'{unclassified_balance:.2f}',
+                'net_worth': f'{available_cash + reserves + receivables + unclassified_balance:.2f}',
+            },
         }
 
         include_csv = (request.query_params.get('include') or '').lower()

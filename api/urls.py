@@ -14,7 +14,9 @@ from .views import (
     SyncSinceView,
     TagViewSet,
     TransactionViewSet,
+    TransferViewSet,
     MonthlySummaryView,
+    LoanReceivableViewSet,
     YearlySummaryView,
 )
 
@@ -22,6 +24,8 @@ router = DefaultRouter()
 router.register(r'accounts', AccountViewSet, basename='api-account')
 router.register(r'categories', CategoryViewSet, basename='api-category')
 router.register(r'transactions', TransactionViewSet, basename='api-transaction')
+router.register(r'transfers', TransferViewSet, basename='api-transfer')
+router.register(r'loans-receivable', LoanReceivableViewSet, basename='api-loan-receivable')
 router.register(r'budgets', BudgetViewSet, basename='api-budget')
 router.register(r'goals', GoalViewSet, basename='api-goal')
 router.register(r'goal-contributions', GoalContributionViewSet, basename='api-goal-contribution')
