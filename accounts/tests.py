@@ -144,17 +144,16 @@ class AccountBalanceAdjustmentTests(TestCase):
         self.assertEqual(first.pk, second.pk)
         self.assertEqual(first.previous_balance, Decimal('100.00'))
 
-    def test_service_rejects_checking_account(self):
+    def test_service_allows_negative_checking_balance(self):
         checking = Account.objects.create(
-            user=self.user, name='Operacional', account_type='checking'
+            user=self.user, name='Operacional', account_type='checking',
+            balance=Decimal('-10.00'),
         )
-
-        with self.assertRaises(ValidationError):
-            adjust_account_balance(
-                user=self.user,
-                account_id=checking.id,
-                new_balance=Decimal('10.00'),
-                adjustment_date=date.today(),
-                reason='Não permitido',
-                client_id='checking-adjustment-001',
-            )
+        adjustment = adjust_account_balance(
+            user=self.user, account_id=checking.id, new_balance=Decimal('-25.00'),
+            adjustment_date=date.today(), reason='Conciliação', client_id='checking-001',
+        )
+        checking.refresh_from_db()
+        self.assertEqual(checking.balance, Decimal('-25.00'))
+        self.assertEqual(adjustment.previous_balance, Decimal('-10.00'))
+        self.assertEqual(adjustment.delta, Decimal('-15.00'))

@@ -1,20 +1,23 @@
 """Atomic account-domain operations shared by DRF and the web application."""
 
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from .models import Account, AccountBalanceAdjustment, FundTransfer
+from .models import ADJUSTABLE_ACCOUNT_TYPES, Account, AccountBalanceAdjustment, FundTransfer
 
 
 def adjust_account_balance(
     *, user, account_id, new_balance, adjustment_date, reason, client_id
 ):
-    """Set a reserve balance and retain an immutable audit entry.
+    """Set an account balance and retain an immutable audit entry.
 
     An identical retry returns its first result. Reusing the key for a different
     operation is rejected instead of silently changing the balance twice.
     """
     with transaction.atomic():
+        # Serialize idempotency keys for this user, including across accounts.
+        get_user_model().objects.select_for_update().get(pk=user.pk)
         existing = (
             AccountBalanceAdjustment.objects.select_for_update()
             .filter(user=user, client_id=client_id)
@@ -32,9 +35,9 @@ def adjust_account_balance(
             raise ValidationError('client_id já foi usado em outro ajuste.')
 
         account = Account.objects.select_for_update().get(pk=account_id, user=user)
-        if account.account_type not in {'savings', 'investment'}:
+        if account.account_type not in ADJUSTABLE_ACCOUNT_TYPES:
             raise ValidationError({
-                'account': 'Ajustes manuais só são permitidos para reservas ou investimentos.'
+                'account': 'Ajustes manuais só são permitidos para contas correntes, poupanças ou investimentos.'
             })
 
         previous_balance = account.balance

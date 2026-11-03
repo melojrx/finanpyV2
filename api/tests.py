@@ -434,6 +434,101 @@ class AccountAdjustmentEndpointTests(APITestBase):
         self.assertEqual(adjustment.status_code, status.HTTP_201_CREATED, adjustment.content)
         self.assertEqual(adjustment.data['previous_balance'], '13749.75')
 
+    def test_checking_adjustments_are_auditable_idempotent_and_isolated(self):
+        from accounts.models import AccountBalanceAdjustment, FundTransfer
+        url = f'/api/v1/accounts/{self.account.pk}/adjustments/'
+        payload = {'new_balance': '1200.00', 'adjustment_date': '2026-11-03',
+                   'reason': 'Conciliação', 'client_id': 'check-api-001'}
+        before_transactions = list(Transaction.objects.values_list('pk', flat=True))
+        before_transfers = FundTransfer.objects.count()
+        first = self.client.post(url, payload, format='json')
+        retry = self.client.post(url, payload, format='json')
+        self.assertEqual(first.status_code, 201, first.content)
+        self.assertEqual(retry.status_code, 201, retry.content)
+        self.assertEqual(first.data['id'], retry.data['id'])
+        audit = AccountBalanceAdjustment.objects.get(pk=first.data['id'])
+        self.assertEqual((audit.previous_balance, audit.new_balance, audit.delta),
+                         (Decimal('1000.00'), Decimal('1200.00'), Decimal('200.00')))
+        self.assertEqual((audit.user, audit.account, audit.reason, str(audit.adjustment_date)),
+                         (self.user, self.account, 'Conciliação', '2026-11-03'))
+        self.assertEqual(AccountBalanceAdjustment.objects.count(), 1)
+        conflict = self.client.post(url, {**payload, 'new_balance': '1300.00'}, format='json')
+        self.assertEqual(conflict.status_code, 400, conflict.content)
+        self.assertTrue(conflict['Content-Type'].startswith('application/json'))
+        another = Account.objects.create(user=self.user, name='Outra', account_type='checking',
+                                         balance=Decimal('33.00'))
+        conflict_account = self.client.post(
+            f'/api/v1/accounts/{another.pk}/adjustments/', payload, format='json')
+        self.assertEqual(conflict_account.status_code, 400, conflict_account.content)
+        another.refresh_from_db()
+        self.assertEqual(another.balance, Decimal('33.00'))
+        self.assertEqual(list(Transaction.objects.values_list('pk', flat=True)), before_transactions)
+        self.assertEqual(FundTransfer.objects.count(), before_transfers)
+        self.other_account.refresh_from_db()
+        self.assertEqual(self.other_account.balance, Decimal('0.00'))
+
+    def test_invalid_payload_and_foreign_account_return_json(self):
+        url = f'/api/v1/accounts/{self.account.pk}/adjustments/'
+        payload = {'new_balance': '100.00', 'adjustment_date': '2026-11-03',
+                   'reason': 'x' * 301, 'client_id': 'invalid-001'}
+        for changes in ({}, {'reason': 'ok', 'new_balance': 'abc'},
+                        {'reason': 'ok', 'adjustment_date': 'invalid'},
+                        {'reason': 'ok', 'client_id': ''}):
+            response = self.client.post(url, {**payload, **changes}, format='json')
+            self.assertEqual(response.status_code, 400, response.content)
+            self.assertTrue(response['Content-Type'].startswith('application/json'))
+        response = self.client.post(
+            f'/api/v1/accounts/{self.other_account.pk}/adjustments/',
+            {**payload, 'reason': 'ok'}, format='json')
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(response['Content-Type'].startswith('application/json'))
+
+    def test_disallowed_account_type_returns_json(self):
+        self.account.account_type = 'cash'
+        self.account.save(update_fields=['account_type'])
+        response = self.client.post(f'/api/v1/accounts/{self.account.pk}/adjustments/', {
+            'new_balance': '10.00', 'adjustment_date': '2026-11-03',
+            'reason': 'Teste', 'client_id': 'cash-001'}, format='json')
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertTrue(response['Content-Type'].startswith('application/json'))
+
+    def test_audit_failure_rolls_back_balance(self):
+        from unittest.mock import patch
+        from accounts.models import AccountBalanceAdjustment
+        with patch.object(AccountBalanceAdjustment, 'save', side_effect=RuntimeError('audit failure')):
+            with self.assertRaises(RuntimeError):
+                self.client.post(f'/api/v1/accounts/{self.account.pk}/adjustments/', {
+                    'new_balance': '-100.00', 'adjustment_date': '2026-11-03',
+                    'reason': 'Teste', 'client_id': 'rollback-001'}, format='json')
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+        self.assertFalse(AccountBalanceAdjustment.objects.exists())
+
+    def test_balance_save_failure_rolls_back_audit(self):
+        from unittest.mock import patch
+        from accounts.models import AccountBalanceAdjustment
+        with patch.object(Account, 'save', side_effect=RuntimeError('balance failure')):
+            with self.assertRaises(RuntimeError):
+                self.client.post(f'/api/v1/accounts/{self.account.pk}/adjustments/', {
+                    'new_balance': '15.00', 'adjustment_date': '2026-11-03',
+                    'reason': 'Teste', 'client_id': 'rollback-balance-001'}, format='json')
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal('1000.00'))
+        self.assertFalse(AccountBalanceAdjustment.objects.exists())
+
+    def test_investment_and_negative_checking_adjustments(self):
+        for kind, initial, final in [('investment', '50.00', '40.00'),
+                                     ('savings', '20.00', '25.00'),
+                                     ('checking', '-20.00', '-40.00')]:
+            account = Account.objects.create(user=self.user, name=kind, account_type=kind,
+                                             balance=Decimal(initial))
+            response = self.client.post(f'/api/v1/accounts/{account.pk}/adjustments/', {
+                'new_balance': final, 'adjustment_date': '2026-11-03',
+                'reason': 'Conciliação', 'client_id': f'{kind}-001'}, format='json')
+            self.assertEqual(response.status_code, 201, response.content)
+            account.refresh_from_db()
+            self.assertEqual(account.balance, Decimal(final))
+
 
 class LoansReceivableEndpointTests(APITestBase):
     url = '/api/v1/loans-receivable/'
