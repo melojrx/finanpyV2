@@ -6,6 +6,8 @@ from decimal import Decimal
 
 User = get_user_model()
 
+ADJUSTABLE_ACCOUNT_TYPES = frozenset({'checking', 'savings', 'investment'})
+
 
 class Account(models.Model):
     """
@@ -353,7 +355,7 @@ class FundTransfer(models.Model):
 
 
 class AccountBalanceAdjustment(models.Model):
-    """Immutable audit record for a manual reserve balance adjustment."""
+    """Immutable audit record for a manual account balance adjustment."""
 
     user = models.ForeignKey(
         User,
@@ -388,11 +390,9 @@ class AccountBalanceAdjustment(models.Model):
 
     def clean(self):
         super().clean()
-        if self.account_id and self.account.account_type not in {
-            'savings', 'investment'
-        }:
+        if self.account_id and self.account.account_type not in ADJUSTABLE_ACCOUNT_TYPES:
             raise ValidationError({
-                'account': 'Ajustes manuais só são permitidos para reservas ou investimentos.'
+                'account': 'Ajustes manuais só são permitidos para contas correntes, poupanças ou investimentos.'
             })
         if self.account_id and self.user_id and self.account.user_id != self.user_id:
             raise ValidationError({'account': 'Conta não pertence ao usuário.'})

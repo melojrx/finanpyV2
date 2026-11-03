@@ -52,5 +52,5 @@ def register_account_tools(mcp, client):
 
     @mcp.tool()
     def finanpy_adjust_account_balance(id: int, new_balance: str, adjustment_date: str, reason: str, client_id: str) -> dict:
-        """Ajusta saldo de reserva/investimento com histórico auditável."""
+        """Ajusta saldo de conta corrente, poupança ou investimento com histórico auditável."""
         return adjust_account_balance(client, id, new_balance, adjustment_date, reason, client_id)

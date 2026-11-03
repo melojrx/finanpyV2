@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from accounts.models import Account, AccountBalanceAdjustment, FundTransfer
@@ -46,11 +47,16 @@ class AccountBalanceAdjustmentSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         account_id = self.context['account_id']
-        return adjust_account_balance(
-            user=self.context['request'].user,
-            account_id=account_id,
-            **validated_data,
-        )
+        try:
+            return adjust_account_balance(
+                user=self.context['request'].user,
+                account_id=account_id,
+                **validated_data,
+            )
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                exc.message_dict if hasattr(exc, 'message_dict') else exc.messages
+            ) from exc
 
 
 

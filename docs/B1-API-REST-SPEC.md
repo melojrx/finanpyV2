@@ -701,3 +701,24 @@ sudo chown -R $USER:$USER /srv/finanpy
 4. A paginação retorna 50 itens por página. Para listar todas as transações de um mês use `?year=2026&month=4` — o mês geralmente tem menos de 50 transações.
 5. Todos os valores monetários são retornados como `string` (Decimal serializado) para evitar perda de precisão em JSON.
 6. O endpoint `/api/token/` é para uso na geração inicial do token. O Neo deve usar o token estático gerado via shell (seção 9), não autenticar dinamicamente.
+
+## Ajuste auditável de saldo de conta
+
+`POST /api/v1/accounts/{id}/adjustments/` ajusta uma conta do usuário autenticado
+com `account_type` igual a `checking`, `savings` ou `investment`. Contas correntes
+podem ter saldo final negativo. Exemplo de corpo JSON:
+
+```json
+{"new_balance":"-25.00","adjustment_date":"2026-11-03","reason":"Conciliação","client_id":"conciliacao-001"}
+```
+
+`new_balance` tem até 12 dígitos e duas casas decimais; `adjustment_date` usa
+`AAAA-MM-DD`; `reason` é obrigatório e limitado a 300 caracteres; `client_id`
+é obrigatório e limitado a 64 caracteres por usuário. A resposta HTTP 201 inclui
+`id`, `previous_balance`, `new_balance`, `delta`, `adjustment_date`, `reason`,
+`client_id` e `created_at`. Repetir a mesma operação com o mesmo `client_id`
+retorna o mesmo registro, também com HTTP 201; reutilizá-lo com dados diferentes
+retorna HTTP 400 em JSON. Dados inválidos também retornam 400 em JSON e contas
+de terceiros retornam 404. O ajuste registra auditoria sem criar receitas,
+despesas ou transferências. A ferramenta MCP `finanpy_adjust_account_balance`
+encaminha os mesmos campos ao endpoint.

@@ -38,3 +38,13 @@ def test_loan_creation_posts_to_receivables_without_transaction_endpoint():
 
     assert result['ok'] is True
     assert json.loads(route.calls.last.request.content)['amount'] == '600.00'
+
+
+@respx.mock
+def test_adjustment_returns_backend_validation_error():
+    respx.post('http://test/api/v1/accounts/2/adjustments/').respond(
+        400, json={'client_id': ['client_id já foi usado em outro ajuste.']}
+    )
+    result = adjust_account_balance(make_client(), 2, '-20.00', '2026-11-03', 'Conciliação', 'key')
+    assert result['ok'] is False
+    assert 'client_id' in result['error']
